@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { Process } from './process.ts';
 import type { Context } from './process.ts';
 import { Identity } from '../identity/index.ts';
-import { Journal } from '../log/index.ts';
+import { Journal, limits as logLimits } from '../log/index.ts';
 import { Schemas, isObject } from '../../lib/schema/index.ts';
 import { ManualClock } from '../../lib/events/index.ts';
 import { SandboxRunner } from '../../lib/sandbox-runner/index.ts';
@@ -14,9 +14,9 @@ import type { Mount } from '../../lib/sandbox-runner/index.ts';
 import type { Method } from '../../contracts/kernel-socket/types.ts';
 import type { Operation } from '../socket/index.ts';
 
-async function fixture(mode = 'healthy') {
+async function fixture(mode = 'healthy', settings = logLimits) {
   const root = await mkdtemp('/tmp/process-control-'); const clock = new ManualClock(); const schemas = new Schemas(); await schemas.load();
-  const journal = await Journal.open(join(root, 'observed.jsonl'), () => clock.now()); assert.ok(journal.ok);
+  const journal = await Journal.open(join(root, 'observed.jsonl'), () => clock.now(), settings); assert.ok(journal.ok);
   const identity = new Identity({ people: [{ id: 'alice', role: 'user', projects: [], observeOthers: false }], authorities: {}, bindings: [] }, () => clock.now());
   const token = identity.issue({ id: 'run', person: 'alice', scope: 'person', target: 'alice', generation: 1, services: [] }); assert.ok(token.ok);
   const context: Context = { target: 'alice', identity, schemas, clock, journal: journal.value, runner: new SandboxRunner('/cgroup'), operations: {
@@ -68,6 +68,19 @@ await test('KS-001 a process crash closes its inherited control endpoint without
     assert.ok(f.process.running.process.kill('SIGKILL')); await f.process.running.exited;
     await f.process.control.finished();
     const result = await f.process.control.call('health.probe', {}); assert.ok(!result.ok); assert.equal(result.error.code, 'io');
+  } finally { await f.close(); }
+});
+
+await test('ADR-0019 log exhaustion refuses a turn before the environment receives it', async () => {
+  const f = await fixture('healthy', { ...logLimits, bytes: 1152, recoveryBytes: 1024 });
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await f.process.invoke('session.submit', { conversation: 'cooperative', input: {} });
+      assert.ok(!result.ok); assert.equal(result.error.code, 'budget');
+    }
+    const health = await f.process.control.call('health.probe', {}); assert.ok(health.ok && isObject(health.value));
+    assert.equal(health.value['active'], 0);
+    assert.equal((await f.rows()).trim().split('\n').length, 1);
   } finally { await f.close(); }
 });
 
