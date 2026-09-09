@@ -2,6 +2,18 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "thetis://internal/packages/1",
   "$defs": {
+    "runtime": {
+      "type": "object", "required": ["root", "providerSocket", "person", "model", "provider", "token", "space", "system", "roots", "mode"],
+      "properties": {
+        "root": { "type": "string", "maxLength": 4096 }, "providerSocket": { "type": "string", "maxLength": 4096 },
+        "controlPath": { "type": "string", "maxLength": 4096 }, "person": { "type": "string", "maxLength": 256 },
+        "model": { "type": "string", "maxLength": 256 }, "provider": { "type": "string", "maxLength": 256 },
+        "token": { "type": "string", "minLength": 1, "maxLength": 256 }, "space": { "type": "string", "maxLength": 4096 },
+        "system": { "type": "array", "maxItems": 256, "items": { "$ref": "thetis://contract/turn-events/1#/$defs/message" } },
+        "roots": { "type": "array", "maxItems": 64, "items": { "type": "object", "required": ["path", "mode", "space"], "properties": { "path": { "type": "string", "maxLength": 4096 }, "mode": { "enum": ["ro", "rw"] }, "space": { "type": "string", "maxLength": 256 } } } },
+        "mode": { "type": "object", "required": ["readOnly", "deny"], "properties": { "readOnly": { "type": "boolean" }, "deny": { "type": "array", "maxItems": 256, "items": { "type": "string", "maxLength": 256 } } } }
+      }
+    },
     "spawn": {
       "type": "object", "required": ["id", "cmd", "health", "restart", "scope", "network"],
       "properties": {
@@ -47,6 +59,7 @@
     "setup": {
       "type": "object", "required": ["entries", "profile", "provided", "spaces", "excluded"],
       "properties": {
+        "runtime": { "$ref": "#/$defs/runtime" },
         "entries": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/entry" } },
         "profile": { "type": "object" }, "provided": { "type": "object" },
         "spaces": { "type": "array", "maxItems": 64, "items": { "type": "object", "required": ["path", "mode", "space"], "properties": { "path": { "type": "string" }, "mode": { "enum": ["ro", "rw"] }, "space": { "type": "string" } } } },
