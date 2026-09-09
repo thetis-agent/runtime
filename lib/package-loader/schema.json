@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/packages/1",
+  "$defs": {
+    "names": { "type": "object", "maxProperties": 256, "additionalProperties": { "type": "string", "maxLength": 256 } },
+    "registration": {
+      "type": "object", "required": ["requires", "provides"],
+      "properties": { "requires": { "$ref": "#/$defs/names" }, "provides": { "$ref": "#/$defs/names" }, "spawn": { "type": "array", "maxItems": 32, "items": { "type": "object" } } }
+    },
+    "manifest": {
+      "type": "object", "required": ["name", "version", "requires", "provides", "settings", "envelope"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)?$", "maxLength": 128 },
+        "version": { "type": "string", "maxLength": 128 },
+        "requires": { "$ref": "#/$defs/names" }, "provides": { "$ref": "#/$defs/names" },
+        "settings": { "type": "object" },
+        "envelope": {
+          "type": "object", "required": ["requires", "provides", "spawn"],
+          "properties": {
+            "requires": { "type": "array", "maxItems": 256, "items": { "type": "string", "maxLength": 256 } },
+            "provides": { "type": "array", "maxItems": 256, "items": { "type": "string", "maxLength": 256 } },
+            "spawn": { "type": "object", "required": ["scope", "network"], "properties": { "scope": { "enum": ["person", "deployment"] }, "network": { "enum": ["none", "egress", "mount"] } } }
+          }
+        }
+      }
+    },
+    "entry": {
+      "type": "object", "required": ["path", "manifest", "settings", "state"],
+      "properties": { "path": { "type": "string", "maxLength": 4096 }, "manifest": { "$ref": "#/$defs/manifest" }, "settings": { "type": "object" }, "state": { "type": "string", "maxLength": 4096 } }
+    },
+    "setup": {
+      "type": "object", "required": ["entries", "profile", "provided", "spaces", "excluded"],
+      "properties": {
+        "entries": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/entry" } },
+        "profile": { "type": "object" }, "provided": { "type": "object" },
+        "spaces": { "type": "array", "maxItems": 64, "items": { "type": "object", "required": ["path", "mode", "space"], "properties": { "path": { "type": "string" }, "mode": { "enum": ["ro", "rw"] }, "space": { "type": "string" } } } },
+        "excluded": { "type": "array", "maxItems": 256, "items": { "type": "string" } }
+      }
+    },
+    "workerCommand": { "type": "object", "required": ["type"], "properties": { "type": { "const": "shutdown" } } },
+    "workerMessage": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "source"], "properties": { "type": { "const": "initializing" }, "source": { "type": "string" } } },
+        { "type": "object", "required": ["type", "sources"], "properties": { "type": { "const": "ready" }, "sources": { "type": "array", "maxItems": 256, "items": { "type": "string" } } } },
+        { "type": "object", "required": ["type", "source", "error"], "properties": { "type": { "const": "refused" }, "source": { "type": "string" }, "error": { "type": "object", "required": ["code", "message"], "properties": { "code": { "enum": ["gap", "invalid-args", "envelope", "io", "deadline", "budget"] }, "message": { "type": "string" } } } } },
+        { "type": "object", "required": ["type", "source", "registration"], "properties": { "type": { "const": "registration" }, "source": { "type": "string" }, "registration": { "$ref": "#/$defs/registration" } } },
+        { "type": "object", "required": ["type", "source", "notice"], "properties": { "type": { "const": "notice" }, "source": { "type": "string" }, "notice": { "$ref": "thetis://contract/turn-events/1#/$defs/notice" } } }
+      ]
+    }
+  },
+  "$ref": "#/$defs/workerMessage"
+}

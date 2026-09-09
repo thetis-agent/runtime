@@ -1,0 +1,10 @@
+/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
+import type * as TurnEvents from '../../contracts/turn-events/types.ts';
+export type Names = { [key: string]: string; };
+export type Registration = { "requires": Names; "provides": Names; "spawn"?: ({ [key: string]: unknown; })[]; [key: string]: unknown; };
+export type Manifest = { "name": string; "version": string; "requires": Names; "provides": Names; "settings": { [key: string]: unknown; }; "envelope": { "requires": (string)[]; "provides": (string)[]; "spawn": { "scope": "person" | "deployment"; "network": "none" | "egress" | "mount"; [key: string]: unknown; }; [key: string]: unknown; }; [key: string]: unknown; };
+export type Entry = { "path": string; "manifest": Manifest; "settings": { [key: string]: unknown; }; "state": string; [key: string]: unknown; };
+export type Setup = { "entries": (Entry)[]; "profile": { [key: string]: unknown; }; "provided": { [key: string]: unknown; }; "spaces": ({ "path": string; "mode": "ro" | "rw"; "space": string; [key: string]: unknown; })[]; "excluded": (string)[]; [key: string]: unknown; };
+export type WorkerCommand = { "type": "shutdown"; [key: string]: unknown; };
+export type WorkerMessage = { "type": "initializing"; "source": string; [key: string]: unknown; } | { "type": "ready"; "sources": (string)[]; [key: string]: unknown; } | { "type": "refused"; "source": string; "error": { "code": "gap" | "invalid-args" | "envelope" | "io" | "deadline" | "budget"; "message": string; [key: string]: unknown; }; [key: string]: unknown; } | { "type": "registration"; "source": string; "registration": Registration; [key: string]: unknown; } | { "type": "notice"; "source": string; "notice": TurnEvents.Notice; [key: string]: unknown; };
+export type Contract = WorkerMessage;
