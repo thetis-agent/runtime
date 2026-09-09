@@ -9,7 +9,7 @@ export const transitions: readonly Transition[] = [
   { from: 'QUIESCING', event: 'drained', guard: 'drained', to: 'FROZEN', effects: ['stop-writers', 'kill-overdue-turns'] },
   { from: 'FROZEN', event: 'snapshot', guard: 'snapshot', to: 'APPLYING', effects: ['record-snapshot'] },
   { from: 'APPLYING', event: 'applied', guard: 'applied', to: 'PROBING', effects: ['start-private'] },
-  { from: 'PROBING', event: 'healthy', guard: 'healthy', to: 'SWITCHING', effects: ['adopt-copy', 'fence'] },
+  { from: 'PROBING', event: 'healthy', guard: 'healthy', to: 'SWITCHING', effects: ['adopt-copy', 'fence', 'stop-probe', 'start-serving'] },
   { from: 'SWITCHING', event: 'repointed', guard: 'atomic', to: 'DRAINING', stop: false, effects: ['route-new-connections'] },
   { from: 'SWITCHING', event: 'repointed', guard: 'atomic', to: 'LIVE', stop: true, effects: ['stop-old', 'route-new-connections', 'env.updated'] },
   { from: 'DRAINING', event: 'closed', guard: 'closed', to: 'LIVE', effects: ['stop-old', 'env.updated'] },

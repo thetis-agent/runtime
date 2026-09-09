@@ -2,11 +2,13 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import { cp, rm, mkdir } from 'node:fs/promises';
 import { hashTree } from './tree.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure, isObject } from '../result/index.ts';
+import type { Result } from '../result/index.ts';
+import { differences } from './differences.ts';
 
 async function run(input: unknown): Promise<Result<string>> {
   if (!isObject(input) || typeof input['path'] !== 'string') return failure('invalid-args', 'The snapshot worker requires a source path.');
+  if (input['operation'] === 'diff' && typeof input['destination'] === 'string') return differences(input['path'], input['destination']);
   const initial = await hashTree(input['path']); if (!initial.ok) return initial;
   if (input['destination'] === undefined) return initial;
   if (typeof input['destination'] !== 'string') return failure('invalid-args', 'The snapshot destination must be a path.');

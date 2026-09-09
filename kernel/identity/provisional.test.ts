@@ -9,11 +9,13 @@ function fixture() {
   const old = identity.issue(run); assert.ok(old.ok); return { identity, run, old: old.value };
 }
 
-await test('GN-004 provisional credentials cannot authorize calls until the atomic switch fences the old generation', () => {
+await test('GN-004 provisional credentials never authorize calls; serving receives fresh authority after fencing', () => {
   const f = fixture(); const candidate = f.identity.stage({ ...f.run, id: 'new', generation: 2 }); assert.ok(candidate.ok);
   assert.ok(f.identity.authenticate(candidate.value, 'probe').ok); assert.ok(!f.identity.authenticate(candidate.value).ok);
   assert.ok(f.identity.authenticate(f.old).ok); f.identity.fence('alice', 2);
-  assert.ok(f.identity.authenticate(candidate.value).ok); const old = f.identity.authenticate(f.old); assert.ok(!old.ok); assert.equal(old.error.code, 'fenced');
+  assert.ok(!f.identity.authenticate(candidate.value).ok);
+  const serving = f.identity.issue({ ...f.run, id: 'serving', generation: 2 }); assert.ok(serving.ok); assert.ok(f.identity.authenticate(serving.value).ok);
+  const old = f.identity.authenticate(f.old); assert.ok(!old.ok); assert.equal(old.error.code, 'fenced');
   assert.ok(!f.identity.authenticate(f.old, 'probe').ok);
 });
 
@@ -21,5 +23,5 @@ await test('GN-003 an abandoned candidate token never revives when its generatio
   const f = fixture(); const first = f.identity.stage({ ...f.run, id: 'failed', generation: 2 }); assert.ok(first.ok);
   assert.ok(!f.identity.stage({ ...f.run, id: 'concurrent', generation: 2 }).ok);
   f.identity.revoke(first.value); const next = f.identity.stage({ ...f.run, id: 'retry', generation: 2 }); assert.ok(next.ok);
-  f.identity.fence('alice', 2); assert.ok(f.identity.authenticate(next.value).ok); assert.ok(!f.identity.authenticate(first.value, 'probe').ok);
+  f.identity.fence('alice', 2); assert.ok(f.identity.authenticate(next.value, 'probe').ok); assert.ok(!f.identity.authenticate(first.value, 'probe').ok);
 });

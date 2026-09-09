@@ -3,10 +3,10 @@ import { createHash } from 'node:crypto';
 import { opendir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileChunks } from '../ndjson/file.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '../result/index.ts';
+import type { Result } from '../result/index.ts';
 
-export const limits = { entries: 10000, bytes: 1024 * 1024 * 1024, depth: 64, workers: 2 };
+export const limits = { entries: 10000, bytes: 1024 * 1024 * 1024, depth: 64, workers: 2, changeBytes: 61440 };
 async function listing(path: string, prefix: string, remaining: { entries: number }, depth: number): Promise<Result<string[]>> {
   if (depth > limits.depth) return failure('budget', 'The snapshot exceeds its depth budget.');
   const paths: string[] = [];
@@ -20,6 +20,13 @@ async function listing(path: string, prefix: string, remaining: { entries: numbe
     }
   }
   return { ok: true, value: paths };
+}
+
+export async function paths(path: string): Promise<Result<string[]>> {
+  try {
+    if (!(await lstat(path)).isDirectory()) return failure('outside-roots', 'The snapshot root is not a directory.');
+    return await listing(path, '', { entries: limits.entries }, 0);
+  } catch { return failure('io', 'The snapshot entries could not be read.'); }
 }
 
 export async function hashTree(path: string): Promise<Result<string>> {

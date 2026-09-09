@@ -27,3 +27,7 @@
 - 2026-09-09: Transfer ownership of the child endpoint at successful spawn: pause the parent's reader before descriptor duplication and close its copy afterward, so it cannot consume child traffic or conceal child EOF (KS-001).
 - 2026-09-09: ADR 0025 records commitment intent on entry to SWITCHING and fences before endpoint rename; recovery after that durable point consumes a fresh number even when rename has not completed.
 - 2026-09-09: Wait for cgroup.events to report populated=0 before removing a killed process group; the monitor's exit alone does not prove all descendants have left (GN-001, KS-017).
+- 2026-09-09: ADR 0026 probes with shared grants read-only, then launches a fresh serving process after commitment; provisional credentials remain probe-only permanently, superseding the earlier commitment-time admission choice.
+- 2026-09-09: Retain verified pin copies for undo, compare state trees in bounded workers, and deliver discarded paths and interrupted conversation ids in env.updated; the runtime must persist their conversation notices (GN-001, GN-006).
+- 2026-09-09: Keep generation admissions closed throughout driver orchestration and report post-fence failures through fresh-epoch recovery; actual sandbox tests cover migrations, format rejection, both drain modes and undo (GN-001–006).
+- 2026-09-09: A pipe error after its write has finished is peer shutdown, not failed credential delivery; preserve short migration exit status instead of racing it with SIGKILL (GN-002).
