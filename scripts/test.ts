@@ -2,6 +2,8 @@
 import { spawn } from 'node:child_process';
 import { readdir, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
+import { delegate } from '../lib/sandbox-runner/cgroup.ts';
 
 async function files(directory: string): Promise<string[]> {
   const output: string[] = [];
@@ -14,17 +16,25 @@ async function files(directory: string): Promise<string[]> {
   return output.sort();
 }
 
-const root = await realpath(new URL('..', import.meta.url));
-const runtime = dirname(dirname(process.execPath));
-const args = [
-  '--unshare-user', '--unshare-pid', '--unshare-net', '--unshare-ipc', '--unshare-uts',
-  '--die-with-parent', '--new-session', '--clearenv',
-  '--ro-bind', '/usr', '/usr', '--ro-bind', '/lib', '/lib', '--ro-bind', '/lib64', '/lib64',
-  '--symlink', 'usr/bin', '/bin', '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp',
-  '--ro-bind', root, root, '--ro-bind', runtime, '/runtime', '--chdir', root,
-  '--setenv', 'PATH', '/runtime/bin:/usr/bin:/bin',
-  '--', '/runtime/bin/node', '--test', '--test-concurrency=1', ...await files(root)
-];
-const child = spawn('bwrap', args, { stdio: 'inherit', env: { PATH: '/usr/bin:/bin' } });
-child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
-child.once('exit', code => { process.exitCode = code ?? 1; });
+if (!process.argv.includes('--delegated')) {
+  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', 'MemoryMax=512M', '-p', 'TasksMax=64', '-p', 'CPUQuota=100%', process.execPath, new URL(import.meta.url).pathname, '--delegated'], { stdio: 'inherit' });
+  child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
+  child.once('exit', code => { process.exitCode = code ?? 1; });
+} else {
+  const control = await delegate();
+  if (!control.ok) { process.stderr.write(`${control.error.message}\n`); process.exitCode = 1; }
+  else await run(control.value);
+}
+
+async function run(control: string): Promise<void> {
+  const root = await realpath(new URL('..', import.meta.url));
+  const runtime = dirname(dirname(process.execPath));
+  const args = [...namespace(runtime, 67108864), '--size', '67108864', '--tmpfs', '/packages',
+    '--ro-bind', root, root, '--ro-bind', runtime, '/runtime', '--bind', control, '/cgroup', '--chdir', root,
+    ...seal,
+    '--', '/runtime/bin/node', '--test', '--test-concurrency=1', ...await files(root)
+  ];
+  const child = spawn('bwrap', args, { stdio: 'inherit', env: { PATH: '/usr/bin:/bin' } });
+  child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
+  child.once('exit', code => { process.exitCode = code ?? 1; });
+}
