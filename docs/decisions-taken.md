@@ -57,3 +57,4 @@
 - 2026-09-09: Derive the environment runtime's person and token from inherited authority, ignoring configuration claims; delay session admission until initialization and registration acknowledgements settle (KS-001, KS-004).
 - 2026-09-09: Raise the test supervisor's task ceiling to 128 for two environments and a shared service plus test infrastructure; retain the per-sandbox 64-task ceiling (KS-004).
 - 2026-09-09: Close the kernel's duplicate client descriptor immediately after sandbox handoff so an actual process crash closes its control channel without a timer (KS-001).
+- 2026-09-09: Journal each admitted session submission before dispatch and its completion through the recovery reserve; generate correlation ids in the kernel and observe elapsed time and transport outcome without reading candidate content (ADR 0019).

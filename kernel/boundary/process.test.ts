@@ -47,6 +47,17 @@ await test('GN-001 real cooperative and stuck turns drain or are killed at the i
     const result = await draining; assert.ok(result.ok); assert.equal(result.value.killed, true); assert.ok(!(await stuck).ok);
     assert.deepEqual(result.value.conversations, ['stuck']);
     assert.match(await f.rows(), /"reason":"killed-for-switch"/u); assert.match(await f.rows(), /"provenance":"kernel-observed"/u);
+    const turns = (await f.rows()).trim().split('\n').map((line): unknown => JSON.parse(line)).filter(isObject).filter(row => row['kind'] === 'turn.start' || row['kind'] === 'turn.end');
+    assert.equal(turns.length, 4);
+    for (const conversation of ['cooperative', 'stuck']) {
+      const pair = turns.filter(row => isObject(row['data']) && row['data']['conversation'] === conversation);
+      const start = pair[0]; const end = pair[1]; assert.ok(start && end && isObject(start['data']) && isObject(end['data']));
+      assert.equal(start['kind'], 'turn.start'); assert.equal(end['kind'], 'turn.end');
+      assert.equal(start['data']['turn'], end['data']['turn']);
+      assert.equal(end['data']['outcome'], conversation === 'cooperative' ? 'response' : 'error');
+      assert.equal(end['data']['elapsedMs'], conversation === 'cooperative' ? 0 : 30000);
+      assert.ok(pair.every(row => row['provenance'] === 'kernel-observed'));
+    }
   } finally { await f.close(); }
 });
 
