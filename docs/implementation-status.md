@@ -31,12 +31,15 @@ Implemented and exercised so far:
 - A bubblewrap runner with a pre-exec cgroup gate, inherited descriptors,
   read-only root mounts, bounded writable filesystems and verified memory
   enforcement. Network egress and persistent-volume provisioning remain.
+- Registered secrets delivered through a private spawn pipe and set in the
+  service environment before entry evaluation, tested with the encrypted
+  store and actual bubblewrap runner without key copies in argv or files.
 - File handlers with canonical grant checks and streamed results; the skill
   loader; Legacy's BM25/cosine/fusion ranker and hierarchical retrieval.
 
 Validation:
 
-- The current suite has 136 passing tests, zero failures and zero skips.
+- The current suite has 138 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.

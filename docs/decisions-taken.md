@@ -22,3 +22,4 @@
 - 2026-09-09: Correct provider conformance prose that retained the removed door and kernel model rewriting; ADR 0019 and PR-015 place content handling and model.end usage in the unprivileged path.
 - 2026-09-09: Reserve compatible calls conservatively at the declared full-context and maximum-output prices; missing prices refuse before HTTP, and OpenRouter receives price ceilings. Explicit breakpoint policies beyond the vendor limit refuse rather than silently changing anchors (PR-002, PR-010).
 - 2026-09-09: Derive provider call ids from the persisted conversation head, so tool iterations and process reopenings cannot reuse a turn counter's accounting id (PR-011).
+- 2026-09-09: Deliver spawn secrets through descriptor 6 to a fixed bootstrap inside bubblewrap; set only permitted environment names before importing the entry point, keeping values out of bwrap arguments and filesystem mounts (PR-013).

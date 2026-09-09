@@ -18,8 +18,9 @@ Explicit cache breakpoints follow the requested anchors; a request above
 the configured vendor breakpoint limit is refused before HTTP.
 
 Image transfer is not registered yet, so model declarations must advertise
-`images: false`. Secret delivery at sandbox spawn and live OpenRouter
-validation remain acceptance work; all HTTP tests use a scripted vendor.
+`images: false`. The runner now supports secret delivery at sandbox spawn;
+provider service wiring and live OpenRouter validation remain acceptance
+work. All HTTP tests use a scripted vendor.
 
 Protocol sources checked on 2026-09-09:
 

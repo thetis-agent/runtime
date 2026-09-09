@@ -5,6 +5,7 @@ import type { Socket } from 'node:net';
 import { Writable } from 'node:stream';
 import { realpath, statfs } from 'node:fs/promises';
 import { resolve, isAbsolute, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { namespace, seal } from './namespace.ts';
 import { Cgroup, resourceLimits } from './cgroup.ts';
 import { failure } from '../schema/index.ts';
@@ -14,9 +15,9 @@ import { gap } from '../semver-match/index.ts';
 export interface Mount { source: string; path: string; mode: 'ro' | 'rw'; maximumBytes?: number }
 export interface Plan {
   name: string; version: string; entry: string; args: readonly string[]; cwd: string;
-  mounts: readonly Mount[]; socket: Socket; token: string;
+  mounts: readonly Mount[]; socket: Socket; token: string; secrets?: Readonly<Record<string, string>>;
 }
-export const limits = { ...resourceLimits, temporaryBytes: 32 * 1024 * 1024, mounts: 64, tokenBytes: 256 };
+export const limits = { ...resourceLimits, temporaryBytes: 32 * 1024 * 1024, mounts: 64, tokenBytes: 256, secretBytes: 65536 };
 export interface Exit { code: number | null; signal: NodeJS.Signals | null }
 export interface Running { process: ChildProcess; exited: Promise<Exit>; events(): Promise<Result<Record<string, number>, 'io'>>; stop(): Promise<Result<void, 'io'>>; dispose(): Promise<Result<void, 'io'>> }
 
@@ -27,7 +28,7 @@ async function argumentsFor(plan: Plan, runtime: string): Promise<Result<string[
     args.push(...namespace(await realpath(runtime), limits.temporaryBytes), '--disable-userns');
     for (const mount of plan.mounts) {
       const path = resolve('/', mount.path);
-      if (!isAbsolute(mount.path) || path === '/' || ['/proc', '/dev', '/runtime', '/usr', '/lib', '/lib64', '/bin', '/tmp'].some(root => path === root || path.startsWith(`${root}/`))) return failure('outside-roots', 'The mount would replace a reserved sandbox path.');
+      if (!isAbsolute(mount.path) || path === '/' || ['/proc', '/dev', '/runtime', '/usr', '/lib', '/lib64', '/bin', '/tmp', '/thetis-bootstrap.ts'].some(root => path === root || path.startsWith(`${root}/`))) return failure('outside-roots', 'The mount would replace a reserved sandbox path.');
       const source = await realpath(mount.source);
       const fs = await statfs(source, { bigint: true });
       if (source === '/' || [0x63677270n, 0x9fa0n, 0x62656572n].includes(fs.type)) return failure('outside-roots', 'Host control filesystems cannot enter the sandbox.');
@@ -36,7 +37,7 @@ async function argumentsFor(plan: Plan, runtime: string): Promise<Result<string[
       }
       args.push(mount.mode === 'rw' ? '--bind' : '--ro-bind', source, path);
     }
-    args.push('--remount-ro', '/proc', ...seal, '--chdir', plan.cwd, '--', '/runtime/bin/node', plan.entry, ...plan.args);
+    args.push('--ro-bind', fileURLToPath(new URL('./bootstrap.ts', import.meta.url)), '/thetis-bootstrap.ts', '--remount-ro', '/proc', ...seal, '--chdir', plan.cwd, '--', '/runtime/bin/node', '/thetis-bootstrap.ts', plan.entry, ...plan.args);
     return { ok: true, value: args };
   } catch { return failure('outside-roots', 'The sandbox mount source could not be canonicalised.'); }
 }
@@ -55,16 +56,18 @@ export class SandboxRunner {
 
   async start(plan: Plan): Promise<Result<Running, 'outside-roots' | 'gap' | 'budget' | 'io' | 'auth'>> {
     if (!plan.token || Buffer.byteLength(plan.token) > limits.tokenBytes || plan.socket.destroyed) return failure('auth', 'The sandbox requires live inherited authority descriptors.');
+    const secrets = JSON.stringify(plan.secrets ?? {});
+    if (Buffer.byteLength(secrets) > limits.secretBytes) return failure('budget', 'The spawn secret delivery exceeds its byte limit.');
     const args = await argumentsFor(plan, this.#runtime); if (!args.ok) return args;
     const group = await Cgroup.create(this.#cgroup); if (!group.ok) return failure('gap', gap(plan, 'cap/cgroup.v2', '*'));
-    const child = spawn('/bin/sh', ['-c', 'IFS= read -r ready <&5 || exit 1; exec 5<&-; exec /usr/bin/bwrap "$@"', 'thetis-boundary', ...args.value], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', plan.socket, 'pipe', 'pipe'] });
-    const done = exited(child); const token = child.stdio.at(4); const gate = child.stdio.at(5);
-    if (!child.pid || !(token instanceof Writable) || !(gate instanceof Writable) || !(await group.value.attach(child.pid)).ok) {
+    const child = spawn('/bin/sh', ['-c', 'IFS= read -r ready <&5 || exit 1; exec 5<&-; exec /usr/bin/bwrap "$@"', 'thetis-boundary', ...args.value], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', plan.socket, 'pipe', 'pipe', 'pipe'] });
+    const done = exited(child); const token = child.stdio.at(4); const gate = child.stdio.at(5); const delivery = child.stdio.at(6);
+    if (!child.pid || !(token instanceof Writable) || !(gate instanceof Writable) || !(delivery instanceof Writable) || !(await group.value.attach(child.pid)).ok) {
       child.kill('SIGKILL'); await done; const removed = await group.value.remove();
       return removed.ok ? failure('io', 'The sandbox could not enter its resource boundary.') : removed;
     }
-    token.once('error', () => { child.kill('SIGKILL'); }); gate.once('error', () => { child.kill('SIGKILL'); });
-    token.end(plan.token); gate.end('start\n');
+    for (const descriptor of [token, gate, delivery]) descriptor.once('error', () => { child.kill('SIGKILL'); });
+    token.end(plan.token); delivery.end(secrets); gate.end('start\n');
     let disposed: Promise<Result<void, 'io'>> | undefined;
     const dispose = () => { disposed ??= done.then(() => group.value.remove()); return disposed; };
     return { ok: true, value: { process: child, exited: done, dispose, events: () => group.value.events(), async stop() {
