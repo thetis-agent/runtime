@@ -8,3 +8,5 @@
 - 2026-09-09: The operator accepted ADR 0021: ordinary children inherit no authority; deliberate delegation shares the original run principal and fencing. TE-024 is clarified accordingly; implementation resumed.
 - 2026-09-09: Finalize spill files with an atomic hard-link creation followed by temporary-name removal, so a repeated call id cannot overwrite an existing artifact (TE-016).
 - 2026-09-09: Settle and acknowledge final usage before yielding stop so a client that closes at stop cannot suppress attribution; the same final counters remain observable after stop (PR-011).
+- 2026-09-09: TE-001 permits no retrieve handler, so the base loop has an empty fallback and does not require a stage/retrieve provider; this also avoids a core–retriever requirement cycle.
+- 2026-09-09: ADR 0022 restricts ephemeral context appends to harness/history; system/skills remain immutable prefix-owned sections, preserving TE-009 and TE-011.

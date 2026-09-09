@@ -56,7 +56,8 @@ any event read-only. A stage cannot rewrite another's work. The core runs the st
 stages in the profile, in order, and each stage can read an event, change
 it, or add events after it. The core defines the event names and their
 shape. It defines nothing else. It knows no package by name. It declares
-its own needs like any package: `requires: { stage/retrieve: "^1" }`.
+its contract needs like any package. A retrieve handler is optional; the
+empty fallback is required by TE-001 (implementation authority correction).
 
 ## 2. Packages and stages
 
