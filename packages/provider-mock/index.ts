@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import type { RequestEvent, ResponseEvent, ModelCap } from '../../contracts/provider/types.ts';
 import type { Authority, Provider } from '../../lib/provider/index.ts';
 import type { Budgets } from '../../lib/provider/index.ts';
+import { ProviderEngine } from '../../lib/provider/engine.ts';
+import type { Vendor } from '../../lib/provider/engine.ts';
 
 export const stages = {};
 export const settings = { requestBytes: 4 * 1024 * 1024, cacheEntries: 256, scriptEvents: 4096, maximumCost: 0.01 };
@@ -14,43 +16,27 @@ type Script = readonly ResponseEvent[];
 type Begin = Extract<RequestEvent, { type: 'begin' }>;
 type Counters = Extract<ResponseEvent, { type: 'usage' }>['counters'];
 
-export class MockProvider implements Provider {
+class ScriptedVendor implements Vendor {
   readonly #cache = new Map<string, number>();
   readonly #scripts: readonly Script[];
-  readonly #authority: Authority;
-  readonly #budgets: Budgets;
-  #calls = 0;
+  calls = 0;
   readonly capturedPrefixes: string[] = [];
 
-  constructor(scripts: readonly Script[], authority: Authority, budgets: Budgets) {
+  constructor(scripts: readonly Script[]) {
     if (scripts.length > settings.scriptEvents || scripts.some(script => script.length > settings.scriptEvents)) throw new Error('Mock scripts exceed their event limit.');
-    this.#scripts = scripts; this.#authority = authority; this.#budgets = budgets;
+    this.#scripts = structuredClone(scripts);
   }
 
   describe(): Promise<{ models: ModelCap[] }> { return Promise.resolve({ models: [structuredClone(model)] }); }
 
-  async *run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncGenerator<ResponseEvent> {
-    const caller = await this.#authority.whois(token);
-    if (!caller.ok) { yield { type: 'error', ...caller.error }; return; }
-    const reservation = this.#budgets.reserve(caller.value.person, settings.maximumCost);
-    if (!reservation.ok) { yield { type: 'error', ...reservation.error }; return; }
-    let charged = settings.maximumCost;
-    try {
-      const frames: RequestEvent[] = [];
-      let bytes = 0;
-      for await (const frame of request) {
-        bytes += Buffer.byteLength(JSON.stringify(frame));
-        if (bytes > settings.requestBytes) { yield { type: 'error', code: 'context', message: 'The request exceeds the provider buffer limit.' }; return; }
-        frames.push(frame);
-      }
-      const begin = frames[0];
-      if (begin?.type !== 'begin' || frames.at(-1)?.type !== 'end') {
-        yield { type: 'error', code: 'provider', message: 'The request must start with begin and finish with end.' }; return;
-      }
-      const counters = this.#usage(begin, frames);
-      charged = counters.cost;
-      yield* this.#response(begin, token, counters, signal);
-    } finally { reservation.value(charged); }
+  estimate(): number {
+    return Math.max(settings.maximumCost, ...Array.from(this.#scripts[this.calls] ?? [], event => event.type === 'usage' ? event.counters.cost : 0));
+  }
+
+  exchange(request: readonly RequestEvent[], signal: AbortSignal): AsyncIterable<ResponseEvent> {
+    const begin = request[0];
+    if (begin?.type !== 'begin') throw new Error('The normalized request lost begin.');
+    return this.#response(begin, this.#usage(begin, request), signal);
   }
 
   #usage(begin: Begin, frames: readonly RequestEvent[]): Counters {
@@ -73,12 +59,13 @@ export class MockProvider implements Provider {
     return { cost: 0.001, in: input, out: 1, cached, cached_write: cached ? 0 : prefixTokens };
   }
 
-  async *#response(begin: Begin, token: string, counters: Counters, signal: AbortSignal): AsyncGenerator<ResponseEvent> {
-    const script = this.#scripts[this.#calls++] ?? [{ type: 'delta.text', text: 'Hello.' }];
+  async *#response(begin: Begin, counters: Counters, signal: AbortSignal): AsyncGenerator<ResponseEvent> {
+    const script = this.#scripts[this.calls++] ?? [{ type: 'delta.text', text: 'Hello.' }];
     yield { type: 'start', id: begin.id, model: begin.model };
     let reason: 'end' | 'tool_calls' | 'length' | 'cancel' = 'end';
     let usage = counters;
     for (const event of script) {
+      await Promise.resolve();
       if (signal.aborted) { reason = 'cancel'; break; }
       if (event.type === 'stop') { reason = event.reason; break; }
       if (event.type === 'usage') { usage = event.counters; continue; }
@@ -88,7 +75,21 @@ export class MockProvider implements Provider {
     if (signal.aborted) reason = 'cancel';
     yield { type: 'usage', counters: usage };
     yield { type: 'stop', reason };
-    const reported = await this.#authority.report(token, begin.id, usage);
-    if (!reported.ok) throw new Error('The mock authority refused completed usage attribution.');
+  }
+}
+
+/** Keep the mock on the same authentication and budget path as every adapter; PR-014. */
+export class MockProvider implements Provider {
+  readonly #vendor: ScriptedVendor;
+  readonly #engine: ProviderEngine;
+  constructor(scripts: readonly Script[], authority: Authority, budgets: Budgets) {
+    this.#vendor = new ScriptedVendor(scripts);
+    this.#engine = new ProviderEngine(this.#vendor, authority, budgets);
+  }
+  get capturedPrefixes(): readonly string[] { return [...this.#vendor.capturedPrefixes]; }
+  get vendorCalls(): number { return this.#vendor.calls; }
+  describe(): Promise<{ models: ModelCap[] }> { return this.#engine.describe(); }
+  run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncIterable<ResponseEvent> {
+    return this.#engine.run(request, token, signal);
   }
 }

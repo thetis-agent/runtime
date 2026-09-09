@@ -6,3 +6,5 @@
 - 2026-09-09: Stop before claiming child descriptor isolation: a real sandboxed reproduction forwards a close-on-exec kernel-like socket to a child; leave the guarantee decision Proposed in ADR 0021 (TE-024).
 
 - 2026-09-09: The operator accepted ADR 0021: ordinary children inherit no authority; deliberate delegation shares the original run principal and fencing. TE-024 is clarified accordingly; implementation resumed.
+- 2026-09-09: Finalize spill files with an atomic hard-link creation followed by temporary-name removal, so a repeated call id cannot overwrite an existing artifact (TE-016).
+- 2026-09-09: Settle and acknowledge final usage before yielding stop so a client that closes at stop cannot suppress attribution; the same final counters remain observable after stop (PR-011).
