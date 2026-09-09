@@ -26,3 +26,4 @@
 - 2026-09-09: Issue one provisional credential per target for private startup controls; ordinary calls remain refused until fencing commits that generation, and abandoned credentials are revoked before retrying the same number (GN-003–004).
 - 2026-09-09: Transfer ownership of the child endpoint at successful spawn: pause the parent's reader before descriptor duplication and close its copy afterward, so it cannot consume child traffic or conceal child EOF (KS-001).
 - 2026-09-09: ADR 0025 records commitment intent on entry to SWITCHING and fences before endpoint rename; recovery after that durable point consumes a fresh number even when rename has not completed.
+- 2026-09-09: Wait for cgroup.events to report populated=0 before removing a killed process group; the monitor's exit alone does not prove all descendants have left (GN-001, KS-017).
