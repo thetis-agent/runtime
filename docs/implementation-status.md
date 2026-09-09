@@ -14,7 +14,10 @@ Implemented and exercised so far:
   ordinary calls at any time; serving launches receive fresh credentials,
   and abandoned candidates cannot revive.
 - Bounded NDJSON framing, asynchronous stream queues, provider Unix-socket
-  client/server, and cancellation while a response is active.
+  client/server, and cancellation while a response is active. Provider
+  connections have a 10-second admission budget, a 600-second exchange
+  budget, a 64-connection limit and a 30-second drain deadline; deadline
+  tests use an injected clock and the actual socket implementation.
 - Negotiated kernel socket transport with schema-checked method parameters,
   credential-bound identity, per-operation fencing, request deadlines and
   control-frame priority verified over a real socket.
@@ -66,7 +69,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 171 passing tests, zero failures and zero skips.
+- The current suite has 175 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
