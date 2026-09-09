@@ -27,6 +27,12 @@ await test('KS-002 only negotiated methods reach the handler', async () => {
   } finally { await f.close(); }
 });
 
+await test('KS-021 successful void operations retain the required response result field', async () => {
+  const f = await fixture(new Map([['health.probe', () => Promise.resolve({ ok: true, value: undefined })]]));
+  try { assert.deepEqual(await f.client.call('health.probe', {}), { ok: true, value: null }); }
+  finally { await f.close(); }
+});
+
 await test('KS-017 saturated bulk handler and request pools retain health and cancel capacity', async () => {
   const held = Promise.withResolvers<{ ok: true; value: null }>(); const saturated = Promise.withResolvers<undefined>(); let count = 0;
   const f = await fixture(new Map<Method, Handler>([

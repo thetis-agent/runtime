@@ -120,7 +120,7 @@ export class Peer {
     const handler = this.#common.has(frame.method) ? this.#callbacks.handlers.get(frame.method) : undefined;
     try {
       const result = handler ? await handler(frame.params) : failure('unsupported', `${frame.method} was not negotiated.`);
-      return await this.#writer.write(result.ok ? { id: frame.id, result: result.value } : { id: frame.id, error: result.error }, control(frame.method));
+      return await this.#writer.write(result.ok ? { id: frame.id, result: result.value ?? null } : { id: frame.id, error: result.error }, control(frame.method));
     } catch { return this.#writer.write({ id: frame.id, error: { code: 'io', message: 'The request handler failed.' } }, true); }
   }
 

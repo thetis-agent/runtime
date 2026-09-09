@@ -2,6 +2,23 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "thetis://internal/budget-checkpoint/1",
   "$defs": {
+    "budgetRule": {
+      "type": "object", "required": ["name", "cost", "requests", "windowMs"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "cost": { "type": "number", "minimum": 0 },
+        "requests": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "windowMs": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+      }
+    },
+    "startup": {
+      "type": "object", "required": ["rule", "settings"],
+      "properties": {
+        "rule": { "$ref": "#/$defs/budgetRule" },
+        "settings": { "type": "object" },
+        "peopleLimit": { "type": "integer", "minimum": 1, "maximum": 4096 }
+      }
+    },
     "window": {
       "type": "object", "required": ["person", "at", "spent", "reserved", "requests"],
       "properties": {

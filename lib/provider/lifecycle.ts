@@ -18,6 +18,8 @@ export class Service {
   readonly #clock: Clock;
   readonly #limits: typeof serviceLimits;
   #stopping: Promise<Result<void>> | undefined;
+  #pausing: Promise<Result<void>> | undefined;
+  #paused = false;
   #closed = false;
   constructor(clock: Clock, limits = serviceLimits) {
     if (Object.values(limits).some(value => !Number.isSafeInteger(value) || value < 1)) throw new Error('The service limits must be positive integers.');
@@ -26,11 +28,12 @@ export class Service {
 
   get connections(): number { return this.#sessions.size; }
   get ready(): boolean { return this.#server.listening && !this.#closed; }
+  get paused(): boolean { return this.#paused; }
 
   open(path: string, serve: (connection: Connection) => Promise<Result<void>>, observe: (outcome: Result<void>) => void): Promise<Result<void, 'provider'>> {
     this.#server.on('connection', socket => {
       socket.on('error', () => { socket.destroy(); });
-      if (this.#closed || this.#sessions.size >= this.#limits.connections) { socket.destroy(); return; }
+      if (this.#closed || this.#paused || this.#sessions.size >= this.#limits.connections) { socket.destroy(); return; }
       const session: Session = { socket, finished: Promise.resolve() };
       this.#sessions.add(session);
       session.finished = this.#serve(socket, serve, observe).finally(() => { this.#sessions.delete(session); });
@@ -63,15 +66,34 @@ export class Service {
     return this.#stopping;
   }
 
+  pause(): Promise<Result<void>> {
+    this.#paused = true;
+    this.#pausing ??= this.#wait();
+    return this.#pausing;
+  }
+
+  async resume(): Promise<Result<void>> {
+    if (this.#closed) return failure('provider', 'The provider is already stopped.');
+    const paused = await this.#pausing;
+    if (paused && !paused.ok) return paused;
+    this.#pausing = undefined; this.#paused = false;
+    return { ok: true, value: undefined };
+  }
+
   async #drain(): Promise<Result<void>> {
     this.#closed = true;
     const closed = new Promise<void>(resolve => { this.#server.close(() => { resolve(); }); });
+    const drained = await this.pause();
+    await closed;
+    return drained;
+  }
+
+  async #wait(): Promise<Result<void>> {
     const timer = new AbortController();
     const finished = Promise.all([...this.#sessions].map(session => session.finished)).then(() => true);
     const drained = await Promise.race([finished, this.#clock.wait(this.#limits.drainMs, timer.signal).then(() => false)]);
     timer.abort();
     if (!drained) for (const session of this.#sessions) session.socket.destroy();
-    await closed;
     return drained ? { ok: true, value: undefined } : failure('deadline', 'The provider did not drain within its deadline.');
   }
 }
