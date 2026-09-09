@@ -52,3 +52,5 @@
 - 2026-09-09: Session submission returns conversation/head metadata, leaving provider output on gateway events; quiescence drains both creation and turns before a snapshot (GN-001, ADR 0019).
 - 2026-09-09: Bound session leases to eight one-MiB histories, eight read operations, 32 writes and 64-KiB inputs; release loaded history after its last reader or turn, and reload the stored prefix without rendering it (TE-009).
 - 2026-09-09: Generate internal package-state types alongside contract and library schemas; distinguish an internal library named provider from the public provider contract when generating reference imports (ADR 0006).
+- 2026-09-09: Reuse the bounded socket transport for monitor/worker session control over a one-peer private endpoint; the monitor retains the inherited kernel endpoint, and worker startup credentials remain in same-process memory (ADR 0027, ADR 0019).
+- 2026-09-09: Gate monitor calls until worker initialization and negotiation complete; unexpected control-channel closure fails health. Keep session.submit's deadline separate from the shorter health probe deadline (KS-004, GN-001).

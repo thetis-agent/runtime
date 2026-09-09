@@ -47,8 +47,11 @@ Implemented and exercised so far:
   and canonical paths, loads histories under bounded leases, exposes
   cancellation, and drains both turns and conversation creation. Submission
   returns completion metadata; output remains on the gateway event path.
-  Session-to-worker and gateway integration, announced profile refresh and
-  background notice routing through the session API remain.
+  The worker now runs these sessions behind a private Unix control endpoint,
+  reusing the negotiated RPC transport and its limits. A real imported file
+  tool runs through the dispatcher, while 1,000 provider deltas produce no
+  monitor messages. The process entry, gateway integration, announced profile
+  refresh and background notice routing through the session API remain.
 - Scoped authenticated encryption for secrets, registered delivery grants,
   origin/role checks on the internal API, and refusal of scope fallback.
 - An explicit generation transition table with guarded, durable observed
@@ -87,7 +90,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 189 passing tests, zero failures and zero skips.
+- The current suite has 192 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
