@@ -7,22 +7,26 @@ import type { Clock } from '../events/index.ts';
 import type { Result } from '../schema/index.ts';
 import { failure } from '../schema/index.ts';
 
-export async function freeze(path: string, frozen: boolean, clock: Clock, deadlineMs = 10000): Promise<Result<void, 'io' | 'deadline'>> {
+export function freeze(path: string, frozen: boolean, clock: Clock, deadlineMs = 10000): Promise<Result<void, 'io' | 'deadline'>> {
+  return state(path, 'frozen', frozen ? 1 : 0, clock, deadlineMs, () => writeFile(join(path, 'cgroup.freeze'), frozen ? '1' : '0'));
+}
+
+export async function state(path: string, property: 'frozen' | 'populated', expected: 0 | 1, clock: Clock, deadlineMs = 10000, effect = () => Promise.resolve()): Promise<Result<void, 'io' | 'deadline'>> {
   const timer = new AbortController(); let watcher: FSWatcher | undefined; let wake = (): void => {};
   const status = { expired: false, failed: false };
   const deadline = clock.wait(deadlineMs, timer.signal).then(() => { if (!timer.signal.aborted) { status.expired = true; wake(); } });
   try {
     watcher = watch(join(path, 'cgroup.events'), () => { wake(); });
     watcher.on('error', () => { status.failed = true; wake(); });
-    await writeFile(join(path, 'cgroup.freeze'), frozen ? '1' : '0');
+    await effect();
     for (;;) {
       const changed = Promise.withResolvers<undefined>(); wake = () => { changed.resolve(undefined); };
       const events = await readFile(join(path, 'cgroup.events'), 'utf8');
-      if (status.failed) return failure('io', 'The sandbox freezer acknowledgment could not be watched.');
-      if (status.expired) return failure('deadline', 'The sandbox freezer exceeded its deadline.');
-      if (new RegExp(`^frozen ${frozen ? '1' : '0'}$`, 'mu').test(events)) return { ok: true, value: undefined };
+      if (status.failed) return failure('io', 'The sandbox cgroup acknowledgment could not be watched.');
+      if (status.expired) return failure('deadline', 'The sandbox cgroup exceeded its acknowledgment deadline.');
+      if (new RegExp(`^${property} ${String(expected)}$`, 'mu').test(events)) return { ok: true, value: undefined };
       await changed.promise;
     }
-  } catch { return failure('io', 'The sandbox freezer could not be changed.'); }
+  } catch { return failure('io', 'The sandbox cgroup state could not be acknowledged.'); }
   finally { timer.abort(); watcher?.close(); await deadline; }
 }

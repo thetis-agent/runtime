@@ -7,8 +7,9 @@ import { Peer } from '../../lib/socket/index.ts';
 import type { Handler } from '../../lib/socket/index.ts';
 import type { Identity, Run } from '../identity/index.ts';
 
+export type Operation = (run: Run, params: Record<string, unknown>) => Promise<Result<unknown>>;
 export interface Operations {
-  methods: ReadonlyMap<Method, (run: Run, params: Record<string, unknown>) => Promise<Result<unknown>>>;
+  methods: ReadonlyMap<Method, Operation>;
   notes: readonly Note['note'][];
   note(run: Run, value: Note): Promise<Result<void>>;
 }

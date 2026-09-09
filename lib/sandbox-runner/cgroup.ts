@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { failure } from '../schema/index.ts';
 import type { Result } from '../schema/index.ts';
+import { clock } from '../events/index.ts';
+import { state } from './freezer.ts';
 
 export const resourceLimits = { memoryBytes: 128 * 1024 * 1024, processes: 64, cpuPercent: 100, runs: 256 };
 export class Cgroup {
@@ -39,6 +41,7 @@ export class Cgroup {
   }
 
   async remove(): Promise<Result<void, 'io'>> {
+    const empty = await state(this.path, 'populated', 0, clock); if (!empty.ok) return failure('io', empty.error.message);
     try { await rmdir(this.path); return { ok: true, value: undefined }; }
     catch { return failure('io', 'The sandbox cgroup still contains a process or cannot be removed.'); }
   }
