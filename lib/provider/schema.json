@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/budget-checkpoint/1",
+  "$defs": {
+    "window": {
+      "type": "object", "required": ["person", "at", "spent", "reserved", "requests"],
+      "properties": {
+        "person": { "type": "string", "maxLength": 256 },
+        "at": { "type": "number", "minimum": 0 }, "spent": { "type": "number", "minimum": 0 },
+        "reserved": { "type": "number", "minimum": 0 }, "requests": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "checkpoint": { "type": "object", "required": ["version", "windows"], "properties": { "version": { "const": 1 }, "windows": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/window" } } } }
+  },
+  "$ref": "#/$defs/checkpoint"
+}
