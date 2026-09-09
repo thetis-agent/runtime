@@ -44,3 +44,33 @@ await test('ADR-0021 real inherited socket can be explicitly forwarded by an unp
     await rm(directory, { recursive: true });
   }
 });
+
+await test('TE-024 ordinary children inherit neither kernel descriptors nor credentials', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'thetis-ordinary-'));
+  const server = createServer(socket => { socket.on('end', () => { socket.end(); }); });
+  const path = join(directory, 'kernel.sock');
+  await new Promise<void>(resolve => { server.listen(path, resolve); });
+  const socket = createConnection(path);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      socket.once('connect', resolve); socket.once('error', reject);
+    });
+    const result = await new Promise<{ code: number; output: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [new URL('./fixtures/ordinary-parent.ts', import.meta.url).pathname], {
+        env: {}, stdio: ['ignore', 'pipe', 'inherit', socket]
+      });
+      let output = '';
+      child.stdout?.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        if (output.length > 4096) { child.kill(); reject(new Error('Child diagnostic limit exceeded.')); }
+      });
+      child.once('error', reject);
+      child.once('exit', code => { resolve({ code: code ?? 1, output }); });
+    });
+    assert.deepEqual(result, { code: 0, output: 'ordinary-child-has-no-authority' });
+  } finally {
+    socket.end();
+    await new Promise<void>((resolve, reject) => { server.close(error => { if (error) reject(error); else resolve(); }); });
+    await rm(directory, { recursive: true });
+  }
+});

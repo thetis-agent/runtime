@@ -10,6 +10,7 @@
 - Keep identity, boundary, secrets and generations in the kernel; budget 1,300 lines.
 - Require bubblewrap and user namespaces for environments, gateways, services and tests.
 - Pass sockets and run tokens only through inherited close-on-exec descriptors.
+- Prevent implicit child inheritance; fence deliberate delegation as the same run (ADR 0021).
 - Validate process-boundary frames once against schemas; ignore unknown fields.
 - Generate committed contract types from schemas and check for stale output.
 - Enforce hook ownership in the dispatcher; freeze observers and isolate appenders.

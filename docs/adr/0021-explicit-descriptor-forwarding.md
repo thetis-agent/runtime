@@ -1,8 +1,8 @@
 # ADR 0021 · Do not mistake close-on-exec for a child authority boundary
 
-**Status:** Proposed · 2026-09-09
-**Deciders:** pending a person's decision
-**Supersedes:** nothing while Proposed; concerns ADR 0010 §5–6 and TE-024
+**Status:** Accepted · 2026-09-09
+**Deciders:** the operator, explicitly approved in this session
+**Amends:** ADR 0010 §5–6 and TE-024; explicit operator approval
 
 ## Context
 
@@ -38,21 +38,24 @@ from that stage's chosen child cannot be obtained by descriptor flags.
 
 ## Decision
 
-No boundary workaround is implemented. Stop Milestone A implementation
-pending a person's decision, as required by the implementation prompt.
+Treat an environment and its deliberately delegated children as one run
+principal. Require **no implicit inheritance**: the normal spawn path
+passes only approved standard streams, no kernel socket and no run token.
+Keep descriptors close-on-exec and credentials out of environment
+variables, disk and command lines.
 
-The minimal proposed change is to narrow the child rule to **no implicit
-inheritance**, explicitly treating an environment and children to which
-it delegates authority as the same run principal. The kernel would still
-enforce person, scope, role, budget and generation fencing. TE-024 would
-need to distinguish ordinary inheritance from deliberate delegation.
-That removes the stronger child-authority guarantee and cannot be
-accepted by the implementing agent.
+The kernel independently enforces the original person's scope, role and
+generation on every request. Forwarding a descriptor never mints a new
+principal or grants more authority. Children remain within the run's
+sandbox, resource limits and spending attribution. Generation fencing
+invalidates delegated authority together with the original run.
 
-If the stronger guarantee is required, the design needs a trusted
-process/privilege boundary for stage execution and child creation rather
-than an in-process wrapper. Its treatment of intentional proxying by the
-mutable core also needs to be stated. No such redesign is selected here.
+TE-024 tests ordinary spawning for descriptor and credential leaks. Keep
+the deliberate-forwarding reproduction and test that delegation cannot
+escape the original person's authority or survive generation fencing.
+The stronger claim that a malicious environment cannot deliberately
+share its existing authority is withdrawn with the operator's approval.
+No separate process boundary between in-process stages is introduced.
 
 ## Alternatives considered
 
@@ -78,13 +81,13 @@ Good: the repository contains a reproducible security finding instead
 of an implementation that claims an unenforced boundary. Original
 accepted records and conformance ids remain intact.
 
-Bad: Milestone A is unfinished. The proposed narrowing loses the
+Bad: Milestone A is unfinished. The accepted narrowing loses the
 guarantee that a deliberately spawned child cannot possess its parent's
 kernel descriptor. Namespace isolation and the outer resource limits
 do not repair that particular delegation path.
 
 ## Revisit
 
-When a person accepts a precise child-authority threat model or approves
-a concrete stronger execution boundary. Keep this reproduction; add the
-chosen enforcement tests without deleting or silently skipping TE-024.
+When a deployment needs separate principals for stage children. That
+requires a new execution-boundary design, including intentional proxying.
+Keep the reproduction and the ordinary-inheritance TE-024 test.

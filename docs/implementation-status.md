@@ -1,9 +1,9 @@
 # Implementation status · 2026-09-09
 
-Milestone A is **not complete**. Implementation stopped at the boundary
-contradiction documented in Proposed [ADR 0021](adr/0021-explicit-descriptor-forwarding.md),
-following the implementation prompt's explicit stop rule. No guarantee
-was silently weakened, and no original conformance test was removed.
+Milestone A is **in progress**. The operator accepted ADR 0021's run-principal
+boundary and authorized continuation. Ordinary child spawning must not
+inherit authority; deliberate delegation remains confined to the original
+run and is invalidated by generation fencing.
 
 Prepared:
 
@@ -26,9 +26,10 @@ Validation of the current foundation:
   outside the agent tool sandbox.
 - A user systemd scope accepts `MemoryMax=512M`, `TasksMax=64` and
   `CPUQuota=100%`; these bound the development test run.
-- Three foundation tests pass inside bubblewrap. The security test
-  passes by reproducing the documented counterexample; it is **not** a
-  passing TE-024 enforcement test.
+- Eight foundation tests pass inside bubblewrap, including TE-024 ordinary
+  spawning, evidence designation, unknown bindings, token expiry and
+  deliberate delegation constrained by person and generation.
+- Strict type checking and lint pass with no warnings.
 
 No full conformance run, UI chat, OpenRouter turn, default-profile pins,
 cache-hit acceptance measurement, edit-to-serve measurement or idle-RSS
@@ -45,5 +46,4 @@ systemd-run --user --scope --quiet -p MemoryMax=512M -p TasksMax=64 -p CPUQuota=
 ```
 
 The agent tool sandbox blocks namespace setup; the second command needs
-to run outside it. Tests themselves still run in bubblewrap. Continue
-implementation only after ADR 0021's decision is resolved.
+to run outside it. Tests themselves still run in bubblewrap. ADR 0021 is resolved; implementation has resumed.
