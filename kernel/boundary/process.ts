@@ -33,6 +33,7 @@ export class Process {
     const accepting = accept(pair.value.peer, token, context.identity, context.schemas, context.clock, context.operations);
     const started = await context.runner.start({ ...plan, socket: pair.value.client, token });
     if (!started.ok) { const closed = await pair.value.close(); await accepting; context.identity.revoke(token); return closed.ok ? started : closed; }
+    pair.value.client.destroy();
     const connected = await accepting;
     if (!connected.ok) {
       const stopped = await started.value.stop(); const closed = await pair.value.close(); context.identity.revoke(token);

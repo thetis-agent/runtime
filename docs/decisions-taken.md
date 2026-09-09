@@ -54,3 +54,6 @@
 - 2026-09-09: Generate internal package-state types alongside contract and library schemas; distinguish an internal library named provider from the public provider contract when generating reference imports (ADR 0006).
 - 2026-09-09: Reuse the bounded socket transport for monitor/worker session control over a one-peer private endpoint; the monitor retains the inherited kernel endpoint, and worker startup credentials remain in same-process memory (ADR 0027, ADR 0019).
 - 2026-09-09: Gate monitor calls until worker initialization and negotiation complete; unexpected control-channel closure fails health. Keep session.submit's deadline separate from the shorter health probe deadline (KS-004, GN-001).
+- 2026-09-09: Derive the environment runtime's person and token from inherited authority, ignoring configuration claims; delay session admission until initialization and registration acknowledgements settle (KS-001, KS-004).
+- 2026-09-09: Raise the test supervisor's task ceiling to 128 for two environments and a shared service plus test infrastructure; retain the per-sandbox 64-task ceiling (KS-004).
+- 2026-09-09: Close the kernel's duplicate client descriptor immediately after sandbox handoff so an actual process crash closes its control channel without a timer (KS-001).

@@ -50,6 +50,16 @@ await test('GN-001 real cooperative and stuck turns drain or are killed at the i
   } finally { await f.close(); }
 });
 
+await test('KS-001 a process crash closes its inherited control endpoint without waiting for a probe timer', async () => {
+  const f = await fixture();
+  try {
+    assert.ok((await f.process.probe()).ok);
+    assert.ok(f.process.running.process.kill('SIGKILL')); await f.process.running.exited;
+    await f.process.control.finished();
+    const result = await f.process.control.call('health.probe', {}); assert.ok(!result.ok); assert.equal(result.error.code, 'io');
+  } finally { await f.close(); }
+});
+
 await test('GN-003 an actual process that never answers its probe can be stopped after the injected deadline', async () => {
   const f = await fixture('unhealthy');
   try {
