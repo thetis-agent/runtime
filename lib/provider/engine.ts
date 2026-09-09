@@ -33,13 +33,17 @@ export class ProviderEngine implements Provider {
   readonly #budgets: Budgets;
   readonly #limits: typeof defaults;
   readonly #scope: 'person' | 'deployment';
+  #fault: Result<void> | undefined;
   constructor(vendor: Vendor, authority: Authority, budgets: Budgets, scope: 'person' | 'deployment' = 'deployment', limits = defaults) {
     this.#vendor = vendor; this.#authority = authority; this.#budgets = budgets;
     this.#scope = scope; this.#limits = limits;
   }
-  describe(): Promise<Description> { return this.#vendor.describe(); }
+  describe(): Promise<Description> {
+    return this.#fault && !this.#fault.ok ? Promise.resolve(failure('budget', 'The provider cannot persist its budget; new calls are refused.')) : this.#vendor.describe();
+  }
 
   async *run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncGenerator<ResponseEvent> {
+    if (this.#fault && !this.#fault.ok) { yield { type: 'error', code: 'budget', message: 'The provider cannot persist its budget; new calls are refused.' }; return; }
     const caller = await this.#authority.whois(token);
     if (!caller.ok) { yield { type: 'error', ...caller.error }; return; }
     const collected = await collect(request, this.#limits);
@@ -50,9 +54,13 @@ export class ProviderEngine implements Provider {
     const estimate = this.#vendor.estimate(collected.value);
     const reservation = this.#scope === 'deployment' ? this.#budgets.reserve(caller.value.person, estimate) : undefined;
     if (reservation && !reservation.ok) { yield { type: 'error', ...reservation.error }; return; }
+    if (reservation?.ok) {
+      const persisted = await this.#budgets.checkpoint();
+      if (!persisted.ok) { this.#fault = persisted; reservation.value(0); yield { type: 'error', code: 'budget', message: 'The provider cannot persist its reservation; the vendor was not called.' }; return; }
+    }
     const state = { counters: { cost: estimate } satisfies Counters, measured: false };
     try { yield* this.#exchange(collected.value, begin, token, signal, state); }
-    finally { if (reservation?.ok) reservation.value(state.counters.cost); }
+    finally { if (reservation?.ok) { reservation.value(state.counters.cost); const saved = await this.#budgets.checkpoint(); if (!saved.ok) this.#fault = saved; } }
   }
 
   async *#exchange(request: RequestEvent[], begin: Begin, token: string, signal: AbortSignal, state: { counters: Counters; measured: boolean }): AsyncGenerator<ResponseEvent> {

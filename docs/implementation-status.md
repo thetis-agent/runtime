@@ -51,6 +51,11 @@ Implemented and exercised so far:
 - Registered secrets delivered through a private spawn pipe and set in the
   service environment before entry evaluation, tested with the encrypted
   store and actual bubblewrap runner without key copies in argv or files.
+- Usage attribution checks the reporting run's recorded caller grants,
+  preserves candidate/reviewed labels and supplies the cost-only mount check.
+  Provider checkpoints retain unfinished reservations across restart and
+  refuse vendor access when reservation persistence fails. Deployment spawn
+  assembly still needs to require those checkpoints and wire the mount check.
 - File handlers with canonical grant checks and streamed results; the skill
   loader; Legacy's BM25/cosine/fusion ranker and hierarchical retrieval.
 - Directory discovery, settings validation and a schema-checked initialization
@@ -61,7 +66,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 165 passing tests, zero failures and zero skips.
+- The current suite has 171 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.

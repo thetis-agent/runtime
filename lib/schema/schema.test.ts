@@ -17,4 +17,5 @@ await test('Provider schema preserves unknown fields and rejects negative cost',
   const result = decode(validate, frame);
   assert.deepEqual(result, { ok: true, value: frame });
   assert.equal(decode(validate, { type: 'usage', counters: { cost: -1 } }).ok, false);
+  assert.equal(decode(validate, { type: 'usage', counters: { cost: Infinity } }).ok, false);
 });

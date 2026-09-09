@@ -15,6 +15,17 @@ await test('Concurrent reservations share the person budget and settle once', ()
   assert.equal(budget.reserve('other', 1).ok, true);
 });
 
+await test('Budget configuration is immutable and expired people cannot exhaust the pool', () => {
+  let now = 0; const rule = { name: 'daily', cost: 1, requests: 2, windowMs: 10 };
+  const budget = new Budgets(rule, () => now, 1); rule.cost = Infinity;
+  const reservation = budget.reserve('first', 1); assert.ok(reservation.ok); reservation.value(1);
+  assert.ok(!budget.reserve('first', 0.01).ok); now = 10;
+  const next = budget.reserve('second', 1); assert.ok(next.ok);
+  assert.throws(() => { next.value(-1); }); assert.throws(() => { next.value(NaN); }); next.value(0.5);
+  assert.throws(() => new Budgets({ ...rule, cost: 1, windowMs: 0 }, () => 0));
+  assert.throws(() => new Budgets(rule, () => 0));
+});
+
 await test('Budget request windows reset deterministically and invalid estimates refuse', () => {
   let now = 0;
   const budget = new Budgets({ name: 'daily', cost: 1, requests: 1, windowMs: 10 }, () => now, 1);

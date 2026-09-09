@@ -9,7 +9,7 @@ export { failure, isObject } from '../result/index.ts';
 export type { Result } from '../result/index.ts';
 
 export class Schemas {
-  readonly #ajv = new Ajv2020({ strict: false, allErrors: false, validateFormats: false });
+  readonly #ajv = new Ajv2020({ strict: false, strictNumbers: true, allErrors: false, validateFormats: false });
   #loading: Promise<void> | undefined;
 
   load(): Promise<void> {
