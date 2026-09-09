@@ -4,6 +4,7 @@ import { readdir, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
 import { delegate } from '../lib/sandbox-runner/cgroup.ts';
+const supervisor = { memoryMiB: 512, tasks: 128, cpuPercent: 100 };
 
 async function files(directory: string): Promise<string[]> {
   const output: string[] = [];
@@ -17,7 +18,7 @@ async function files(directory: string): Promise<string[]> {
 }
 
 if (!process.argv.includes('--delegated')) {
-  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', 'MemoryMax=512M', '-p', 'TasksMax=64', '-p', 'CPUQuota=100%', process.execPath, new URL(import.meta.url).pathname, '--delegated'], { stdio: 'inherit' });
+  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', `MemoryMax=${String(supervisor.memoryMiB)}M`, '-p', `TasksMax=${String(supervisor.tasks)}`, '-p', `CPUQuota=${String(supervisor.cpuPercent)}%`, process.execPath, new URL(import.meta.url).pathname, '--delegated'], { stdio: 'inherit' });
   child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
   child.once('exit', code => { process.exitCode = code ?? 1; });
 } else {

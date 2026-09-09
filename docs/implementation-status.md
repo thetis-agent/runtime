@@ -50,8 +50,13 @@ Implemented and exercised so far:
   The worker now runs these sessions behind a private Unix control endpoint,
   reusing the negotiated RPC transport and its limits. A real imported file
   tool runs through the dispatcher, while 1,000 provider deltas produce no
-  monitor messages. The process entry, gateway integration, announced profile
-  refresh and background notice routing through the session API remain.
+  monitor messages. The shipped process entry now keeps inherited authority
+  on the monitor and reads its runtime over that endpoint; two real
+  bubblewrap environments chat independently through the shared mock service.
+  Kernel-supplied principal/token fields replace configuration claims, and
+  provider output remains in each environment's own conversation state.
+  Gateway integration, announced profile refresh and background notice
+  routing through the session API remain.
 - Scoped authenticated encryption for secrets, registered delivery grants,
   origin/role checks on the internal API, and refusal of scope fallback.
 - An explicit generation transition table with guarded, durable observed
@@ -90,12 +95,19 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 192 passing tests, zero failures and zero skips.
+- The current suite has 194 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
   The launcher creates its own delegated user systemd scope, which bounds the test run to 512 MiB,
-  64 tasks and 100% CPU. This is not the required idle-RSS measurement.
+  128 tasks and 100% CPU. Three real sandboxed processes plus the test
+  infrastructure exceeded the former 64-task supervisor limit; each
+  sandbox still has its own 64-task limit. This is not the required
+  idle-RSS measurement.
+- An ad hoc `/proc` observation of the first full environment process was
+  139,644 KiB RSS (about 136 MiB), already above the kernel-plus-environment
+  target. This is an outstanding optimization failure, not an accepted
+  exception; no passing idle-memory benchmark is claimed.
 - The long-prefix fixture asserts at least 99% cached input on turn two
   in the mock's cache model. Socket tests also compare prefix bytes across
   separate connections. No real-vendor cache claim is made.
