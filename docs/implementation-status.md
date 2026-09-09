@@ -11,7 +11,8 @@ Implemented and exercised so far:
 - Real evidence designation, principal isolation, bounded run credentials,
   expiry and generation fencing, including deliberate descriptor delegation.
   Provisional credentials permit private startup controls but cannot admit
-  ordinary calls until commitment; abandoned candidates cannot revive.
+  ordinary calls at any time; serving launches receive fresh credentials,
+  and abandoned candidates cannot revive.
 - Bounded NDJSON framing, asynchronous stream queues, provider Unix-socket
   client/server, and cancellation while a response is active.
 - Negotiated kernel socket transport with schema-checked method parameters,
@@ -29,13 +30,17 @@ Implemented and exercised so far:
   origin/role checks on the internal API, and refusal of scope fallback.
 - An explicit generation transition table with guarded, durable observed
   rows; bounded snapshot copying and hashing in worker threads. Process
-  switching and the trusted default act are not yet wired to this machine.
+  switching is wired to real sandbox effects; the trusted default act remains.
   ADR 0025 records commitment intent before fencing and rename; endpoint
   tests verify new connections move while old connections remain usable.
 - Managed process controls now use real inherited RPC endpoints to start,
   probe, drain and stop sandboxed processes. Tests cover cooperative and
-  stuck turns and a probe that never responds; full switch orchestration
-  and durable restart recovery are still pending.
+  stuck turns and a probe that never responds. The generation driver now
+  verifies pin copies, migrates isolated state, switches endpoints, restores
+  failed candidates and supports undo. Durable restart recovery remains.
+  ADR 0026 makes probe grants read-only and starts a fresh serving process
+  after fencing. Real tests cover failures on both sides of commitment,
+  discarded-path auditing and interrupted-conversation update metadata.
 - A bubblewrap runner with a pre-exec cgroup gate, inherited descriptors,
   read-only root mounts, bounded writable filesystems and verified memory
   enforcement. Network egress and persistent-volume provisioning remain.
@@ -49,7 +54,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 147 passing tests, zero failures and zero skips.
+- The current suite has 158 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
@@ -65,7 +70,7 @@ Validation:
 
 Remaining acceptance work includes network egress and storage
 provisioning, kernel socket and origins, the default act and
-complete generation driver, package discovery/init/spawn wiring, registry
+durable generation recovery and all target kinds, package discovery/init/spawn wiring, registry
 installation and release retention, the lifted UI and login gateway,
 provider spawn integration and OpenRouter demonstration, CLI, metrics and
 evaluator, pinned default profile, remaining conformance ids and inventory

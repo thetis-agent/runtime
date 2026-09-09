@@ -36,7 +36,7 @@ await test('KS-021 request extensions cannot change the endpoint principal and a
   } finally { client.close(); accepted.value.close(); await Promise.all([client.finished(), accepted.value.finished()]); await f.pair.close(); }
 });
 
-await test('GN-003 a provisional endpoint negotiates health but cannot make session calls before commit', async () => {
+await test('GN-003 a provisional endpoint negotiates health and remains restricted after commit', async () => {
   const f = await fixture(); const staged = f.identity.stage({ id: 'candidate', person: 'alice', scope: 'person', target: 'alice', generation: 2, services: [] }); assert.ok(staged.ok);
   const operations: Operations = { ...f.operations, methods: new Map([...f.operations.methods, ['session.list', () => Promise.resolve({ ok: true, value: [] })]]) };
   const client = new Peer(f.pair.client, f.schemas, f.clock, ['health.probe', 'session.list'], { handlers: new Map(), note: () => Promise.resolve({ ok: true, value: undefined }) });
@@ -45,6 +45,6 @@ await test('GN-003 a provisional endpoint negotiates health but cannot make sess
   try {
     assert.ok((await client.call('health.probe', {})).ok);
     const refused = await client.call('session.list', {}); assert.ok(!refused.ok); assert.equal(refused.error.code, 'fenced');
-    f.identity.fence('alice', 2); assert.deepEqual(await client.call('session.list', {}), { ok: true, value: [] });
+    f.identity.fence('alice', 2); const committed = await client.call('session.list', {}); assert.ok(!committed.ok); assert.equal(committed.error.code, 'fenced');
   } finally { client.close(); accepted.value.close(); await Promise.all([client.finished(), accepted.value.finished()]); await f.pair.close(); }
 });

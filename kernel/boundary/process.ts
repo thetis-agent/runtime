@@ -12,7 +12,7 @@ import type { Operations } from '../socket/index.ts';
 import type { Identity } from '../identity/index.ts';
 import type { Journal } from '../log/index.ts';
 
-export const limits = { turnMs: 600000, pending: 128, probeMs: 10000 };
+export const limits = { turnMs: 600000, pending: 128, probeMs: 10000, identifierBytes: 256 };
 export interface Context { target: string; identity: Identity; schemas: Schemas; clock: Clock; runner: SandboxRunner; journal: Journal; operations: Operations }
 
 export class Process {
@@ -21,7 +21,7 @@ export class Process {
   readonly #pair: Pair;
   readonly #context: Context;
   readonly #token: string;
-  readonly #active = new Set<Promise<Result<unknown>>>();
+  readonly #active = new Map<Promise<Result<unknown>>, string | undefined>();
   #stopping: Promise<Result<void>> | undefined;
   private constructor(running: Running, control: Peer, pair: Pair, token: string, context: Context) {
     this.running = running; this.control = control; this.#pair = pair; this.#token = token; this.#context = context;
@@ -53,21 +53,33 @@ export class Process {
   async invoke(method: Method, params: Record<string, unknown>): Promise<Result<unknown>> {
     if (this.#stopping) return failure('switching', 'The generation is stopping.');
     if (this.#active.size >= limits.pending) return failure('budget', 'The generation request pool is full.');
+    const conversation = method === 'session.submit' && typeof params['conversation'] === 'string' ? params['conversation'] : undefined;
+    if (conversation && Buffer.byteLength(conversation) > limits.identifierBytes) return failure('budget', 'The conversation identifier exceeds its byte limit.');
     const result = this.control.call(method, params, limits.turnMs);
-    this.#active.add(result); try { return await result; } finally { this.#active.delete(result); }
+    this.#active.set(result, conversation); try { return await result; } finally { this.#active.delete(result); }
   }
 
-  async drain(deadlineMs: number): Promise<Result<{ killed: boolean }>> {
+  async drain(deadlineMs: number): Promise<Result<{ killed: boolean; conversations: string[] }>> {
     const signalled = await this.control.notify({ note: 'run.stop', params: { deadlineMs } });
-    if (!signalled.ok) { const stopped = await this.stop('run.stop delivery failed'); return stopped.ok ? { ok: true, value: { killed: true } } : stopped; }
+    if (!signalled.ok) return this.#killed('run.stop delivery failed');
     const timer = new AbortController();
     const deadline = this.#context.clock.wait(deadlineMs, timer.signal).then(() => 'deadline');
+    const acknowledged = this.control.call('health.probe', {}, deadlineMs);
     try {
-      const done = await Promise.race([Promise.all(this.#active).then(() => 'drained'), deadline]);
-      if (done === 'drained') return { ok: true, value: { killed: false } };
-      const stopped = await this.stop('killed-for-switch');
-      return stopped.ok ? { ok: true, value: { killed: true } } : stopped;
-    } finally { timer.abort(); await deadline; }
+      const done = await Promise.race([Promise.all([...this.#active.keys(), acknowledged]).then(results => results.at(-1)?.ok ? 'drained' : 'deadline'), deadline]);
+      if (done === 'drained') {
+        const observed = await this.#context.journal.observed(this.#context.target, 'process.drain', { outcome: 'acknowledged' });
+        return observed.ok ? { ok: true, value: { killed: false, conversations: [] } } : observed;
+      }
+      return await this.#killed('killed-for-switch');
+    } finally { timer.abort(); await deadline; await acknowledged; }
+  }
+
+  async #killed(reason: string): Promise<Result<{ killed: boolean; conversations: string[] }>> {
+    const conversations = [...new Set(this.#active.values())].filter(value => value !== undefined);
+    const stopped = await this.stop(reason); if (!stopped.ok) return stopped;
+    const observed = await this.#context.journal.observed(this.#context.target, 'process.drain', { outcome: 'killed', conversations }, true);
+    return observed.ok ? { ok: true, value: { killed: true, conversations } } : observed;
   }
 
   stop(reason: string): Promise<Result<void>> { this.#stopping ??= this.#stop(reason); return this.#stopping; }

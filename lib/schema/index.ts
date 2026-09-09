@@ -3,17 +3,10 @@ import { Ajv2020 } from 'ajv/dist/2020.js';
 import { readFile } from 'node:fs/promises';
 import type { ValidateFunction } from 'ajv';
 
-export type Result<T, C extends string = string> =
-  | { ok: true; value: T }
-  | { ok: false; error: { code: C; message: string } };
-
-export function failure<C extends string>(code: C, message: string): { ok: false; error: { code: C; message: string } } {
-  return { ok: false, error: { code, message } };
-}
-
-export function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+import { failure, isObject } from '../result/index.ts';
+import type { Result } from '../result/index.ts';
+export { failure, isObject } from '../result/index.ts';
+export type { Result } from '../result/index.ts';
 
 export class Schemas {
   readonly #ajv = new Ajv2020({ strict: false, allErrors: false, validateFormats: false });

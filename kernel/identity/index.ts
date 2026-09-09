@@ -24,6 +24,7 @@ export class Identity {
   readonly #tokens = new Map<string, Run>();
   readonly #generations = new Map<string, number>();
   readonly #pending = new Map<string, string>();
+  readonly #probeOnly = new Set<string>();
   readonly #config: IdentityConfig;
   readonly #now: () => number;
 
@@ -50,12 +51,15 @@ export class Identity {
   stage(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {
     this.#reap(); const current = this.#generations.get(run.target);
     if (current === undefined || run.generation !== current + 1 || this.#pending.has(run.target)) return failure('fenced', 'The target cannot admit this provisional generation.');
-    const result = this.#mint(run); if (result.ok) this.#pending.set(run.target, digest(result.value)); return result;
+    const result = this.#mint(run);
+    if (result.ok) { const key = digest(result.value); this.#pending.set(run.target, key); this.#probeOnly.add(key); }
+    return result;
   }
 
   authenticate(token: string, purpose: 'call' | 'probe' = 'call'): Result<Run, ErrorCode> {
     const key = digest(token); const run = this.#tokens.get(key);
     if (!run || run.expires <= this.#now()) return failure('auth', 'The run credential is unknown or expired.');
+    if (purpose === 'call' && this.#probeOnly.has(key)) return failure('fenced', 'A provisional credential cannot admit ordinary calls.');
     if (this.#generations.get(run.target) !== run.generation && !(purpose === 'probe' && this.#pending.get(run.target) === key)) return failure('fenced', 'The run generation has been fenced.');
     return { ok: true, value: structuredClone(run) };
   }
@@ -97,6 +101,7 @@ export class Identity {
     const run = this.#tokens.get(key);
     if (run && this.#pending.get(run.target) === key) this.#pending.delete(run.target);
     this.#tokens.delete(key);
+    this.#probeOnly.delete(key);
   }
 
   #mint(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {

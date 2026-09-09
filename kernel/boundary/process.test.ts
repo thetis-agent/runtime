@@ -45,6 +45,7 @@ await test('GN-001 real cooperative and stuck turns drain or are killed at the i
     assert.equal(active, 2);
     const draining = f.process.drain(30000); assert.ok((await cooperative).ok); f.clock.advance(30000);
     const result = await draining; assert.ok(result.ok); assert.equal(result.value.killed, true); assert.ok(!(await stuck).ok);
+    assert.deepEqual(result.value.conversations, ['stuck']);
     assert.match(await f.rows(), /"reason":"killed-for-switch"/u); assert.match(await f.rows(), /"provenance":"kernel-observed"/u);
   } finally { await f.close(); }
 });

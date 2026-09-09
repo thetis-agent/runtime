@@ -74,7 +74,7 @@ export class SandboxRunner {
       child.kill('SIGKILL'); await done; const removed = await group.value.remove();
       return removed.ok ? failure('io', 'The sandbox could not enter its resource boundary.') : removed;
     }
-    for (const descriptor of [token, gate, delivery]) descriptor.once('error', () => { child.kill('SIGKILL'); });
+    for (const descriptor of [token, gate, delivery]) descriptor.once('error', () => { if (!descriptor.writableFinished) child.kill('SIGKILL'); });
     token.end(plan.token); delivery.end(secrets); gate.end('start\n');
     plan.socket.destroy();
     let disposed: Promise<Result<void, 'io'>> | undefined;
