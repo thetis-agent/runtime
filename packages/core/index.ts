@@ -13,6 +13,7 @@ import { compact } from './conversation.ts';
 import type { Conversation } from './conversation.ts';
 import { renderPrefix } from './prefix.ts';
 import { modelExchange } from './model.ts';
+import { TurnReport } from './report.ts';
 
 export const stages = {};
 export const defaults = { iterations: 8, window: 200000, reserve: 4096, historyMessages: 128, notices: 256, deadlineMs: 30000, resultBytes: 32768 };
@@ -35,9 +36,13 @@ export class Loop {
   readonly #heads = new Map<string, RequestEvent[]>();
   #turn = 0;
   #active = false;
+  readonly #clock: Clock;
+  #report = new TurnReport();
+  #reported: Result<Record<string, unknown>, 'budget'> | undefined;
+  get report(): Result<Record<string, unknown>, 'budget'> | undefined { return this.#reported; }
   constructor(handlers: readonly Stage[], schemas: Schemas, clock: Clock, provider: Provider, conversation: Conversation) {
     this.#dispatcher = new Dispatcher(handlers, schemas, clock); this.#schemas = schemas;
-    this.#provider = provider; this.#conversation = conversation;
+    this.#provider = provider; this.#conversation = conversation; this.#clock = clock;
     this.#turn = conversation.project().history.filter(message => message.role === 'user').length;
   }
 
@@ -50,7 +55,14 @@ export class Loop {
 
   async turn(input: Input, options: Options, signal: AbortSignal): Promise<Result<Message, 'io' | 'budget' | 'provider'>> {
     if (this.#active) return failure('budget', 'The conversation already has an active turn.');
+    const result = await this.#run(input, options, signal);
+    return this.#reported && !this.#reported.ok ? this.#reported : result;
+  }
+
+  async #run(input: Input, options: Options, signal: AbortSignal): Promise<Result<Message, 'io' | 'budget' | 'provider'>> {
     this.#active = true;
+    this.#report = new TurnReport(); this.#reported = undefined;
+    const report = this.#report; this.#dispatcher.report(row => { report.stage(row); });
     const view = this.#conversation.project();
     const state: TurnState = { ...view, seq: 0, iteration: 0, turn: ++this.#turn, reason: 'answer', compactions: 0, output: { role: 'assistant', content: [], source: 'core' }, usage: {} };
     try {
@@ -65,18 +77,21 @@ export class Loop {
         if (iteration === defaults.iterations) state.reason = 'limit';
       }
       const saved = await this.#conversation.append({ type: 'message', value: state.output });
-      if (!saved.ok) return saved;
+      if (!saved.ok) { state.reason = 'crash'; return saved; }
       this.#emit(state, options, 'output', { message: state.output, usage: state.usage });
       return { ok: true, value: state.output };
     } finally {
       const iterations = state.iteration; state.iteration = 0;
+      if (report.exhausted) state.reason = 'crash';
       this.#emit(state, options, 'end', { reason: state.reason, iterations, compactions: state.compactions });
+      this.#reported = report.finish(options.conversation, state.turn, { reason: state.reason, iterations, compactions: state.compactions });
       this.#active = false;
     }
   }
 
   async #prepare(state: TurnState, input: Input, options: Options): Promise<Result<void, 'io' | 'budget'>> {
     this.#emit(state, options, 'input', input);
+    if (this.#report.exhausted) return failure('budget', 'The turn report exceeds its byte limit.');
     for (const notice of this.#notices.splice(0)) {
       const saved = await this.#conversation.append({ type: 'message', value: { role: 'tool', content: notice.content, source: notice.source } });
       if (!saved.ok) return saved;
@@ -95,6 +110,7 @@ export class Loop {
     const refreshed = !state.prefix;
     const retrieved = refreshed ? await this.#dispatcher.retrieve({ query: this.#latest(state), k: 4, budget: defaults.window - defaults.reserve, model: options.model }) : { entries: [], dropped: [] };
     if (refreshed) {
+      this.#report.retrieve(state.iteration, retrieved.entries);
       const iteration = state.iteration; state.iteration = 0;
       this.#emit(state, options, 'retrieve', retrieved); state.iteration = iteration;
     }
@@ -103,7 +119,9 @@ export class Loop {
     const context = this.#dispatcher.context({ sections: { system: options.system, skills: [], harness: [], history }, budget: { window: defaults.window, reserve: defaults.reserve, used: 0 } });
     this.#emit(state, options, 'context', context);
     const offered = await this.#dispatcher.offer({ mode: options.mode });
+    this.#report.offer(state.iteration, offered);
     this.#emit(state, options, 'offer', { mode: options.mode, tools: offered });
+    if (this.#report.exhausted) return failure('budget', 'The turn report exceeds its byte limit.');
     if (!state.prefix) {
       state.prefix = renderPrefix(options.system, retrieved.entries, offered);
       const saved = await this.#conversation.append({ type: 'prefix', value: state.prefix });
@@ -133,6 +151,7 @@ export class Loop {
   }
 
   async #call(state: TurnState, options: Options, call: { id: string; name: string; args: string }, tools: ToolDef[], ended: boolean): Promise<Result<boolean, 'io' | 'budget'>> {
+    const started = this.#clock.now();
     let args: unknown;
     try { args = JSON.parse(call.args); } catch { args = call.args; }
     const safe = /^[a-zA-Z0-9_-]{1,128}$/u.test(call.id);
@@ -141,6 +160,7 @@ export class Loop {
     const answer: CallAnswer = ended ? { id: call.id, ok: false, error: { code: 'tool', message: 'The turn ended before this call ran.' } }
       : !safe ? { id: call.id, ok: false, error: { code: 'outside-roots', message: 'The tool call id cannot name an artifact in the person’s space.' } }
       : await this.#dispatcher.call(request, sink);
+    this.#report.call(state.iteration, call.name, answer, this.#clock.now() - started);
     for (const content of answer.content ?? []) if (content.type === 'text') {
       const written = await sink.write(Buffer.from(content.text));
       if (!written.ok) { await sink.abort(); return failure('io', written.error.message); }

@@ -30,8 +30,8 @@ export async function environmentProcess(shared: Awaited<ReturnType<typeof servi
   operations.set('health.probe', () => Promise.resolve({ ok: true, value: { ready: true } }));
   operations.set('profile.get', () => Promise.resolve({ ok: true, value: profile }));
   const context: Context = { target: person, identity: shared.identity, schemas, clock, journal: journal.value, runner: new SandboxRunner('/cgroup'), operations: {
-    methods: operations, notes: ['run.stop', 'env.updated', 'notice'],
-    note: (run, note) => note.note === 'notice' ? journal.value.reported(run.target, 'notice', note.params) : Promise.resolve(failure('forbidden', 'Only the kernel sends environment control notes.'))
+    methods: operations, notes: ['run.stop', 'env.updated', 'notice', 'turn.report'],
+    note: (run, note) => note.note === 'notice' || note.note === 'turn.report' ? journal.value.reported(run.target, note.note, note.params) : Promise.resolve(failure('forbidden', 'Only the kernel sends environment control notes.'))
   } };
   const caller = shared.client(person);
   const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: `${repository}/packages/core/main.ts`, args: [], cwd: '/state', mounts: [

@@ -8,7 +8,12 @@ Implemented and exercised so far:
 
 - Kernel-observed submission start/end rows with host-generated correlation,
   elapsed time and response/error outcomes, including killed turns. Candidate
-  stage reports and the complete two-provenance turn log remain unfinished.
+  reports travel once per completed turn through worker and inherited control
+  sockets, with aggregated stage counts/durations, retrieved ids, offered names
+  and per-call outcomes/durations. Actual two-environment tests verify separate
+  labels and exclusion of provider text and credentials. Report exhaustion emits
+  an explicit budget diagnostic; the full oversized-frame end-event conformance
+  case and the final deployment log integration remain unfinished.
 - House rules, the complete design copy, strict TypeScript and ESLint,
   pinned dependencies, generated contract types and stale-generation checks.
 - Real evidence designation, principal isolation, bounded run credentials,
@@ -98,7 +103,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 194 passing tests, zero failures and zero skips.
+- The current suite has 201 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.

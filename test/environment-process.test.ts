@@ -32,6 +32,8 @@ await test('KS-004 two real environment processes chat with inherited identities
     for (const environment of [alice, bob]) {
       const log = await environment.rows(); assert.ok(!log.includes('Hello')); assert.ok(!log.includes(environment.token));
       const expected = environment === alice ? 3 : 2;
+      const diagnostic = log.split('\n').filter(row => row.includes('"kind":"turn.report"'));
+      assert.equal(diagnostic.length, 2); assert.ok(diagnostic.every(row => row.includes('"provenance":"candidate-reported"')));
       assert.equal(log.split('\n').filter(row => row.includes('"kind":"turn.start"')).length, expected);
       assert.equal(log.split('\n').filter(row => row.includes('"kind":"turn.end"')).length, expected);
     }

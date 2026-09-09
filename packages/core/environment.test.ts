@@ -7,6 +7,7 @@ import { Environment } from './environment.ts';
 import { Schemas, isObject } from '../../lib/schema/index.ts';
 import { ManualClock } from '../../lib/events/index.ts';
 import { discover } from '../../lib/package-loader/index.ts';
+import type { Note } from '../../contracts/kernel-socket/types.ts';
 import type { Setup, WorkerMessage } from '../../lib/package-loader/types.ts';
 import { listen } from '../../lib/provider/server.ts';
 import { providerFixture } from '../../test/provider-fixture.ts';
@@ -15,7 +16,8 @@ await test('TE-001 the worker runs imported file tools and keeps provider events
   const root = await mkdtemp('/tmp/environment-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
   const provider = providerFixture([[{ type: 'delta.tool_call', callId: 'write', name: 'write_path', args: '{"path":"answer.txt","contents":"worker output"}' }], Array.from({ length: 1000 }, () => ({ type: 'delta.text', text: 'x' }))]);
   const service = await listen(join(root, 'provider.sock'), provider.provider, schemas, () => {}); assert.ok(service.ok);
-  const messages: WorkerMessage[] = []; const environment = new Environment(schemas, clock, message => { messages.push(message); });
+  const reports: Note[] = [];
+  const messages: WorkerMessage[] = []; const environment = new Environment(schemas, clock, message => { messages.push(message); }, note => { reports.push(note); return Promise.resolve({ ok: true, value: undefined }); });
   try {
     await mkdir(join(root, 'space'));
     const discovered = await discover(new URL('..', import.meta.url).pathname, join(root, 'packages'), {}, schemas); assert.ok(discovered.ok);
@@ -30,6 +32,11 @@ await test('TE-001 the worker runs imported file tools and keeps provider events
     assert.equal(await readFile(join(root, 'space/answer.txt'), 'utf8'), 'worker output');
     assert.equal(provider.provider.vendorCalls, 2); assert.equal(provider.reports.length, 2);
     assert.deepEqual(messages.map(message => message.type), ['initializing', 'ready']);
+    assert.equal(reports.length, 1); const report = reports[0]; assert.ok(report);
+    assert.equal(report.note, 'turn.report'); assert.equal(report.params['conversation'], id);
+    assert.ok(Array.isArray(report.params['calls'])); const call: unknown = report.params['calls'][0];
+    assert.ok(isObject(call)); assert.equal(call['id'], 'write'); assert.equal(call['name'], 'write_path'); assert.equal(call['outcome'], 'ok');
+    assert.ok(!JSON.stringify(reports).includes('worker output')); assert.ok(!JSON.stringify(reports).includes(provider.token));
     assert.ok(!JSON.stringify(messages).includes(provider.token)); assert.ok(!JSON.stringify(response).includes('worker output'));
     const invalid = await environment.call('session.submit', { conversation: id, input: { text: 4 } }); assert.ok(!invalid.ok); assert.equal(invalid.error.code, 'invalid-args');
     const other = await environment.call('session.list', { person: 'someone-else' }); assert.ok(!other.ok); assert.equal(other.error.code, 'forbidden');

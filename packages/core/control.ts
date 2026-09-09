@@ -53,7 +53,8 @@ class SessionControl {
 
 export async function control(config: Runtime, stages: readonly Stage[], schemas: Schemas): Promise<Result<Peer>> {
   if (!config.controlPath) return failure('io', 'The environment monitor endpoint is absent.');
-  const sessions = await Sessions.open(config.root, { stages, schemas, clock, provider: new ProviderClient(config.providerSocket, schemas, config.token), options: config });
+  const sessions = await Sessions.open(config.root, { stages, schemas, clock, provider: new ProviderClient(config.providerSocket, schemas, config.token), options: config,
+    report: params => peer.notify({ note: 'turn.report', params }) });
   if (!sessions.ok) return sessions;
   const opened = await connect(config.controlPath); if (!opened.ok) return opened;
   const handler = new SessionControl(sessions.value, schemas, config.person);

@@ -15,6 +15,16 @@ const context: Context = { sections: { system: [], skills: [], harness: [], hist
 const event: Envelope = { type: 'input', conversation: 'c', turn: 1, iteration: 0, seq: 0, payload: { text: 'original', attachments: [] } };
 const call: CallRequest = { id: 'call', name: 'read_path', args: { path: '/space' }, deadlineMs: 50, mode, roots: [], budget: { resultBytes: 32 } };
 
+await test('ADR-0014 a late observer rejection cannot become another turn’s diagnostic row', async () => {
+  const pending = Promise.withResolvers<undefined>(); const first: string[] = []; const second: string[] = [];
+  const dispatcher = new Dispatcher([{ source: 'late', observe: () => pending.promise }], schemas, new ManualClock());
+  dispatcher.report(row => { first.push(row.outcome); }); dispatcher.observe(event);
+  assert.deepEqual(first, ['contract-violation']);
+  dispatcher.report(row => { second.push(row.outcome); });
+  pending.reject(new Error('late rejection')); await pending.promise.catch(() => undefined);
+  assert.deepEqual(second, []); assert.equal(dispatcher.rows.at(-1)?.outcome, 'observer-throw');
+});
+
 await test('ADR-0022 iteration appenders cannot target the immutable prefix', () => {
   const stage: Stage = { source: 'bad', context: () => undefined };
   Object.assign(stage, { section: 'system' });
