@@ -25,6 +25,13 @@ Implemented and exercised so far:
   green git tag; the shared transport suite passes against current code.
 - A scripted provider using the shared authentication and reservation path,
   deterministic cache accounting, a faux gateway, and an injected clock.
+  Its shared-service entry now runs in a real bubblewrap child, reads policy
+  over the inherited kernel endpoint, persists reservations with an epoch
+  clock, and attributes usage through the actual kernel accounting path.
+  Two caller identities have independent budgets; drain and announced
+  rollback resumption preserve the same service process. Automatic spawn
+  registration, person-scope service authentication and deployment principals
+  without a person remain to be assembled.
 - A compatible HTTP adapter with bounded SSE, tool fragments, reasoning
   replay, conservative reservations, OpenRouter price ceilings and tested
   cancellation/error handling against a scripted HTTP vendor.
@@ -69,7 +76,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 175 passing tests, zero failures and zero skips.
+- The current suite has 179 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
