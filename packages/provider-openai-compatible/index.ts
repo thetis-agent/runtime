@@ -1,5 +1,6 @@
 /** Keep vendor requests outside the kernel and behind caller reservations; ADR 0019–0020, PR-001–012. */
 import type { RequestEvent, ResponseEvent, ModelCap } from '../../contracts/provider/types.ts';
+import { fileURLToPath } from 'node:url';
 import type { Authority, Budgets, Description } from '../../lib/provider/index.ts';
 import { ProviderEngine } from '../../lib/provider/engine.ts';
 import type { Vendor } from '../../lib/provider/engine.ts';
@@ -11,6 +12,7 @@ import { chunk, error } from './wire.ts';
 import { ResponseState } from './response.ts';
 
 export const stages = {};
+export const spawn = [{ id: 'provider', cmd: 'node', args: [fileURLToPath(new URL('./service.ts', import.meta.url))], env: { LLM_KEY: 'secret/llm-key' }, health: { rpc: 'health.probe' }, restart: 'on-failure', scope: 'deployment', network: 'egress' }];
 export const settings = { deadlineMs: 120000, eventBytes: 1024 * 1024, models: 256, cacheMarkers: 4 };
 export interface Configuration { endpoint: string; key: string; models: readonly ModelCap[]; deadlineMs?: number; eventBytes?: number; cacheMarkers?: number }
 export type Fetcher = (url: string, init: RequestInit) => Promise<Response>;

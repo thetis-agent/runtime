@@ -14,7 +14,7 @@
     },
     "additionalProperties": false
   },
-  "requires": { "contract/provider": "^1.1", "secret/llm-key": "*" },
+  "requires": { "contract/provider": "^1.1", "secret/llm-key": "*", "cap/network.egress": "*" },
   "provides": { "service/llm-provider.openai-compatible": "1.0.0" },
   "envelope": { "requires": [], "provides": [], "spawn": { "scope": "deployment", "network": "egress" } }
 }

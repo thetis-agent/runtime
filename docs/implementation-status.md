@@ -29,12 +29,17 @@ Implemented and exercised so far:
   over the inherited kernel endpoint, persists reservations with an epoch
   clock, and attributes usage through the actual kernel accounting path.
   Two caller identities have independent budgets; drain and announced
-  rollback resumption preserve the same service process. Automatic spawn
-  registration, person-scope service authentication and deployment principals
+  rollback resumption preserve the same service process. Both adapters export
+  spawns, which discovery collects and checks with initialized registrations
+  against the same envelope, including duplicate ids and secret requirements.
+  Kernel activation, person-scope service authentication and deployment principals
   without a person remain to be assembled.
 - A compatible HTTP adapter with bounded SSE, tool fragments, reasoning
   replay, conservative reservations, OpenRouter price ceilings and tested
   cancellation/error handling against a scripted HTTP vendor.
+  Its service entry validates settings from the package schema, receives its
+  key through the declared spawn environment, and declares network egress.
+  Egress provisioning and an actual OpenRouter demonstration remain.
 - The unprivileged loop, recorded offer ownership, observer isolation,
   ephemeral appends, stored prefixes, notices, JSONL branches, spill files,
   and compaction that retains protected messages and call/result pairs.
@@ -76,7 +81,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 179 passing tests, zero failures and zero skips.
+- The current suite has 184 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.

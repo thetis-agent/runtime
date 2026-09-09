@@ -2,10 +2,26 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "thetis://internal/packages/1",
   "$defs": {
+    "spawn": {
+      "type": "object", "required": ["id", "cmd", "health", "restart", "scope", "network"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+        "cmd": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "args": { "type": "array", "maxItems": 128, "items": { "type": "string", "maxLength": 4096 } },
+        "env": { "type": "object", "maxProperties": 32, "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]{0,63}$" }, "additionalProperties": { "type": "string", "maxLength": 16384 } },
+        "health": { "oneOf": [
+          { "type": "object", "required": ["rpc"], "properties": { "rpc": { "type": "string", "minLength": 1, "maxLength": 256 } } },
+          { "type": "object", "required": ["url"], "properties": { "url": { "type": "string", "minLength": 1, "maxLength": 4096 } } },
+          { "type": "object", "required": ["cmd"], "properties": { "cmd": { "type": "string", "minLength": 1, "maxLength": 4096 }, "args": { "type": "array", "maxItems": 128, "items": { "type": "string", "maxLength": 4096 } } } }
+        ] },
+        "restart": { "enum": ["never", "on-failure", "always"] },
+        "scope": { "enum": ["person", "deployment"] }, "network": { "enum": ["none", "egress", "mount"] }
+      }
+    },
     "names": { "type": "object", "maxProperties": 256, "additionalProperties": { "type": "string", "maxLength": 256 } },
     "registration": {
       "type": "object", "required": ["requires", "provides"],
-      "properties": { "requires": { "$ref": "#/$defs/names" }, "provides": { "$ref": "#/$defs/names" }, "spawn": { "type": "array", "maxItems": 32, "items": { "type": "object" } } }
+      "properties": { "requires": { "$ref": "#/$defs/names" }, "provides": { "$ref": "#/$defs/names" }, "spawn": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/spawn" } } }
     },
     "manifest": {
       "type": "object", "required": ["name", "version", "requires", "provides", "settings", "envelope"],

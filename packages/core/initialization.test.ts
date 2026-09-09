@@ -64,6 +64,7 @@ await test('TE-021 every shipped package initializes twice with identical regist
           const result = await initializer.start({ entries: [entry], profile: {}, provided: {}, spaces: [], excluded: [] });
           assert.ok(result.ok, JSON.stringify(result)); assert.deepEqual(result.value.gaps, []);
           assert.deepEqual(result.value.sources, [`${entry.manifest.name}@${entry.manifest.version}`]); rows.push([...result.value.registrations]);
+          if (Object.keys(entry.manifest.provides).some(name => name.startsWith('service/'))) assert.equal(result.value.registrations.get(`${entry.manifest.name}@${entry.manifest.version}`)?.spawn?.length, 1);
         } finally { await initializer.stop(); }
       }
       assert.deepEqual(rows[0], rows[1], entry.manifest.name);

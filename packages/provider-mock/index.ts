@@ -1,5 +1,6 @@
 /** Script the complete provider wire without a model or a key; PR-014. */
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import type { RequestEvent, ResponseEvent, ModelCap } from '../../contracts/provider/types.ts';
 import type { Authority, Provider, Description } from '../../lib/provider/index.ts';
 import type { Budgets } from '../../lib/provider/index.ts';
@@ -7,6 +8,7 @@ import { ProviderEngine } from '../../lib/provider/engine.ts';
 import type { Vendor } from '../../lib/provider/engine.ts';
 
 export const stages = {};
+export const spawn = [{ id: 'provider', cmd: 'node', args: [fileURLToPath(new URL('./service.ts', import.meta.url))], env: {}, health: { rpc: 'health.probe' }, restart: 'on-failure', scope: 'deployment', network: 'none' }];
 export const settings = { requestBytes: 4 * 1024 * 1024, cacheEntries: 256, scriptEvents: 4096, maximumCost: 0.01 };
 export const model: ModelCap = {
   id: 'scripted', contextWindow: 200000, maxOutput: 4096, tools: true,
