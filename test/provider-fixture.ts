@@ -22,7 +22,7 @@ export function providerFixture(scripts: readonly (readonly ResponseEvent[])[] =
     }
   };
   const budgets = new Budgets({ name: 'daily-cost', cost, requests: 100, windowMs: 86400000 }, () => 0);
-  return { provider: new MockProvider(scripts, authority, budgets), token: issued.value, reports, identity };
+  return { provider: new MockProvider(scripts, authority, budgets), token: issued.value, reports, identity, authority, budgets };
 }
 
 export function request(prefix = 'system', extra: Record<string, unknown> = {}): RequestEvent[] {

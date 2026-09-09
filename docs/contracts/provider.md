@@ -63,9 +63,10 @@ with a pinned prefix twice produces byte-identical vendor requests for
 the prefix; `usage` arrives before `stop`; `cancel` ends the response
 within the deadline with `stop.reason = "cancel"`; unknown request
 fields and unknown `options` keys are ignored; the mock provider passes
-the same suite. For the door: it never alters a content event; a bench
-token's `begin.model` is replaced by the pinned model; the log row has
-the last `usage`.
+the same suite. Under ADR 0019 there is no door: the kernel neither sees
+nor rewrites provider content. The evaluator supplies its pinned model
+through the request configuration; the core's model.end row has the last
+`usage` (PR-015).
 
 ## Change rules
 
