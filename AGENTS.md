@@ -1,0 +1,49 @@
+# Thetis house rules
+
+- Read docs/00-proposal.md, docs/08-vocabulary.md, docs/design/generations.md,
+  and docs/design/evaluator.md before editing; read all ADRs and contracts.
+- Follow schemas over prose, conformance over paragraphs, newer ADRs over older.
+- Preserve copied design documents; record conflicts in docs/decisions-taken.md.
+- Record deviations after ADR 0020 using ADR 0001's format before implementation.
+- Leave guarantee-removing deviations Proposed and stop for a person's decision.
+- Keep the kernel ignorant of packages, vendors and counters other than cost.
+- Keep identity, boundary, secrets and generations in the kernel; budget 1,300 lines.
+- Require bubblewrap and user namespaces for environments, gateways, services and tests.
+- Pass sockets and run tokens only through inherited close-on-exec descriptors.
+- Validate process-boundary frames once against schemas; ignore unknown fields.
+- Generate committed contract types from schemas and check for stale output.
+- Enforce hook ownership in the dispatcher; freeze observers and isolate appenders.
+- Render, hash and store the prefix once; refresh only on an announced change.
+- Never persist context appends, retrieve on ordinary turns or add notes to the prefix.
+- Enforce budgets before vendor calls and again before kernel mounts.
+- Keep default.prepare code-bound; check role, code, gate and CAS in default.set.
+- Keep observed and reported logs separate; feed only observed rows to the gate.
+- Change generation state only through the documented table and log every transition.
+- Discover plain packages with readdir and import; never hard-code a package registry.
+- Put shared logic in lib when a second package needs it.
+- Depend from packages only on lib and contracts; forbid direct package imports.
+- Record exact runtime dependency versions, reasons and integrity in docs/dependencies.md.
+- Install dependencies with --ignore-scripts.
+- Stream streams; move blocking work to bounded workers or child processes.
+- Bound all queues, buffers, frames and pools with named settings and defaults.
+- Canonicalise paths and symlinks before root checks; refuse on doubt.
+- Read policy from offer/call requests; honour derived trust settings and log the choice.
+- Never fall through secret scopes or persist secret values; test logs for leaks.
+- Resolve identity in the kernel from evidence; never accept gateway-named people.
+- Never expose provider content to the kernel or evaluator materials to candidates.
+- Never restart outside the generation machine or write shared state while frozen.
+- Open modules with a defence doc comment citing an ADR or contract id.
+- Use schema-coded typed boundary errors and exact proposal gap messages.
+- Use vocabulary from docs/08-vocabulary.md.
+- Enable all requested strict TypeScript flags and only the requested ESLint rules.
+- Never use any, non-null assertions, silencing casts, ts-ignore or floating promises.
+- Make switches exhaustive; limit files to 400 lines and functions to 60 lines.
+- Explain why in comments; tie every TODO to an ADR or test id.
+- Test every conformance id, error code, matcher branch and generation guard.
+- Mock only external edges; never mock the dispatcher, matcher, machine or sandbox.
+- Keep tests independent of networks, real keys/models, wall clocks and test order.
+- Test determinism, properties, socket compatibility and promised performance limits.
+- Never remove failing conformance tests or skip them without a record.
+- Run check and test before every commit; grep kernel for package names.
+- Commit small green changes with the defended id; never rewrite main history.
+- Document milestone measurements, decisions, proposed records and next work honestly.

@@ -1,0 +1,27 @@
+/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
+export type ConnectClient = { "v": "1"; "capabilities": (string)[]; [key: string]: unknown; };
+export type ConnectKernel = { "v": "1"; "capabilities": (string)[]; "person": string; "project"?: string; "scope": "person" | "deployment"; "generation"?: number; [key: string]: unknown; };
+export type Request = { "id": string; "method": Method; "params": { [key: string]: unknown; }; [key: string]: unknown; };
+export type Response = { "id": string; "result": unknown; [key: string]: unknown; } | { "id": string; "error": { "code": string; "message": string; [key: string]: unknown; }; [key: string]: unknown; };
+export type Note = { "note": "turn.report" | "env.updated" | "run.stop" | "notice"; "params": { [key: string]: unknown; }; [key: string]: unknown; };
+export type Method = "session.list" | "session.create" | "session.submit" | "session.subscribe" | "session.cancel" | "profile.get" | "secret.has" | "package.register" | "health.probe" | "usage.report" | "token.whois" | "install" | "snapshot" | "prune" | "results.submit" | "env.status" | "env.logs" | "env.reset" | "default.prepare" | "default.set" | "identity.assert" | "secret.set";
+export type Frame = Request | Response | Note;
+export type SessionListParams = { "person"?: string; [key: string]: unknown; };
+export type SessionCreateParams = { "surface": string; "project"?: string; [key: string]: unknown; };
+export type SessionSubmitParams = { "conversation": string; "input": { [key: string]: unknown; }; [key: string]: unknown; };
+export type SessionSubscribeParams = { "conversation": string; "from"?: number; [key: string]: unknown; };
+export type SessionCancelParams = { "conversation": string; [key: string]: unknown; };
+export type ProfileGetParams = { [key: string]: unknown; };
+export type SecretHasParams = { "name": string; [key: string]: unknown; };
+export type PackageRegisterParams = { "package": string; "requires": { [key: string]: string; }; "provides": { [key: string]: string; }; "spawn"?: ({ [key: string]: unknown; })[]; [key: string]: unknown; };
+export type UsageReportParams = { "runToken": string; "callId": string; "counters": { "cost": number; [key: string]: number; }; [key: string]: unknown; };
+export type TokenWhoisParams = { "runToken": string; [key: string]: unknown; };
+export type InstallParams = { "name": string; "version": string; "hash": string; "registry"?: string; "commit"?: string; [key: string]: unknown; };
+export type SnapshotParams = { "target": string; [key: string]: unknown; };
+export type PruneParams = { "id": string; [key: string]: unknown; };
+export type ResultsSubmitParams = { "identities": { "baseline": string; "candidate": string; "suite": string; "scorer": string; "provider": string; "model": string; "seed": string; [key: string]: string; }; "rows": ({ [key: string]: unknown; })[]; [key: string]: unknown; };
+export type DefaultPrepareParams = { "digest": string; "baseline": number; [key: string]: unknown; };
+export type DefaultSetParams = { "digest": string; "baseline": number; "code": string; [key: string]: unknown; };
+export type IdentityAssertParams = { "kind": string; "id": string; "evidence": unknown; [key: string]: unknown; };
+export type SecretSetParams = { "scope": string; "name": string; "value": string; [key: string]: unknown; };
+export type Contract = Frame;

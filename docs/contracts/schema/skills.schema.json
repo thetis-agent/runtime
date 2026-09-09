@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/skills/1",
+  "title": "contract/skills 1.0.0",
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$", "maxLength": 128 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "frontmatter": {
+      "type": "object",
+      "required": ["name", "description"],
+      "properties": {
+        "name": { "$ref": "#/$defs/id", "description": "must equal the directory name" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "bytes, not characters; Thetis's brief plus when_to_use" },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string", "maxLength": 200 },
+            "tags": { "type": "array", "items": { "type": "string", "maxLength": 64 }, "maxItems": 32 },
+            "related": { "type": "array", "items": { "$ref": "#/$defs/id" }, "maxItems": 32 },
+            "universal": { "type": "string", "enum": ["true", "false"] }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "card": {
+      "type": "object",
+      "required": ["id", "pack", "version", "path", "name", "description", "tags", "related", "universal", "bytes", "contentHash", "children"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "pack": { "type": "string" },
+        "version": { "$ref": "#/$defs/version" },
+        "path": { "type": "string", "pattern": "^/packages/[^/]+@[^/]+/skills/.+/SKILL\\.md$" },
+        "name": { "$ref": "#/$defs/id" },
+        "description": { "type": "string", "maxLength": 1024 },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "related": { "type": "array", "items": { "$ref": "#/$defs/id" } },
+        "universal": { "type": "boolean" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "contentHash": { "$ref": "#/$defs/hash" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      },
+      "additionalProperties": true
+    },
+    "entry": {
+      "type": "object",
+      "required": ["id", "pack", "version", "path", "contentHash", "universal"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "pack": { "type": "string" },
+        "version": { "$ref": "#/$defs/version" },
+        "path": { "type": "string" },
+        "contentHash": { "$ref": "#/$defs/hash" },
+        "universal": { "type": "boolean" },
+        "body": { "type": "string", "description": "absent for a model-driven matcher" }
+      },
+      "additionalProperties": true
+    },
+    "pinnedEntry": {
+      "type": "object",
+      "required": ["id", "pack", "version", "contentHash"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" }, "pack": { "type": "string" },
+        "version": { "$ref": "#/$defs/version" }, "contentHash": { "$ref": "#/$defs/hash" }
+      },
+      "additionalProperties": true
+    },
+    "retrieveRequest": {
+      "type": "object",
+      "required": ["query", "k", "budget", "model"],
+      "properties": {
+        "query": { "type": "string" },
+        "k": { "type": "integer", "minimum": 0, "maximum": 64 },
+        "budget": { "type": "integer", "minimum": 0, "description": "tokens: window minus reserve minus what is already pinned" },
+        "model": { "type": "string" },
+        "activate": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      },
+      "additionalProperties": true
+    },
+    "retrieveAnswer": {
+      "type": "object",
+      "required": ["entries", "dropped"],
+      "properties": {
+        "entries": { "type": "array", "items": { "$ref": "#/$defs/entry" } },
+        "dropped": { "type": "array", "items": { "$ref": "#/$defs/id" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/frontmatter" }, { "$ref": "#/$defs/card" },
+    { "$ref": "#/$defs/retrieveRequest" }, { "$ref": "#/$defs/retrieveAnswer" }
+  ]
+}

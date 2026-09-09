@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/turn-events/1",
+  "title": "contract/turn-events 1.0.0",
+  "$defs": {
+    "content": { "$ref": "thetis://contract/provider/1#/$defs/content" },
+    "message": { "type": "object", "required": ["role", "content", "source"], "properties": {
+      "role": { "enum": ["system", "user", "assistant", "tool"] },
+      "content": { "type": "array", "items": { "$ref": "#/$defs/content" } },
+      "protected": { "type": "boolean" }, "source": { "type": "string" }, "toolCallId": { "type": "string" } }, "additionalProperties": true },
+    "envelope": { "type": "object", "required": ["type", "conversation", "turn", "iteration", "seq", "payload"], "properties": {
+      "type": { "enum": ["input", "retrieve", "context", "offer", "model.begin", "model.event", "model.end", "call", "token", "output", "end", "notice"] },
+      "conversation": { "type": "string" }, "turn": { "type": "integer", "minimum": 1 }, "iteration": { "type": "integer", "minimum": 0 }, "seq": { "type": "integer", "minimum": 0 },
+      "payload": { "type": "object" } }, "additionalProperties": true },
+    "input": { "type": "object", "required": ["text", "attachments"], "properties": { "text": { "type": "string" }, "attachments": { "type": "array", "items": { "type": "object", "required": ["name", "mime", "bytes", "hash", "path"] } }, "activate": { "type": "array", "items": { "type": "string" } }, "project": { "type": "string" } }, "additionalProperties": true },
+    "context": { "type": "object", "required": ["sections", "budget"], "properties": {
+      "sections": { "type": "object", "required": ["system", "skills", "harness", "history"], "properties": { "system": { "type": "array", "items": { "$ref": "#/$defs/message" } }, "skills": { "type": "array", "items": { "$ref": "#/$defs/message" } }, "harness": { "type": "array", "items": { "$ref": "#/$defs/message" } }, "history": { "type": "array", "items": { "$ref": "#/$defs/message" } } } },
+      "budget": { "type": "object", "required": ["window", "reserve", "used"], "properties": { "window": { "type": "integer" }, "reserve": { "type": "integer" }, "used": { "type": "integer" } } } }, "additionalProperties": true },
+    "toolDef": { "type": "object", "required": ["name", "description", "schema", "readOnly", "endsTurn", "source"], "properties": {
+      "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }, "description": { "type": "string", "maxLength": 2048 }, "schema": { "type": "object" },
+      "readOnly": { "type": "boolean" }, "endsTurn": { "type": "boolean" }, "destructive": { "type": "boolean" }, "source": { "type": "string" }, "derived": { "type": "boolean" },
+      "data": { "type": "object", "description": "domain outcome columns this tool reports (ADR 0010 §9)", "additionalProperties": { "type": "string" } } }, "additionalProperties": true },
+    "offerRequest": { "type": "object", "required": ["mode"], "properties": { "mode": { "type": "object", "required": ["readOnly", "deny"], "properties": { "readOnly": { "type": "boolean" }, "deny": { "type": "array", "items": { "type": "string" } } } }, "pinned": { "type": "array", "items": { "type": "object", "required": ["name", "hash"] } } }, "additionalProperties": true },
+    "offer": { "type": "object", "required": ["tools", "mode"], "properties": { "tools": { "type": "array", "items": { "$ref": "#/$defs/toolDef" } }, "mode": { "type": "object" } }, "additionalProperties": true },
+    "callRequest": { "type": "object", "required": ["id", "name", "args", "deadlineMs", "mode", "roots", "budget"], "properties": {
+      "id": { "type": "string" }, "name": { "type": "string" }, "args": {}, "deadlineMs": { "type": "integer", "minimum": 1 },
+      "mode": { "type": "object", "required": ["readOnly", "deny"] },
+      "roots": { "type": "array", "items": { "type": "object", "required": ["path", "mode", "space"], "properties": { "path": { "type": "string" }, "mode": { "enum": ["ro", "rw"] }, "space": { "type": "string" } } } },
+      "budget": { "type": "object", "required": ["resultBytes"], "properties": { "resultBytes": { "type": "integer" } } } }, "additionalProperties": true },
+    "callAnswer": { "type": "object", "required": ["id", "ok"], "properties": {
+      "id": { "type": "string" }, "ok": { "type": "boolean" },
+      "content": { "type": "array", "items": { "$ref": "#/$defs/content" } },
+      "error": { "type": "object", "required": ["code", "message"], "properties": { "code": { "enum": ["not-offered", "invalid-args", "deadline", "outside-roots", "read-only-mode", "not-found", "not-unique", "gone", "budget", "io", "tool"] }, "message": { "type": "string" } } },
+      "spilled": { "type": "object", "required": ["path", "bytes", "hash", "head", "tail"] },
+      "pending": { "type": "object", "required": ["handle"], "properties": { "handle": { "type": "string" } } },
+      "data": { "type": "object", "additionalProperties": { "type": ["number", "string", "boolean"] } },
+      "endsTurn": { "type": "boolean" } }, "additionalProperties": true },
+    "modelBegin": { "type": "object", "required": ["provider", "model", "request"], "properties": { "provider": { "type": "string" }, "model": { "type": "string" }, "request": { "type": "array", "items": { "$ref": "thetis://contract/provider/1#/$defs/requestEvent" } } }, "additionalProperties": true },
+    "modelEvent": { "type": "object", "required": ["event"], "properties": { "event": { "$ref": "thetis://contract/provider/1#/$defs/responseEvent" } }, "additionalProperties": true },
+    "modelEnd": { "type": "object", "required": ["stop", "usage"], "properties": { "stop": { "type": "string" }, "usage": { "type": "object", "additionalProperties": { "type": "number" } } }, "additionalProperties": true },
+    "token": { "type": "object", "required": ["text"], "properties": { "text": { "type": "string" } }, "additionalProperties": true },
+    "output": { "type": "object", "required": ["message", "usage"], "properties": { "message": { "$ref": "#/$defs/message" }, "usage": { "type": "object", "additionalProperties": { "type": "number" } } }, "additionalProperties": true },
+    "end": { "type": "object", "required": ["reason", "iterations", "compactions"], "properties": { "reason": { "enum": ["answer", "limit", "cancel", "crash", "restart"] }, "iterations": { "type": "integer" }, "compactions": { "type": "integer" } }, "additionalProperties": true },
+    "notice": { "type": "object", "required": ["source", "content"], "properties": { "source": { "type": "string" }, "handle": { "type": "string" }, "content": { "type": "array", "items": { "$ref": "#/$defs/content" } }, "wake": { "type": "boolean" } }, "additionalProperties": true },
+    "prefix": { "type": "object", "required": ["rendererVersion", "systemHash", "skills", "offer", "bytes"], "properties": {
+      "rendererVersion": { "type": "string" }, "systemHash": { "type": "string" },
+      "skills": { "type": "array", "items": { "$ref": "thetis://contract/skills/1#/$defs/pinnedEntry" } },
+      "offer": { "type": "array", "items": { "type": "object", "required": ["name", "source", "schemaHash"] } },
+      "bytes": { "type": "string", "description": "the rendered system and skills sections and the tool definitions, exactly as sent (ADR 0013)" } }, "additionalProperties": true }
+  },
+  "$ref": "#/$defs/envelope"
+}
