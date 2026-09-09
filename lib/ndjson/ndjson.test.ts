@@ -41,10 +41,21 @@ await test('KS-018 control delivery precedes ten MiB of queued bulk', () => {
 });
 
 await test('Socket queues enforce both item and byte limits', () => {
-  const queue = new PriorityFrames({ frameBytes: 4, queueFrames: 1, queueBytes: 4 });
+  const queue = new PriorityFrames({ frameBytes: 4, queueFrames: 1, queueBytes: 4, controlFrames: 0, controlBytes: 0 });
   assert.equal(queue.push(Buffer.alloc(5), false).ok, false);
   assert.equal(queue.push(Buffer.alloc(4), false).ok, true);
   assert.equal(queue.push(Buffer.alloc(0), true).ok, false);
   queue.next();
   assert.equal(queue.push(Buffer.alloc(1), true).ok, true);
+});
+
+await test('KS-018 bulk cannot consume the control byte or frame reserve', () => {
+  for (const settings of [
+    { frameBytes: 4, queueFrames: 8, queueBytes: 8, controlFrames: 1, controlBytes: 4 },
+    { frameBytes: 4, queueFrames: 2, queueBytes: 32, controlFrames: 1, controlBytes: 4 }
+  ]) {
+    const queue = new PriorityFrames(settings); const stop = Buffer.from('stop');
+    assert.ok(queue.push(Buffer.alloc(4), false).ok); assert.ok(!queue.push(Buffer.alloc(4), false).ok);
+    assert.ok(queue.push(stop, true).ok); assert.equal(queue.next(), stop);
+  }
 });
