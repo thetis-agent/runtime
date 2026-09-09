@@ -16,5 +16,5 @@
   },
   "requires": { "contract/provider": "^1.1", "secret/llm-key": "*" },
   "provides": { "service/llm-provider.openai-compatible": "1.0.0" },
-  "envelope": { "requires": [], "provides": [], "spawn": { "scope": "deployment", "network": "outbound" } }
+  "envelope": { "requires": [], "provides": [], "spawn": { "scope": "deployment", "network": "egress" } }
 }

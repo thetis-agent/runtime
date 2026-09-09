@@ -32,3 +32,8 @@
 - 2026-09-09: Keep generation admissions closed throughout driver orchestration and report post-fence failures through fresh-epoch recovery; actual sandbox tests cover migrations, format rejection, both drain modes and undo (GN-001–006).
 - 2026-09-09: A pipe error after its write has finished is peer shutdown, not failed credential delivery; preserve short migration exit status instead of racing it with SIGKILL (GN-002).
 - 2026-09-09: Reserve four request, handler and queued-frame slots plus 64 KiB of queued bytes for control; bulk saturation cannot consume health, cancellation or stop capacity (KS-017–018).
+- 2026-09-09: ADR 0027 keeps package evaluation and init in the loop worker while the environment monitor owns deadlines; a failed package is excluded before restarting initialization of the remaining profile.
+- 2026-09-09: Render initialization gaps with cap/init.within-probe for a timeout and cap/init.valid for a rejected initialization; retain the concrete failure separately for diagnosis (TE-022).
+- 2026-09-09: Collect pure init registrations before admitting stages; the kernel must still authorize the concrete requirements and spawns before runtime activation (ADR 0016).
+- 2026-09-09: Generate internal package-message types from their own schema with the same stale-file gate as the four public contracts; use the existing contract definitions for embedded notices (ADR 0006).
+- 2026-09-09: Correct the compatible adapter manifest's network mode from outbound to ADR 0005's egress vocabulary; discovery validates none, egress and mount.

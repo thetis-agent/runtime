@@ -1,6 +1,7 @@
 /** Keep contract types subordinate to schemas, including open fields; ADR 0006. */
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { relative } from 'node:path';
 
 type ObjectValue = Record<string, unknown>;
 
@@ -51,15 +52,18 @@ function render(value: unknown): string {
   return 'unknown';
 }
 
-export async function generate(name: string): Promise<string> {
-  const raw: unknown = JSON.parse(await readFile(new URL(`../../contracts/${name}/schema.json`, import.meta.url), 'utf8'));
+export async function generate(name: string, root = new URL('../../contracts/', import.meta.url)): Promise<string> {
+  const raw: unknown = JSON.parse(await readFile(new URL(`${name}/schema.json`, root), 'utf8'));
   const schema = object(raw);
   const defs = object(schema['$defs']);
   const imports = new Set<string>();
   const serialized = JSON.stringify(raw);
   for (const match of serialized.matchAll(/thetis:\/\/contract\/([^/]+)\/\d+#/gu)) {
     const contract = match[1];
-    if (contract && contract !== name) imports.add(`import type * as ${title(contract)} from '../${contract}/types.ts';`);
+    if (contract && contract !== name) {
+      const path = relative(fileURLToPath(new URL(`${name}/`, root)), fileURLToPath(new URL(`../../contracts/${contract}/types.ts`, import.meta.url)));
+      imports.add(`import type * as ${title(contract)} from '${path.startsWith('.') ? path : `./${path}`}';`);
+    }
   }
   const lines = ['/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */', ...imports];
   for (const [key, value] of Object.entries(defs)) {
@@ -72,13 +76,16 @@ export async function generate(name: string): Promise<string> {
 }
 
 export async function generateAll(check: boolean): Promise<boolean> {
-  const root = new URL('../../contracts/', import.meta.url);
   let fresh = true;
-  for (const name of await readdir(root)) {
-    const generated = await generate(name);
-    const path = new URL(`${name}/types.ts`, root);
-    if (check) fresh = (await readFile(path, 'utf8')) === generated && fresh;
-    else await writeFile(path, generated);
+  for (const directory of ['../../contracts/', '../../lib/']) {
+    const root = new URL(directory, import.meta.url);
+    for (const name of await readdir(root)) {
+      if (!(await readdir(new URL(`${name}/`, root))).includes('schema.json')) continue;
+      const generated = await generate(name, root);
+      const path = new URL(`${name}/types.ts`, root);
+      if (check) fresh = (await readFile(path, 'utf8')) === generated && fresh;
+      else await writeFile(path, generated);
+    }
   }
   return fresh;
 }

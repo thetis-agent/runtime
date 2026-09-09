@@ -51,10 +51,15 @@ Implemented and exercised so far:
   store and actual bubblewrap runner without key copies in argv or files.
 - File handlers with canonical grant checks and streamed results; the skill
   loader; Legacy's BM25/cosine/fusion ranker and hierarchical retrieval.
+- Directory discovery, settings validation and a schema-checked initialization
+  worker. A real synchronous infinite init is terminated while the monitor
+  remains responsive; the remaining packages initialize again with the failed
+  package inert. Every shipped package initializes twice in the suite.
+  Registration activation and the loop's process-level session bridge remain.
 
 Validation:
 
-- The current suite has 160 passing tests, zero failures and zero skips.
+- The current suite has 163 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.

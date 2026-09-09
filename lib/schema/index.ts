@@ -35,6 +35,11 @@ export class Schemas {
     return this.#ajv.validate(schema, value);
   }
 
+  compile<T>(schema: Record<string, unknown>): ValidateFunction<T> {
+    const id = schema['$id']; const cached = typeof id === 'string' ? this.#ajv.getSchema<T>(id) : undefined;
+    return cached ?? this.#ajv.compile<T>(schema);
+  }
+
   frame<T>(): ValidateFunction<T> {
     const cached = this.#ajv.getSchema<T>('thetis://entry/kernel-socket/1'); if (cached) return cached;
     const base = 'thetis://contract/kernel-socket/1';
