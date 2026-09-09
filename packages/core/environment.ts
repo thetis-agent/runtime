@@ -24,8 +24,10 @@ export class Environment {
   #fault = false;
   readonly #ended = Promise.withResolvers<Result<void>>();
   #closing: Promise<Result<void>> | undefined;
-  constructor(schemas: Schemas, clock: Clock, observe: (message: WorkerMessage) => void = () => {}) {
+  readonly #report: (note: Note) => Promise<Result<void>>;
+  constructor(schemas: Schemas, clock: Clock, observe: (message: WorkerMessage) => void = () => {}, report: (note: Note) => Promise<Result<void>> = () => Promise.resolve({ ok: true, value: undefined })) {
     this.#schemas = schemas; this.#clock = clock; this.#initializer = new Initializer(clock, schemas, observe);
+    this.#report = report;
     void this.#initializer.finished().then(result => { this.#ended.resolve(result); });
   }
 
@@ -44,7 +46,7 @@ export class Environment {
     const runtime = { ...setup.runtime, controlPath: endpoint.value.path };
     const accepting = endpoint.value.accepted.then(async socket => {
       if (!socket.ok) return socket;
-      this.#peer = new Peer(socket.value, this.#schemas, this.#clock, capabilities, { handlers: new Map(), note: () => Promise.resolve(failure('forbidden', 'The worker cannot send monitor authority notes.')) });
+      this.#peer = new Peer(socket.value, this.#schemas, this.#clock, capabilities, { handlers: new Map(), note: note => note.note === 'turn.report' ? this.#report(note) : Promise.resolve(failure('forbidden', 'The worker cannot send monitor authority notes.')) });
       const accepted = await this.#peer.accept({ person: runtime.person, scope: 'person' });
       if (accepted.ok) void this.#peer.finished().then(() => {
         if (!this.#closed) { this.#fault = true; this.#ended.resolve(failure('io', 'The environment worker control endpoint closed.')); }

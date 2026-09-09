@@ -17,6 +17,9 @@ export class Dispatcher {
   readonly #trusted: ReadonlySet<string>;
   readonly #owners = new Map<string, Owner>();
   readonly rows: StageRow[] = [];
+  #sink: ((row: StageRow) => void) | undefined;
+  #epoch = 0;
+  report(sink: (row: StageRow) => void): void { this.#sink = sink; this.#epoch++; }
 
   constructor(stages: readonly Stage[], schemas: Schemas, clock: Clock, trusted: ReadonlySet<string> = new Set()) {
     if (stages.length > defaults.stages) throw new Error('The stage pool is full.');
@@ -29,10 +32,10 @@ export class Dispatcher {
   observe(event: Envelope): void {
     for (const stage of this.#stages) {
       if (!stage.observe) continue;
-      const start = this.#clock.now();
+      const start = this.#clock.now(); const epoch = this.#epoch;
       try {
         const value = stage.observe(frozen(event));
-        if (value instanceof Promise) void value.catch(() => { this.#row(stage, event.type, 'observer-throw', start); });
+        if (value instanceof Promise) void value.catch(() => { this.#row(stage, event.type, 'observer-throw', start, epoch); });
         this.#row(stage, event.type, value !== undefined ? 'contract-violation' : this.#clock.now() - start > defaults.observerMs ? 'observer-budget' : 'ok', start);
       } catch { this.#row(stage, event.type, 'observer-throw', start); }
     }
@@ -42,7 +45,7 @@ export class Dispatcher {
     const result = structuredClone(context);
     for (const stage of this.#stages) {
       if (!stage.context) continue;
-      const start = this.#clock.now();
+      const start = this.#clock.now(); const epoch = this.#epoch;
       const additions: Context['sections']['harness'] = [];
       try {
         const value = stage.context(message => {
@@ -50,7 +53,7 @@ export class Dispatcher {
           if (!this.#schemas.validator('turn-events', 'message')(message)) throw new Error('The context append violates the message contract.');
           additions.push({ ...structuredClone(message), source: stage.source });
         }, frozen(result));
-        if (value instanceof Promise) void value.catch(() => { this.#row(stage, 'context', 'contract-violation', start); });
+        if (value instanceof Promise) void value.catch(() => { this.#row(stage, 'context', 'contract-violation', start, epoch); });
         if (value !== undefined) { this.#row(stage, 'context', 'contract-violation', start); continue; }
         result.sections[stage.section ?? 'harness'].push(...additions);
         this.#row(stage, 'context', 'ok', start);
@@ -65,7 +68,7 @@ export class Dispatcher {
     const start = this.#clock.now();
     try {
       const answer = await stage.retrieve(frozen(request));
-      if (this.#schemas.validator<RetrieveAnswer>('skills', 'retrieveAnswer')(answer)) return answer;
+      if (this.#schemas.validator<RetrieveAnswer>('skills', 'retrieveAnswer')(answer)) { this.#row(stage, 'retrieve', 'ok', start); return answer; }
       this.#row(stage, 'retrieve', 'contract-violation', start);
     } catch { this.#row(stage, 'retrieve', 'handler-error', start); }
     return { entries: [], dropped: [] };
@@ -88,6 +91,7 @@ export class Dispatcher {
           if (this.#owners.has(tool.name) || this.#owners.size >= defaults.tools) throw new Error('The offered set has a collision or exceeds its limit.');
           this.#owners.set(tool.name, { stage, tool });
         }
+        this.#row(stage, 'offer', 'ok', start);
       } catch { this.#row(stage, 'offer', 'handler-error', start); }
     }
     return [...this.#owners.values()].map(owner => structuredClone(owner.tool));
@@ -116,8 +120,9 @@ export class Dispatcher {
   #error(id: string, code: NonNullable<CallAnswer['error']>['code'], message: string): CallAnswer {
     return { id, ok: false, error: { code, message } };
   }
-  #row(stage: Stage, event: string, outcome: string, start: number): void {
+  #row(stage: Stage, event: string, outcome: string, start: number, epoch = this.#epoch): void {
     if (this.rows.length >= defaults.rows) this.rows.shift();
-    this.rows.push({ source: stage.source, event, outcome, elapsed: this.#clock.now() - start });
+    const row = { source: stage.source, event, outcome, elapsed: this.#clock.now() - start };
+    this.rows.push(row); if (epoch === this.#epoch) this.#sink?.(row);
   }
 }

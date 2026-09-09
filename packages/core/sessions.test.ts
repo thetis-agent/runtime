@@ -9,6 +9,20 @@ import type { Vendor } from '../../lib/provider/engine.ts';
 
 const input = { text: 'Hello', attachments: [] };
 
+await test('ADR-0014 report exhaustion returns a diagnostic refusal before a vendor request', async () => {
+  const fixture = await sessionFixture(); const reports: Record<string, unknown>[] = [];
+  try {
+    const sessions = await Sessions.open(fixture.state, { ...fixture.runtime,
+      stages: Array.from({ length: 256 }, (_, index) => ({ source: `stage-${String(index)}@1.0.0`, observe: () => undefined })),
+      report: params => { reports.push(params); return Promise.resolve({ ok: true, value: undefined }); }
+    }); assert.ok(sessions.ok);
+    const created = await sessions.value.create({ surface: 'faux' }); assert.ok(created.ok);
+    const result = await sessions.value.submit(created.value.id, input); assert.ok(!result.ok); assert.equal(result.error.code, 'budget');
+    assert.equal(fixture.provider.provider.vendorCalls, 0); assert.equal(reports.length, 1);
+    assert.ok(JSON.stringify(reports).includes('reportError')); assert.ok(!JSON.stringify(reports).includes('Hello'));
+  } finally { await fixture.close(); }
+});
+
 await test('KS-004 conversation ids resolve only inside the assigned environment state', async () => {
   const alice = await sessionFixture(); const bob = await sessionFixture();
   try {

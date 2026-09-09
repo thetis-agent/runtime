@@ -12,7 +12,7 @@ import { capabilities } from './protocol.ts';
 async function main(): Promise<Result<void>> {
   const inherited = await authority(); if (!inherited.ok) return inherited;
   const schemas = new Schemas(); await schemas.load();
-  const environment = new Environment(schemas, clock); const control = new KernelControl(environment);
+  const environment: Environment = new Environment(schemas, clock, undefined, note => peer.notify(note)); const control = new KernelControl(environment);
   const peer = new Peer(inherited.value.socket, schemas, clock, [...capabilities, 'profile.get', 'package.register', 'notice'], { handlers: control.handlers(), note: note => control.note(note) });
   try {
     const connected = await peer.connect(); if (!connected.ok) return connected;

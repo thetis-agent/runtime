@@ -15,7 +15,7 @@ import { SessionStore } from './session-store.ts';
 import type { SessionInfo } from './types.ts';
 
 export const sessionLimits = { loaded: 8, fileBytes: 1024 * 1024, inputBytes: 65536, writes: 32, reads: 8 };
-export interface Runtime { stages: readonly Stage[]; schemas: Schemas; clock: Clock; provider: Provider; options: Omit<Options, 'conversation' | 'refresh'> }
+export interface Runtime { stages: readonly Stage[]; schemas: Schemas; clock: Clock; provider: Provider; options: Omit<Options, 'conversation' | 'refresh'>; report?: (params: Record<string, unknown>) => Promise<Result<void>> }
 type Entry = { history: Conversation; loop: Loop };
 type Slot = { users: number; loading: Promise<Result<Entry>> };
 type Lease = { loading: Promise<Result<Entry>>; release(): void };
@@ -67,6 +67,11 @@ export class Sessions {
       const cancel = new AbortController(); this.#active.set(id, cancel);
       try {
         const result = await loaded.value.loop.turn(input, { ...this.#runtime.options, conversation: id }, cancel.signal);
+        const report = loaded.value.loop.report;
+        if (!report) throw new Error('A completed turn has no diagnostic report.');
+        const sent = await this.#runtime.report?.(report.ok ? report.value : { conversation: id, reportError: report.error });
+        if (sent && !sent.ok) return sent;
+        if (!report.ok) return report;
         return result.ok ? { ok: true, value: { conversation: id, head: loaded.value.history.head } } : result;
       } finally { this.#active.delete(id); }
     } finally { lease.value.release(); }
