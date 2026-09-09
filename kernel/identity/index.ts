@@ -23,6 +23,7 @@ export class Identity {
   readonly #bindings = new Map<string, string>();
   readonly #tokens = new Map<string, Run>();
   readonly #generations = new Map<string, number>();
+  readonly #pending = new Map<string, string>();
   readonly #config: IdentityConfig;
   readonly #now: () => number;
 
@@ -40,21 +41,22 @@ export class Identity {
   }
 
   issue(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {
-    this.#reap();
-    if (this.#tokens.size >= (this.#config.tokens ?? 4096)) return failure('budget', 'The run token pool is full.');
-    if (!this.#people.has(run.person)) return failure('unbound', 'The run principal does not exist.');
     const generation = this.#generations.get(run.target);
     if (generation !== undefined && run.generation !== generation) return failure('fenced', 'The run generation is no longer current.');
-    this.#generations.set(run.target, run.generation);
-    const token = randomBytes(32).toString('base64url');
-    this.#tokens.set(digest(token), { ...structuredClone(run), expires: this.#now() + (this.#config.tokenLifetimeMs ?? 86400000) });
-    return { ok: true, value: token };
+    if (generation === undefined && this.#generations.size >= (this.#config.tokens ?? 4096)) return failure('budget', 'The generation identity pool is full.');
+    const result = this.#mint(run); if (result.ok) this.#generations.set(run.target, run.generation); return result;
   }
 
-  authenticate(token: string): Result<Run, ErrorCode> {
-    const run = this.#tokens.get(digest(token));
+  stage(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {
+    this.#reap(); const current = this.#generations.get(run.target);
+    if (current === undefined || run.generation !== current + 1 || this.#pending.has(run.target)) return failure('fenced', 'The target cannot admit this provisional generation.');
+    const result = this.#mint(run); if (result.ok) this.#pending.set(run.target, digest(result.value)); return result;
+  }
+
+  authenticate(token: string, purpose: 'call' | 'probe' = 'call'): Result<Run, ErrorCode> {
+    const key = digest(token); const run = this.#tokens.get(key);
     if (!run || run.expires <= this.#now()) return failure('auth', 'The run credential is unknown or expired.');
-    if (this.#generations.get(run.target) !== run.generation) return failure('fenced', 'The run generation has been fenced.');
+    if (this.#generations.get(run.target) !== run.generation && !(purpose === 'probe' && this.#pending.get(run.target) === key)) return failure('fenced', 'The run generation has been fenced.');
     return { ok: true, value: structuredClone(run) };
   }
 
@@ -77,7 +79,10 @@ export class Identity {
     const current = this.#generations.get(target);
     if (current !== undefined && generation <= current) throw new Error('Generation fencing must advance.');
     this.#generations.set(target, generation);
+    this.#pending.delete(target);
   }
+
+  revoke(token: string): void { this.#remove(digest(token)); }
 
   principal(id: string): Principal | undefined {
     const person = this.#people.get(id);
@@ -85,6 +90,21 @@ export class Identity {
   }
 
   #reap(): void {
-    for (const [key, run] of this.#tokens) if (run.expires <= this.#now()) this.#tokens.delete(key);
+    for (const [key, run] of this.#tokens) if (run.expires <= this.#now()) this.#remove(key);
+  }
+
+  #remove(key: string): void {
+    const run = this.#tokens.get(key);
+    if (run && this.#pending.get(run.target) === key) this.#pending.delete(run.target);
+    this.#tokens.delete(key);
+  }
+
+  #mint(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {
+    this.#reap();
+    if (this.#tokens.size >= (this.#config.tokens ?? 4096)) return failure('budget', 'The run token pool is full.');
+    if (!this.#people.has(run.person)) return failure('unbound', 'The run principal does not exist.');
+    const token = randomBytes(32).toString('base64url');
+    this.#tokens.set(digest(token), { ...structuredClone(run), expires: this.#now() + (this.#config.tokenLifetimeMs ?? 86400000) });
+    return { ok: true, value: token };
   }
 }

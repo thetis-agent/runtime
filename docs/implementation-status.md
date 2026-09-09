@@ -10,6 +10,8 @@ Implemented and exercised so far:
   pinned dependencies, generated contract types and stale-generation checks.
 - Real evidence designation, principal isolation, bounded run credentials,
   expiry and generation fencing, including deliberate descriptor delegation.
+  Provisional credentials permit private startup controls but cannot admit
+  ordinary calls until commitment; abandoned candidates cannot revive.
 - Bounded NDJSON framing, asynchronous stream queues, provider Unix-socket
   client/server, and cancellation while a response is active.
 - Negotiated kernel socket transport with schema-checked method parameters,
@@ -31,6 +33,8 @@ Implemented and exercised so far:
 - A bubblewrap runner with a pre-exec cgroup gate, inherited descriptors,
   read-only root mounts, bounded writable filesystems and verified memory
   enforcement. Network egress and persistent-volume provisioning remain.
+  The runner also waits for cgroup freezer acknowledgment before state
+  copying; a real queued-write test verifies freeze/thaw behavior.
 - Registered secrets delivered through a private spawn pipe and set in the
   service environment before entry evaluation, tested with the encrypted
   store and actual bubblewrap runner without key copies in argv or files.
@@ -39,7 +43,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 138 passing tests, zero failures and zero skips.
+- The current suite has 142 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
