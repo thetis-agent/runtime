@@ -13,3 +13,6 @@
 - 2026-09-09: Keep universal and activated skill entries present without `body` when the body budget is exhausted; retain their description as an ignored extension, satisfying SK-010 and TE-008 without exceeding TE-005.
 - 2026-09-09: Resolve file symlinks to the destination grant; a read may cross from rw to ro but a write may not, and dangling links are refused (TE-019).
 - 2026-09-09: ADR 0023 restores a fenced generation's pins and snapshot under a fresh number; rollback never revives old or failed-candidate credentials.
+- 2026-09-09: ADR 0024 supplies schema-defined assistant tool-call history through provider and turn-events contract 1.1.0; the copied 1.0 schemas remain the historical baseline.
+- 2026-09-09: Compaction retains an assistant call and its tool results as a group whenever either survives; history limits remain a projection and cannot strand a tool result (ADR 0024).
+- 2026-09-09: The provider socket uses a separate schema-defined `{v, runToken}` prelude before describe or one request stream; credentials never enter model.begin, conversation history or vendor requests. The design requires token presentation but leaves its framing unspecified.

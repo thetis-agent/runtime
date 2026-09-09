@@ -35,3 +35,14 @@ await test('TE-030 compaction preserves protected entries and leaves source hist
   assert.equal(view.length, 3); assert.deepEqual(view[0], history[0]);
   assert.equal(history.length, 20); assert.notEqual(view[0], history[0]);
 });
+
+await test('ADR-0024 compaction retains call/result groups when either side survives', () => {
+  const history: Message[] = [
+    { role: 'user', source: 'test', content: [{ type: 'text', text: 'request' }] },
+    { role: 'assistant', source: 'test', content: [{ type: 'tool_call', id: 'call', name: 'read_path', args: '{}' }] },
+    { role: 'tool', source: 'test', toolCallId: 'call', content: [{ type: 'text', text: 'result' }] }
+  ];
+  assert.deepEqual(compact(history, 1), history.slice(1));
+  const protectedAssistant = history[1]; assert.ok(protectedAssistant); protectedAssistant.protected = true;
+  assert.deepEqual(compact(history, 0), history.slice(1));
+});

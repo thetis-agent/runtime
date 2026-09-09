@@ -1,5 +1,5 @@
 /** Enforce call-time budgets before vendor access; PR-010, ADR 0020. */
-import type { RequestEvent, ResponseEvent, ModelCap } from '../../contracts/provider/types.ts';
+import type { RequestEvent, ResponseEvent, DescribeResponse } from '../../contracts/provider/types.ts';
 import type { Result } from '../schema/index.ts';
 import { failure } from '../schema/index.ts';
 
@@ -9,8 +9,9 @@ export interface Authority {
   whois(token: string): Promise<Result<Caller, 'auth'>>;
   report(token: string, callId: string, counters: Record<string, number>): Promise<Result<void, 'auth'>>;
 }
+export type Description = Result<DescribeResponse, Extract<ResponseEvent, { type: 'error' }>['code']>;
 export interface Provider {
-  describe(): Promise<{ models: ModelCap[] }>;
+  describe(): Promise<Description>;
   run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncIterable<ResponseEvent>;
 }
 

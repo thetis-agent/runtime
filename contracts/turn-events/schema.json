@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "thetis://contract/turn-events/1",
-  "title": "contract/turn-events 1.0.0",
+  "title": "contract/turn-events 1.1.0",
   "$defs": {
     "content": { "$ref": "thetis://contract/provider/1#/$defs/content" },
     "message": { "type": "object", "required": ["role", "content", "source"], "properties": {

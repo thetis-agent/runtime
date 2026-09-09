@@ -50,6 +50,7 @@ export class Dispatcher {
           if (!this.#schemas.validator('turn-events', 'message')(message)) throw new Error('The context append violates the message contract.');
           additions.push({ ...structuredClone(message), source: stage.source });
         }, frozen(result));
+        if (value instanceof Promise) void value.catch(() => { this.#row(stage, 'context', 'contract-violation', start); });
         if (value !== undefined) { this.#row(stage, 'context', 'contract-violation', start); continue; }
         result.sections[stage.section ?? 'harness'].push(...additions);
         this.#row(stage, 'context', 'ok', start);
@@ -96,6 +97,8 @@ export class Dispatcher {
     const owner = this.#owners.get(request.name);
     if (!owner) return this.#error(request.id, 'not-offered', `${request.name} was not offered.`);
     if (request.mode['readOnly'] === true && !owner.tool.readOnly) return this.#error(request.id, 'read-only-mode', `${request.name} is not available in read-only mode.`);
+    const deny = request.mode['deny'];
+    if (Array.isArray(deny) && (deny.includes(request.name) || deny.includes(`${owner.stage.source.split('@')[0] ?? owner.stage.source}/${request.name}`))) return this.#error(request.id, 'read-only-mode', `${request.name} is not available in this mode.`);
     if (!this.#schemas.arguments(owner.tool.schema, request.args)) return this.#error(request.id, 'invalid-args', `${request.name} arguments do not match the offered schema.`);
     if (!owner.stage.call) return this.#error(request.id, 'gone', `${request.name} no longer has a handler.`);
     const controller = new AbortController();

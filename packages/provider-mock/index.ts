@@ -1,7 +1,7 @@
 /** Script the complete provider wire without a model or a key; PR-014. */
 import { createHash } from 'node:crypto';
 import type { RequestEvent, ResponseEvent, ModelCap } from '../../contracts/provider/types.ts';
-import type { Authority, Provider } from '../../lib/provider/index.ts';
+import type { Authority, Provider, Description } from '../../lib/provider/index.ts';
 import type { Budgets } from '../../lib/provider/index.ts';
 import { ProviderEngine } from '../../lib/provider/engine.ts';
 import type { Vendor } from '../../lib/provider/engine.ts';
@@ -27,7 +27,7 @@ class ScriptedVendor implements Vendor {
     this.#scripts = structuredClone(scripts);
   }
 
-  describe(): Promise<{ models: ModelCap[] }> { return Promise.resolve({ models: [structuredClone(model)] }); }
+  describe(): Promise<Description> { return Promise.resolve({ ok: true, value: { models: [structuredClone(model)] } }); }
 
   estimate(): number {
     return Math.max(settings.maximumCost, ...Array.from(this.#scripts[this.calls] ?? [], event => event.type === 'usage' ? event.counters.cost : 0));
@@ -88,7 +88,7 @@ export class MockProvider implements Provider {
   }
   get capturedPrefixes(): readonly string[] { return [...this.#vendor.capturedPrefixes]; }
   get vendorCalls(): number { return this.#vendor.calls; }
-  describe(): Promise<{ models: ModelCap[] }> { return this.#engine.describe(); }
+  describe(): Promise<Description> { return this.#engine.describe(); }
   run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncIterable<ResponseEvent> {
     return this.#engine.run(request, token, signal);
   }
