@@ -31,3 +31,4 @@
 - 2026-09-09: Retain verified pin copies for undo, compare state trees in bounded workers, and deliver discarded paths and interrupted conversation ids in env.updated; the runtime must persist their conversation notices (GN-001, GN-006).
 - 2026-09-09: Keep generation admissions closed throughout driver orchestration and report post-fence failures through fresh-epoch recovery; actual sandbox tests cover migrations, format rejection, both drain modes and undo (GN-001–006).
 - 2026-09-09: A pipe error after its write has finished is peer shutdown, not failed credential delivery; preserve short migration exit status instead of racing it with SIGKILL (GN-002).
+- 2026-09-09: Reserve four request, handler and queued-frame slots plus 64 KiB of queued bytes for control; bulk saturation cannot consume health, cancellation or stop capacity (KS-017–018).

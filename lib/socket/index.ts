@@ -9,10 +9,11 @@ import { FrameWriter } from '../ndjson/writer.ts';
 import type { ConnectClient, ConnectKernel, Frame, Request, Response, Note, Method } from '../../contracts/kernel-socket/types.ts';
 import { response, note } from './guards.ts';
 
-export const limits = { capabilities: 128, pending: 128, handlers: 32, timeoutMs: 10000, incomingBytes: 4 * 1024 * 1024, windowMs: 1000 };
+export const limits = { capabilities: 128, pending: 128, handlers: 32, controlReserve: 4, timeoutMs: 10000, incomingBytes: 4 * 1024 * 1024, windowMs: 1000 };
 export type Handler = (params: Record<string, unknown>) => Promise<Result<unknown>>;
 export interface Callbacks { handlers: ReadonlyMap<Method, Handler>; note(value: Note): Promise<Result<void>> }
 type Pending = { finish(result: Result<unknown>): void; timer: AbortController };
+const control = (method: Method): boolean => method === 'health.probe' || method === 'session.cancel';
 
 export class Peer {
   readonly #socket: Socket;
@@ -69,11 +70,11 @@ export class Peer {
   async call(method: Method, params: Record<string, unknown>, timeoutMs = limits.timeoutMs): Promise<Result<unknown>> {
     if (this.#closed) return failure('io', 'The socket is closed.');
     if (!this.#common.has(method)) return failure('unsupported', `${method} was not negotiated.`);
-    if (this.#pending.size >= limits.pending) return failure('budget', 'The socket request pool is full.');
+    if (this.#pending.size >= limits.pending - (control(method) ? 0 : limits.controlReserve)) return failure('budget', 'The socket request pool is full.');
     const id = String(++this.#id); const timer = new AbortController();
     const answer = new Promise<Result<unknown>>(resolve => { this.#pending.set(id, { finish: resolve, timer }); });
     const deadline = this.#clock.wait(timeoutMs, timer.signal).then(() => { if (!timer.signal.aborted) this.#complete(id, failure('deadline', `${method} exceeded its deadline.`)); });
-    void this.#writer.write({ id, method, params }, method === 'session.cancel' || method === 'health.probe').then(result => { if (!result.ok) this.#complete(id, result); });
+    void this.#writer.write({ id, method, params }, control(method)).then(result => { if (!result.ok) this.#complete(id, result); });
     const result = await answer; timer.abort(); await deadline;
     return result;
   }
@@ -98,7 +99,7 @@ export class Peer {
           if (!this.#common.has(frame.note)) return failure('unsupported', `${frame.note} was not negotiated.`);
           const observed = await this.#callbacks.note(frame); if (!observed.ok) return observed;
         } else {
-          if (this.#handlers.size >= limits.handlers) { await this.#writer.write({ id: frame.id, error: { code: 'budget', message: 'The socket handler pool is full.' } }, true); continue; }
+          if (this.#handlers.size >= limits.handlers - (control(frame.method) ? 0 : limits.controlReserve)) { await this.#writer.write({ id: frame.id, error: { code: 'budget', message: 'The socket handler pool is full.' } }, true); continue; }
           const handling = this.#request(frame); this.#handlers.add(handling);
           void handling.then(result => { this.#handlers.delete(handling); if (!result.ok) { this.#fault = result; this.close(); } });
         }
@@ -119,7 +120,7 @@ export class Peer {
     const handler = this.#common.has(frame.method) ? this.#callbacks.handlers.get(frame.method) : undefined;
     try {
       const result = handler ? await handler(frame.params) : failure('unsupported', `${frame.method} was not negotiated.`);
-      return await this.#writer.write(result.ok ? { id: frame.id, result: result.value } : { id: frame.id, error: result.error }, frame.method === 'health.probe' || frame.method === 'session.cancel');
+      return await this.#writer.write(result.ok ? { id: frame.id, result: result.value } : { id: frame.id, error: result.error }, control(frame.method));
     } catch { return this.#writer.write({ id: frame.id, error: { code: 'io', message: 'The request handler failed.' } }, true); }
   }
 

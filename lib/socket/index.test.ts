@@ -1,7 +1,7 @@
 /** Pin negotiation, validation and deadlines against a real socket; KS-002, KS-021. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Peer } from './index.ts';
+import { Peer, limits } from './index.ts';
 import type { Handler } from './index.ts';
 import type { Method } from '../../contracts/kernel-socket/types.ts';
 import { Schemas } from '../schema/index.ts';
@@ -25,6 +25,25 @@ await test('KS-002 only negotiated methods reach the handler', async () => {
     assert.deepEqual(await f.client.call('health.probe', {}), { ok: true, value: { ready: true } });
     const refused = await f.client.call('profile.get', {}); assert.ok(!refused.ok); assert.equal(refused.error.code, 'unsupported'); assert.equal(calls, 1);
   } finally { await f.close(); }
+});
+
+await test('KS-017 saturated bulk handler and request pools retain health and cancel capacity', async () => {
+  const held = Promise.withResolvers<{ ok: true; value: null }>(); const saturated = Promise.withResolvers<undefined>(); let count = 0;
+  const f = await fixture(new Map<Method, Handler>([
+    ['profile.get', () => { if (++count === limits.handlers - limits.controlReserve) saturated.resolve(undefined); return held.promise; }],
+    ['health.probe', () => Promise.resolve({ ok: true, value: { ready: true } })],
+    ['session.cancel', () => Promise.resolve({ ok: true, value: null })]
+  ]), ['profile.get', 'health.probe', 'session.cancel']);
+  const requests: Promise<unknown>[] = [];
+  try {
+    for (let index = 0; index < limits.handlers - limits.controlReserve; index++) requests.push(f.client.call('profile.get', {}));
+    await saturated.promise;
+    const refused = await f.client.call('profile.get', {}); assert.ok(!refused.ok); assert.equal(refused.error.code, 'budget');
+    assert.ok((await f.client.call('health.probe', {})).ok); assert.ok((await f.client.call('session.cancel', { conversation: 'held' })).ok);
+    for (let index = requests.length; index < limits.pending - limits.controlReserve; index++) requests.push(f.client.call('profile.get', {}));
+    const full = await f.client.call('profile.get', {}); assert.ok(!full.ok); assert.equal(full.error.code, 'budget');
+    assert.ok((await f.client.call('health.probe', {})).ok);
+  } finally { held.resolve({ ok: true, value: null }); await Promise.all(requests); await f.close(); }
 });
 
 await test('KS-021 valid unknown request fields survive entry validation', async () => {

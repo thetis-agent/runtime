@@ -2,7 +2,7 @@
 import { failure } from '../schema/index.ts';
 import type { Result } from '../schema/index.ts';
 
-export const defaults = { frameBytes: 1024 * 1024, queueFrames: 256, queueBytes: 16 * 1024 * 1024 };
+export const defaults = { frameBytes: 1024 * 1024, queueFrames: 256, queueBytes: 16 * 1024 * 1024, controlFrames: 4, controlBytes: 65536 };
 
 export async function* frames(
   source: AsyncIterable<Uint8Array>, frameBytes = defaults.frameBytes
@@ -58,7 +58,7 @@ export class PriorityFrames {
   constructor(limits = defaults) { this.limits = limits; }
 
   push(frame: Buffer, control: boolean): Result<void, 'budget'> {
-    if (this.#bytes + frame.length > this.limits.queueBytes || this.#control.length + this.#bulk.length >= this.limits.queueFrames) {
+    if (this.#bytes + frame.length > this.limits.queueBytes - (control ? 0 : this.limits.controlBytes) || this.#control.length + this.#bulk.length >= this.limits.queueFrames - (control ? 0 : this.limits.controlFrames)) {
       return failure('budget', 'The socket queue is full.');
     }
     (control ? this.#control : this.#bulk).push(frame);
