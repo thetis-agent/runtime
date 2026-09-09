@@ -1,0 +1,51 @@
+{
+  "name": "tools-files",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./index.ts",
+  "stages": "./index.ts",
+  "requires": {
+    "contract/turn-events": "^1"
+  },
+  "provides": {},
+  "envelope": {
+    "requires": [],
+    "provides": [],
+    "spawn": {
+      "scope": "person",
+      "network": "none"
+    }
+  },
+  "settings": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "editBytes": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 4194304
+      },
+      "maxResults": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1000
+      },
+      "entries": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 10000
+      },
+      "depth": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 32
+      },
+      "lineBytes": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1048576
+      }
+    },
+    "additionalProperties": false
+  }
+}
