@@ -28,7 +28,7 @@ observer; **C** the core; **G** a gateway (as a stage).
 | TE-021 | H | `init` run twice with the same settings and profile | init | identical `register` calls, or none |
 | TE-022 | H | `init` that exceeds the probe budget | process start | the package is inert; one line in the conversation; the environment is healthy |
 | TE-023 | H | `shutdown` with a child process still running | restart | the child is gone after the bounded wait; the row says `killed` |
-| TE-024 | H | a handler's child | spawned by the handler | it holds no kernel socket descriptor and no run token in its environment |
+| TE-024 | H | a handler's ordinary child | spawned through the standard child path | it inherits no kernel socket descriptor or run token; deliberate delegation remains the same run principal and is fenced with that run (ADR 0021, operator-approved) |
 | TE-025 | O | an observer that throws | any event | the event proceeds; the observer's row records the throw; no payload changed |
 | TE-026 | O | an observer that mutates the payload it was given | any event | the mutation is not visible to the next stage (observers get a frozen copy) |
 | TE-027 | C | a model exchange | model.begin | `request` equals what the provider socket received, event for event |
