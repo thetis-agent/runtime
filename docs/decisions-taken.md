@@ -16,3 +16,5 @@
 - 2026-09-09: ADR 0024 supplies schema-defined assistant tool-call history through provider and turn-events contract 1.1.0; the copied 1.0 schemas remain the historical baseline.
 - 2026-09-09: Compaction retains an assistant call and its tool results as a group whenever either survives; history limits remain a projection and cannot strand a tool result (ADR 0024).
 - 2026-09-09: The provider socket uses a separate schema-defined `{v, runToken}` prelude before describe or one request stream; credentials never enter model.begin, conversation history or vendor requests. The design requires token presentation but leaves its framing unspecified.
+- 2026-09-09: A writable grant requires filesystem capacity no larger than its declared storage budget; the runner refuses ordinary unbounded directories. Fixed-size volumes or bounded filesystems supply the quota without filesystem-specific kernel logic (ADR 0005 §4).
+- 2026-09-09: The test supervisor receives delegated cgroup controls and writable private procfs to launch real nested sandboxes; candidate processes receive neither those controls nor writable procfs (TE-024).
