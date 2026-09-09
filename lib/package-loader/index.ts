@@ -8,6 +8,7 @@ import type { Schemas, Result } from '../schema/index.ts';
 import { resolvePath } from '../files/index.ts';
 import { readBounded } from '../files/read-bounded.ts';
 import { matches, gap } from '../semver-match/index.ts';
+import { configured } from '../schema/settings.ts';
 import type { Entry, Manifest } from './types.ts';
 
 export const limits = { packages: 256, manifestBytes: 65536, messageBytes: 65536, messages: 256, probeMs: 10000 };
@@ -32,16 +33,10 @@ export async function discover(root: string, state: string, settings: Readonly<R
       if (!check(manifest) || !matches(manifest.version, '*')) return failure('invalid-args', `${name} has an invalid package manifest.`);
       if (entries.some(entry => entry.manifest.name === manifest.name)) return failure('collision', `${manifest.name} occurs in more than one package directory.`);
       const entry = await resolvePath('index.ts', roots); if (!entry.ok) return entry;
-      const values = configured(manifest, settings[manifest.name] ?? {});
+      const values = configured(manifest.settings, settings[manifest.name] ?? {});
       if (!schemas.arguments(manifest.settings, values)) return failure('gap', gap(manifest, `setting/${manifest.name}`, '*'));
       entries.push({ path: entry.value, manifest, settings: values, state: join(state, createHash('sha256').update(manifest.name).digest('hex')) });
     }
     return { ok: true, value: entries };
   } catch { return failure('io', 'The package directory or its manifests could not be read.'); }
-}
-
-function configured(manifest: Manifest, input: Record<string, unknown>): Record<string, unknown> {
-  const output = structuredClone(input); const properties = manifest.settings['properties'];
-  if (isObject(properties)) for (const [name, schema] of Object.entries(properties)) if (output[name] === undefined && isObject(schema) && 'default' in schema) output[name] = structuredClone(schema['default']);
-  return output;
 }

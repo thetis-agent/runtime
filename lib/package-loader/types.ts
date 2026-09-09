@@ -1,7 +1,8 @@
 /** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
 import type * as TurnEvents from '../../contracts/turn-events/types.ts';
+export type Spawn = { "id": string; "cmd": string; "args"?: (string)[]; "env"?: { [key: string]: string; }; "health": { "rpc": string; [key: string]: unknown; } | { "url": string; [key: string]: unknown; } | { "cmd": string; "args"?: (string)[]; [key: string]: unknown; }; "restart": "never" | "on-failure" | "always"; "scope": "person" | "deployment"; "network": "none" | "egress" | "mount"; [key: string]: unknown; };
 export type Names = { [key: string]: string; };
-export type Registration = { "requires": Names; "provides": Names; "spawn"?: ({ [key: string]: unknown; })[]; [key: string]: unknown; };
+export type Registration = { "requires": Names; "provides": Names; "spawn"?: (Spawn)[]; [key: string]: unknown; };
 export type Manifest = { "name": string; "version": string; "requires": Names; "provides": Names; "settings": { [key: string]: unknown; }; "envelope": { "requires": (string)[]; "provides": (string)[]; "spawn": { "scope": "person" | "deployment"; "network": "none" | "egress" | "mount"; [key: string]: unknown; }; [key: string]: unknown; }; [key: string]: unknown; };
 export type Entry = { "path": string; "manifest": Manifest; "settings": { [key: string]: unknown; }; "state": string; [key: string]: unknown; };
 export type Setup = { "entries": (Entry)[]; "profile": { [key: string]: unknown; }; "provided": { [key: string]: unknown; }; "spaces": ({ "path": string; "mode": "ro" | "rw"; "space": string; [key: string]: unknown; })[]; "excluded": (string)[]; [key: string]: unknown; };

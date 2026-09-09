@@ -45,3 +45,5 @@
 - 2026-09-09: Shared service startup reads its budget rule from the inherited endpoint's profile.get response, separately from adapter settings; the service owns an epoch-clock checkpoint in its isolated state (PR-010, ADR 0020).
 - 2026-09-09: Quiescing pauses service admission without removing its listening endpoint; an announced env.updated resume reopens admission after a rollback, while health waits for startup and drain acknowledgement (GN-004).
 - 2026-09-09: Encode a successful void socket operation as result:null; omitting result violates the response schema and prevented real usage-report acknowledgements (KS-021).
+- 2026-09-09: Merge exported spawns with init registrations before activation; bound the combined list, reject duplicate ids and enforce one envelope and declared secret references for both sources. Omitted args and env mean empty collections, matching the evaluator's documented spawn (ADR 0016).
+- 2026-09-09: Materialize adapter defaults from its package settings schema through the same shared helper as discovery; reject policy fields in adapter settings and keep the declared LLM_KEY spawn delivery separate (PR-010, PR-013).

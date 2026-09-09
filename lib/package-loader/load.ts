@@ -5,7 +5,7 @@ import { failure, isObject } from '../schema/index.ts';
 import type { Schemas, Result } from '../schema/index.ts';
 import type { Stage } from '../events/stages.ts';
 import { frozen } from '../events/stages.ts';
-import { envelope } from '../semver-match/index.ts';
+import { Register } from './registration.ts';
 import type { Notice } from '../../contracts/turn-events/types.ts';
 import type { Entry, Setup, Registration, WorkerMessage } from './types.ts';
 import { validator } from './index.ts';
@@ -25,7 +25,7 @@ export async function load(entry: Entry, setup: Setup, schemas: Schemas, send: S
     const init = module['init'] ?? exported['init'];
     if (init !== undefined && !callable(init)) return failure('invalid-args', `${source} exports an invalid init.`);
     if (callable(init) && await init(frozen(setup.profile), Object.freeze({ ...context.value, register: context.register, emit: context.emit })) !== undefined) return failure('invalid-args', `${source} init returned a value outside its contract.`);
-    const registration = context.registration(); if (!registration.ok) return registration;
+    const registration = context.registration(module['spawn']); if (!registration.ok) return registration;
     if (registration.value) send({ type: 'registration', source, registration: registration.value });
     return normalize(source, exported, Object.keys(entry.manifest.provides).some(name => name.startsWith('mount/')));
   } catch { return failure('io', `${source} could not initialize.`); }
@@ -34,19 +34,12 @@ export async function load(entry: Entry, setup: Setup, schemas: Schemas, send: S
 async function initialization(entry: Entry, setup: Setup, schemas: Schemas, send: Send) {
   const source = `${entry.manifest.name}@${entry.manifest.version}`;
   const check = await validator<Registration>(schemas, 'registration');
-  let registration: Result<Registration | undefined, 'envelope' | 'invalid-args'> = { ok: true, value: undefined }; let registered = false;
+  const register = new Register(entry, check);
   return {
-    registration: () => registration,
+    registration: (spawn: unknown) => register.finish(spawn),
     value: frozen({ settings: entry.settings, provided: setup.provided, spaces: setup.spaces, state: entry.state }),
     // Functions are attached separately because structuredClone deliberately rejects executable values.
-    register: (value: unknown): Result<void, 'envelope' | 'invalid-args'> => {
-      if (registered) { registration = failure('envelope', `${source} registered more than once.`); return registration; } registered = true;
-      if (!check(value)) { registration = failure('invalid-args', `${source} registered an invalid shape.`); return registration; }
-      const requires = envelope(Object.keys(value.requires), entry.manifest.envelope.requires); const provides = envelope(Object.keys(value.provides), entry.manifest.envelope.provides);
-      const spawn = value.spawn?.every(item => item['scope'] === entry.manifest.envelope.spawn.scope && item['network'] === entry.manifest.envelope.spawn.network) ?? true;
-      if (!requires.ok || !provides.ok || !spawn) { registration = !requires.ok ? requires : !provides.ok ? provides : failure('envelope', `${source} registered a spawn outside its envelope.`); return registration; }
-      registration = { ok: true, value: structuredClone(value) }; return { ok: true, value: undefined };
-    },
+    register: (value: unknown) => register.register(value),
     emit: (value: unknown): void => {
       if (!isObject(value)) throw new Error('A notice must be an object.');
       const notice = { ...value, source };
