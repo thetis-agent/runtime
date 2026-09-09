@@ -1,6 +1,9 @@
 /** Authenticate outside prompt events and read cancellation beside streamed responses; PR-001–003, ADR 0019. */
-import { createServer } from 'node:net';
-import type { Server, Socket } from 'node:net';
+import type { Socket } from 'node:net';
+import { clock } from '../events/index.ts';
+import type { Clock } from '../events/index.ts';
+import { Service, serviceLimits } from './lifecycle.ts';
+import type { Connection } from './lifecycle.ts';
 import { Queue } from '../events/queue.ts';
 import { socketFrames, send } from '../ndjson/socket.ts';
 import type { Schemas, Result } from '../schema/index.ts';
@@ -9,9 +12,8 @@ import type { Provider } from './index.ts';
 import type { ConnectRequest, DescribeRequest, RequestEvent, ResponseEvent } from '../../contracts/provider/types.ts';
 
 type Reader = ReturnType<typeof socketFrames>;
-export const limits = { connections: 64 };
 
-async function read(reader: Reader, queue: Queue<RequestEvent>, controller: AbortController, schemas: Schemas): Promise<Result<void>> {
+async function read(reader: Reader, queue: Queue<RequestEvent>, controller: AbortController, schemas: Schemas, admitted: () => void): Promise<Result<void>> {
   const validate = schemas.validator<RequestEvent>('provider', 'requestEvent');
   let ended = false; let id: string | undefined;
   try {
@@ -26,7 +28,7 @@ async function read(reader: Reader, queue: Queue<RequestEvent>, controller: Abor
       if (ended) return failure('provider', 'The connection already has a completed request.');
       if (event.type === 'begin') id = event.id;
       const queued = queue.push(event, Buffer.byteLength(JSON.stringify(event))); if (!queued.ok) return queued;
-      if (event.type === 'end') { ended = true; queue.close(); }
+      if (event.type === 'end') { ended = true; queue.close(); admitted(); }
     }
     controller.abort(); return { ok: true, value: undefined };
   } catch {
@@ -36,10 +38,11 @@ async function read(reader: Reader, queue: Queue<RequestEvent>, controller: Abor
   finally { queue.close(); }
 }
 
-async function exchange(socket: Socket, reader: Reader, provider: Provider, token: string, schemas: Schemas): Promise<Result<void>> {
+async function exchange(connection: Connection, reader: Reader, provider: Provider, token: string, schemas: Schemas): Promise<Result<void>> {
+  const { socket } = connection;
   const queue = new Queue<RequestEvent>(); const controller = new AbortController();
   const state: { outcome: Result<void> } = { outcome: { ok: true, value: undefined } };
-  const reading = read(reader, queue, controller, schemas).then(result => {
+  const reading = read(reader, queue, controller, schemas, connection.admitted).then(result => {
     if (!result.ok) { state.outcome = result; controller.abort(); }
     return result;
   });
@@ -62,7 +65,8 @@ async function refuse(socket: Socket, code: Extract<ResponseEvent, { type: 'erro
   return failure(code, message);
 }
 
-async function serve(socket: Socket, provider: Provider, schemas: Schemas): Promise<Result<void>> {
+async function serve(connection: Connection, provider: Provider, schemas: Schemas): Promise<Result<void>> {
+  const { socket } = connection;
   const reader = socketFrames(socket);
   const first = await reader.next();
   const connect = schemas.validator<ConnectRequest>('provider', 'connectRequest');
@@ -77,17 +81,11 @@ async function serve(socket: Socket, provider: Provider, schemas: Schemas): Prom
     return !description.ok ? description : sent;
   }
   async function* restored(): Reader { yield next.value; yield* reader; }
-  return exchange(socket, restored(), provider, token, schemas);
+  return exchange(connection, restored(), provider, token, schemas);
 }
 
-export async function listen(path: string, provider: Provider, schemas: Schemas, observe: (outcome: Result<void>) => void): Promise<Result<Server, 'provider'>> {
-  const server = createServer(socket => {
-    socket.on('error', () => { socket.destroy(); });
-    void serve(socket, provider, schemas).then(observe, () => { socket.destroy(); observe(failure('provider', 'The provider connection failed.')); });
-  });
-  server.maxConnections = limits.connections;
-  return new Promise(resolve => {
-    server.on('error', () => { resolve(failure('provider', 'The provider socket could not be opened.')); });
-    server.listen(path, () => { resolve({ ok: true, value: server }); });
-  });
+export async function listen(path: string, provider: Provider, schemas: Schemas, observe: (outcome: Result<void>) => void, time: Clock = clock, limits = serviceLimits): Promise<Result<Service, 'provider'>> {
+  const service = new Service(time, limits);
+  const opened = await service.open(path, connection => serve(connection, provider, schemas), observe);
+  return opened.ok ? { ok: true, value: service } : opened;
 }

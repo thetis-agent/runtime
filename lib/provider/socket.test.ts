@@ -18,7 +18,7 @@ async function fixture() {
   const opened = await listen(path, provider.provider, schemas, outcome => { outcomes.push(outcome); }); assert.ok(opened.ok);
   const client = new ProviderClient(path, schemas, provider.token);
   return { ...provider, client, outcomes, async close() {
-    await new Promise<void>((resolve, reject) => { opened.value.close(error => { if (error) reject(error); else resolve(); }); });
+    assert.ok((await opened.value.stop()).ok);
     await rm(root, { recursive: true, force: true });
   } };
 }
@@ -90,7 +90,7 @@ await test('PR-004 a mid-stream control cancellation produces a terminal cancel'
     assert.deepEqual(events.at(-1), { type: 'stop', reason: 'cancel' });
     assert.equal(events.filter(event => event.type === 'stop').length, 1);
   } finally {
-    await new Promise<void>((resolve, reject) => { opened.value.close(error => { if (error) reject(error); else resolve(); }); });
+    assert.ok((await opened.value.stop()).ok);
     await rm(root, { recursive: true, force: true });
   }
 });
