@@ -2,6 +2,7 @@
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { readFile } from 'node:fs/promises';
 import type { ValidateFunction } from 'ajv';
+export type { ValidateFunction as Validator } from 'ajv';
 
 import { failure, isObject } from '../result/index.ts';
 import type { Result } from '../result/index.ts';

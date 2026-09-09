@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/conversations/1",
+  "$defs": {
+    "sessionInfo": {
+      "type": "object", "required": ["id", "surface"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+        "surface": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "project": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    }
+  },
+  "$ref": "#/$defs/sessionInfo"
+}
