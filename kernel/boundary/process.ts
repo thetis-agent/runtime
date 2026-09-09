@@ -1,5 +1,6 @@
 /** Launch and probe only credentialled sandbox processes, observing their actual exit; GN-003, KS-017. */
 import type { Method } from '../../contracts/kernel-socket/types.ts';
+import { randomUUID } from 'node:crypto';
 import type { Schemas, Result } from '../../lib/schema/index.ts';
 import { failure, isObject } from '../../lib/schema/index.ts';
 import type { Clock } from '../../lib/events/index.ts';
@@ -56,8 +57,21 @@ export class Process {
     if (this.#active.size >= limits.pending) return failure('budget', 'The generation request pool is full.');
     const conversation = method === 'session.submit' && typeof params['conversation'] === 'string' ? params['conversation'] : undefined;
     if (conversation && Buffer.byteLength(conversation) > limits.identifierBytes) return failure('budget', 'The conversation identifier exceeds its byte limit.');
-    const result = this.control.call(method, params, limits.turnMs);
+    const result = method === 'session.submit' ? this.#turn(params, conversation) : this.control.call(method, params, limits.turnMs);
     this.#active.set(result, conversation); try { return await result; } finally { this.#active.delete(result); }
+  }
+
+  async #turn(params: Record<string, unknown>, conversation: string | undefined): Promise<Result<unknown>> {
+    const { journal, clock, target } = this.#context;
+    const turn = randomUUID(); const started = clock.now();
+    const identity = conversation === undefined ? { turn } : { turn, conversation };
+    const recorded = await journal.observed(target, 'turn.start', identity);
+    if (!recorded.ok) return recorded;
+    const result = await this.control.call('session.submit', params, limits.turnMs);
+    const ended = await journal.observed(target, 'turn.end', {
+      ...identity, elapsedMs: clock.now() - started, outcome: result.ok ? 'response' : 'error'
+    }, true);
+    return ended.ok ? result : ended;
   }
 
   async drain(deadlineMs: number): Promise<Result<{ killed: boolean; conversations: string[] }>> {

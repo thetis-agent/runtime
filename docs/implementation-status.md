@@ -6,6 +6,9 @@ currently awaits an operator response.
 
 Implemented and exercised so far:
 
+- Kernel-observed submission start/end rows with host-generated correlation,
+  elapsed time and response/error outcomes, including killed turns. Candidate
+  stage reports and the complete two-provenance turn log remain unfinished.
 - House rules, the complete design copy, strict TypeScript and ESLint,
   pinned dependencies, generated contract types and stale-generation checks.
 - Real evidence designation, principal isolation, bounded run credentials,
