@@ -136,7 +136,7 @@ wrapping (below). The provider has no `context` handler.
 ```ts
 interface Context {
   sections: {
-    system:  Message[];    // the base prompt; stages may append, never replace
+    system:  Message[];    // stored prefix; read-only to iteration hooks (ADR 0022)
     skills:  Message[];    // rendered by the core from retrieve; read-only to stages
     harness: Message[];    // the person's notes, memories, briefs
     history: Message[];    // the conversation, projected through compaction
@@ -163,9 +163,9 @@ emits a `notice`. The core appends the turn's `input` to `history`
 before `context` runs, so a stage can read the latest message there.
 
 Sections are concatenated in this order and the result is the prompt.
-Everything before `history` is the prefix the pin covers. A stage
-appends to a section; it cannot reorder sections or edit another
-stage's messages. The fixed wrapping for `skills` is one system message
+Everything before `history` is the prefix the pin covers. An iteration stage
+appends only to harness or history (ADR 0022); it cannot reorder sections
+or edit another stage's messages. The fixed wrapping for `skills` is one system message
 per entry: a heading line `# skill: <id> (<pack>@<version>)` followed
 by the body, or by the description when the entry has no body.
 
