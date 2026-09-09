@@ -36,6 +36,8 @@ await test('ADR-0024 assistant tool calls and reasoning precede results in persi
   try {
     const result = await fixture.loop.turn({ text: 'Read it', attachments: [] }, fixture.options, new AbortController().signal);
     assert.ok(result.ok);
+    assert.equal(fixture.provider.reports.length, 2);
+    assert.equal(new Set(fixture.provider.reports.map(row => row.callId)).size, 2);
     const history = fixture.conversation.project().history;
     assert.deepEqual(history.map(message => message.role), ['user', 'assistant', 'tool', 'assistant']);
     assert.deepEqual(history[1]?.content, [{ type: 'reasoning', opaque: 'signed-reasoning' }, { type: 'tool_call', id: 'call-a', name: 'read_path', args: '{}' }]);

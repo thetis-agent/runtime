@@ -165,7 +165,8 @@ export class Loop {
       if (this.#heads.size >= 32) this.#heads.clear();
       this.#heads.set(prefix.bytes, frames);
     }
-    return [ { type: 'begin', id: `${options.conversation}-${String(this.#turn)}`, model: options.model, cache: { prefixThrough: frames.filter(frame => frame.type === 'message').length - 1 } }, ...frames,
+    const head = this.#conversation.head; if (head === null) throw new Error('A model call requires a persisted conversation head.');
+    return [ { type: 'begin', id: `${options.conversation}-${head}`, model: options.model, cache: { prefixThrough: frames.filter(frame => frame.type === 'message').length - 1 } }, ...frames,
       ...history.map(message => ({ type: 'message', role: message.role, content: message.content, ...(message.toolCallId === undefined ? {} : { toolCallId: message.toolCallId }) } satisfies RequestEvent)), { type: 'end' } ];
   }
 

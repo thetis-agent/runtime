@@ -17,6 +17,9 @@ Implemented and exercised so far:
   control-frame priority verified over a real socket.
 - A scripted provider using the shared authentication and reservation path,
   deterministic cache accounting, a faux gateway, and an injected clock.
+- A compatible HTTP adapter with bounded SSE, tool fragments, reasoning
+  replay, conservative reservations, OpenRouter price ceilings and tested
+  cancellation/error handling against a scripted HTTP vendor.
 - The unprivileged loop, recorded offer ownership, observer isolation,
   ephemeral appends, stored prefixes, notices, JSONL branches, spill files,
   and compaction that retains protected messages and call/result pairs.
@@ -33,7 +36,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 117 passing tests, zero failures and zero skips.
+- The current suite has 136 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
@@ -51,7 +54,7 @@ Remaining acceptance work includes network egress and storage
 provisioning, kernel socket and origins, the default act and
 complete generation driver, package discovery/init/spawn wiring, registry
 installation and release retention, the lifted UI and login gateway,
-OpenAI-compatible provider and OpenRouter demonstration, CLI, metrics and
+provider spawn integration and OpenRouter demonstration, CLI, metrics and
 evaluator, pinned default profile, remaining conformance ids and inventory
 check, property suites, compatibility from real tags, two-account isolation,
 edit-to-serve and idle-RSS measurements, and per-turn observed/reported logs.
