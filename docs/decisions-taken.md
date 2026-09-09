@@ -37,3 +37,4 @@
 - 2026-09-09: Collect pure init registrations before admitting stages; the kernel must still authorize the concrete requirements and spawns before runtime activation (ADR 0016).
 - 2026-09-09: Generate internal package-message types from their own schema with the same stale-file gate as the four public contracts; use the existing contract definitions for embedded notices (ADR 0006).
 - 2026-09-09: Correct the compatible adapter manifest's network mode from outbound to ADR 0005's egress vocabulary; discovery validates none, egress and mount.
+- 2026-09-09: Tag green commit d8aa0d1200c7c24a0fa7f671c41eece204b377fe as the local socket 1.0 compatibility baseline; implementation minor 1.1 runs the same negotiated transport checks with its client and kernel in both directions, without claiming an earlier deployment release (KS-003).

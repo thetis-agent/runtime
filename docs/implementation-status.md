@@ -18,6 +18,8 @@ Implemented and exercised so far:
 - Negotiated kernel socket transport with schema-checked method parameters,
   credential-bound identity, per-operation fencing, request deadlines and
   control-frame priority verified over a real socket.
+  Both compatibility directions now load the previous minor from a pinned
+  green git tag; the shared transport suite passes against current code.
 - A scripted provider using the shared authentication and reservation path,
   deterministic cache accounting, a faux gateway, and an injected clock.
 - A compatible HTTP adapter with bounded SSE, tool fragments, reasoning
@@ -59,7 +61,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 163 passing tests, zero failures and zero skips.
+- The current suite has 165 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
@@ -79,7 +81,7 @@ durable generation recovery and all target kinds, package discovery/init/spawn w
 installation and release retention, the lifted UI and login gateway,
 provider spawn integration and OpenRouter demonstration, CLI, metrics and
 evaluator, pinned default profile, remaining conformance ids and inventory
-check, property suites, compatibility from real tags, two-account isolation,
+check, remaining property suites, two-account isolation,
 edit-to-serve and idle-RSS measurements, and per-turn observed/reported logs.
 
 No completion report is written because Milestone A has not been completed.
