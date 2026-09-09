@@ -10,3 +10,5 @@
 - 2026-09-09: Settle and acknowledge final usage before yielding stop so a client that closes at stop cannot suppress attribution; the same final counters remain observable after stop (PR-011).
 - 2026-09-09: TE-001 permits no retrieve handler, so the base loop has an empty fallback and does not require a stage/retrieve provider; this also avoids a core–retriever requirement cycle.
 - 2026-09-09: ADR 0022 restricts ephemeral context appends to harness/history; system/skills remain immutable prefix-owned sections, preserving TE-009 and TE-011.
+- 2026-09-09: Keep universal and activated skill entries present without `body` when the body budget is exhausted; retain their description as an ignored extension, satisfying SK-010 and TE-008 without exceeding TE-005.
+- 2026-09-09: Resolve file symlinks to the destination grant; a read may cross from rw to ro but a write may not, and dangling links are refused (TE-019).

@@ -17,8 +17,14 @@ export function isObject(value: unknown): value is Record<string, unknown> {
 
 export class Schemas {
   readonly #ajv = new Ajv2020({ strict: false, allErrors: false, validateFormats: false });
+  #loading: Promise<void> | undefined;
 
-  async load(): Promise<void> {
+  load(): Promise<void> {
+    this.#loading ??= this.#load();
+    return this.#loading;
+  }
+
+  async #load(): Promise<void> {
     for (const name of ['provider', 'turn-events', 'skills', 'kernel-socket']) {
       const value: unknown = JSON.parse(await readFile(new URL(`../../contracts/${name}/schema.json`, import.meta.url), 'utf8'));
       if (!isObject(value)) throw new Error(`Invalid committed schema: ${name}`);
