@@ -59,7 +59,7 @@ export class Generations {
       case 'snapshot': valid = input.snapshotVerified === true && !!input.snapshot; break;
       case 'applied': valid = input.pinsVerified === true && input.migrationsPassed === true && input.formatValid === true; break;
       case 'healthy': valid = input.probed === true && input.clientCompatible === true && elapsed < this.#limits.probe; break;
-      case 'atomic': valid = input.atomic === true; break;
+      case 'atomic': valid = input.atomic === true && this.#view.committed === true; break;
       case 'closed': valid = input.connections === 0 || elapsed >= this.#limits.oldDrain; break;
       case 'restored': valid = input.restored === true && input.probed === true; break;
       case 'always': valid = true; break;
@@ -72,7 +72,7 @@ export class Generations {
     if (input.event === 'switch' && input.candidate) next.candidate = { ...structuredClone(input.candidate), n: next.current.n + 1 };
     if (input.event === 'undo' && next.previous) next.candidate = { ...next.previous, n: next.current.n + 1 };
     if (input.event === 'snapshot' && input.snapshot) next.current.stateSnapshot = input.snapshot;
-    if (input.event === 'repointed') next.committed = true;
+    if (input.event === 'healthy') next.committed = true;
     if ((input.event === 'closed' || input.event === 'repointed' && input.stop) && next.candidate) {
       next.previous = next.current; next.current = { ...next.candidate, at: now }; delete next.candidate; delete next.committed;
     }

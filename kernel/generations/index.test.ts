@@ -30,7 +30,7 @@ for (const state of ['FROZEN', 'APPLYING', 'PROBING', 'SWITCHING', 'DRAINING']) 
     assert.equal(driver.machine.view.state, 'ROLLING_BACK');
     assert.equal((await driver.machine.transition({ event: 'restored', reason: 'unverified' })).ok, false);
     await driver.move({ event: 'restored', reason: 'restored', restored: true, probed: true });
-    assert.equal(driver.machine.view.current.n, state === 'DRAINING' ? 3 : 1);
+    assert.equal(driver.machine.view.current.n, state === 'SWITCHING' || state === 'DRAINING' ? 3 : 1);
     assert.equal(driver.machine.view.current.pins['release'], 'sha256:old');
     assert.match(await driver.rows(), /injected filesystem edge failure/u);
   } finally { await driver.close(); }
@@ -99,5 +99,16 @@ await test('Generation old connection deadline admits the candidate after the bo
     driver.clock.advance(60000);
     await driver.move({ event: 'closed', reason: 'old drain elapsed', connections: 1 });
     assert.equal(driver.machine.admits, true);
+  } finally { await driver.close(); }
+});
+
+await test('ADR-0025 switching intent is durable before repointing and requires fresh-epoch recovery', async () => {
+  const driver = await generationDriver();
+  try {
+    await driver.advance(5); assert.equal(driver.machine.view.committed, true);
+    const last = (await driver.rows()).trim().split('\n').at(-1); assert.ok(last); assert.match(last, /"committed":true/u);
+    await driver.move({ event: 'failed', reason: 'rename failed after fencing intent' });
+    await driver.move({ event: 'restored', reason: 'restored old state under a new epoch', restored: true, probed: true });
+    assert.equal(driver.machine.view.current.n, 3); assert.equal(driver.machine.view.current.pins['release'], 'sha256:old');
   } finally { await driver.close(); }
 });

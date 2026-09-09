@@ -30,6 +30,8 @@ Implemented and exercised so far:
 - An explicit generation transition table with guarded, durable observed
   rows; bounded snapshot copying and hashing in worker threads. Process
   switching and the trusted default act are not yet wired to this machine.
+  ADR 0025 records commitment intent before fencing and rename; endpoint
+  tests verify new connections move while old connections remain usable.
 - A bubblewrap runner with a pre-exec cgroup gate, inherited descriptors,
   read-only root mounts, bounded writable filesystems and verified memory
   enforcement. Network egress and persistent-volume provisioning remain.
@@ -43,7 +45,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 142 passing tests, zero failures and zero skips.
+- The current suite has 145 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.
