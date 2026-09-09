@@ -1,0 +1,15 @@
+{
+  "name": "thetis", "version": "1.0.0", "private": true, "type": "module",
+  "engines": { "node": ">=24.18.0 <25" },
+  "workspaces": ["kernel", "packages/*", "contracts/*", "lib/*", "test"],
+  "scripts": {
+    "check": "node scripts/check.ts", "test": "node scripts/test.ts",
+    "bench": "node scripts/bench.ts", "size": "node scripts/size.ts",
+    "generate": "node lib/schema/generate.ts"
+  },
+  "dependencies": { "ajv": "8.17.1", "semver": "7.7.2", "yaml": "2.8.1" },
+  "devDependencies": {
+    "typescript": "5.9.3", "eslint": "9.39.1", "typescript-eslint": "8.46.4",
+    "@types/node": "24.10.0", "@types/semver": "7.7.1"
+  }
+}

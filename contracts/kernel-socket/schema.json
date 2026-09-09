@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/kernel-socket/1",
+  "title": "contract/kernel-socket 1.0.0",
+  "$defs": {
+    "connectClient": { "type": "object", "required": ["v", "capabilities"], "properties": { "v": { "const": "1" }, "capabilities": { "type": "array", "items": { "type": "string" } } }, "additionalProperties": true,
+      "description": "the token is not in the message: it is the inherited file descriptor's credential (ADR 0010 §6)" },
+    "connectKernel": { "type": "object", "required": ["v", "capabilities", "person", "scope"], "properties": { "v": { "const": "1" }, "capabilities": { "type": "array", "items": { "type": "string" } }, "person": { "type": "string" }, "project": { "type": "string" }, "scope": { "enum": ["person", "deployment"] }, "generation": { "type": "integer" } }, "additionalProperties": true },
+    "request": { "type": "object", "required": ["id", "method", "params"], "properties": { "id": { "type": "string" }, "method": { "$ref": "#/$defs/method" }, "params": { "type": "object" } }, "additionalProperties": true },
+    "response": { "oneOf": [
+      { "type": "object", "required": ["id", "result"], "properties": { "id": { "type": "string" }, "result": {} }, "additionalProperties": true },
+      { "type": "object", "required": ["id", "error"], "properties": { "id": { "type": "string" }, "error": { "type": "object", "required": ["code", "message"], "properties": { "code": { "type": "string" }, "message": { "type": "string" } } } }, "additionalProperties": true } ] },
+    "note": { "type": "object", "required": ["note", "params"], "properties": { "note": { "enum": ["turn.report", "env.updated", "run.stop", "notice"] }, "params": { "type": "object" } }, "additionalProperties": true },
+    "method": { "enum": [
+      "session.list", "session.create", "session.submit", "session.subscribe", "session.cancel",
+      "profile.get", "secret.has", "package.register", "health.probe",
+      "usage.report", "token.whois", "install", "snapshot", "prune", "results.submit",
+      "env.status", "env.logs", "env.reset", "default.prepare", "default.set", "identity.assert", "secret.set" ] },
+    "frame": { "oneOf": [ { "$ref": "#/$defs/request" }, { "$ref": "#/$defs/response" }, { "$ref": "#/$defs/note" } ], "description": "one JSON object per line; control methods (session.cancel, health.probe, run.stop) have priority; a frame over 1 MiB is refused" },
+    "params": {
+      "session.list": { "type": "object", "properties": { "person": { "type": "string", "description": "only with a role that may observe others" } } },
+      "session.create": { "type": "object", "required": ["surface"], "properties": { "surface": { "type": "string" }, "project": { "type": "string" } } },
+      "session.submit": { "type": "object", "required": ["conversation", "input"], "properties": { "conversation": { "type": "string" }, "input": { "type": "object" } } },
+      "session.subscribe": { "type": "object", "required": ["conversation"], "properties": { "conversation": { "type": "string" }, "from": { "type": "integer" } } },
+      "session.cancel": { "type": "object", "required": ["conversation"], "properties": { "conversation": { "type": "string" } } },
+      "profile.get": { "type": "object" },
+      "secret.has": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^secret/" } } },
+      "package.register": { "type": "object", "required": ["package", "requires", "provides"], "properties": { "package": { "type": "string" }, "requires": { "type": "object", "additionalProperties": { "type": "string" } }, "provides": { "type": "object", "additionalProperties": { "type": "string" } }, "spawn": { "type": "array", "items": { "type": "object" } } } },
+      "usage.report": { "type": "object", "required": ["runToken", "callId", "counters"], "properties": { "runToken": { "type": "string" }, "callId": { "type": "string" }, "counters": { "type": "object", "required": ["cost"], "additionalProperties": { "type": "number" } } } },
+      "token.whois": { "type": "object", "required": ["runToken"], "properties": { "runToken": { "type": "string" } } },
+      "install": { "type": "object", "required": ["name", "version", "hash"], "properties": { "name": { "type": "string" }, "version": { "type": "string" }, "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, "registry": { "type": "string" }, "commit": { "type": "string" } } },
+      "snapshot": { "type": "object", "required": ["target"], "properties": { "target": { "type": "string" } } },
+      "prune": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string" } } },
+      "results.submit": { "type": "object", "required": ["identities", "rows"], "properties": { "identities": { "type": "object", "required": ["baseline", "candidate", "suite", "scorer", "provider", "model", "seed"], "additionalProperties": { "type": "string" } }, "rows": { "type": "array", "items": { "type": "object" } } } },
+      "default.prepare": { "type": "object", "required": ["digest", "baseline"], "properties": { "digest": { "type": "string" }, "baseline": { "type": "integer" } } },
+      "default.set": { "type": "object", "required": ["digest", "baseline", "code"], "properties": { "digest": { "type": "string" }, "baseline": { "type": "integer" }, "code": { "type": "string" } } },
+      "identity.assert": { "type": "object", "required": ["kind", "id", "evidence"], "properties": { "kind": { "type": "string" }, "id": { "type": "string" }, "evidence": {} } },
+      "secret.set": { "type": "object", "required": ["scope", "name", "value"], "properties": { "scope": { "type": "string", "pattern": "^(deployment|project/[^/]+|person/[^/]+)$" }, "name": { "type": "string" }, "value": { "type": "string" } }, "description": "only over the kernel's own origin, never over a package's" }
+    }
+  },
+  "$ref": "#/$defs/frame"
+}

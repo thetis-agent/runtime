@@ -1,0 +1,9 @@
+{
+  "name": "@thetis/contract-provider",
+  "version": "1.0.0",
+  "type": "module",
+  "provides": {
+    "contract/provider": "1.0.0"
+  },
+  "exports": "./types.ts"
+}

@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/provider/1",
+  "title": "contract/provider 1.0.0",
+  "$defs": {
+    "content": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "text"], "properties": { "type": { "const": "text" }, "text": { "type": "string" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "reasoning" }, "text": { "type": "string" }, "opaque": {} }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "mime", "hash", "path"], "properties": { "type": { "const": "image" }, "mime": { "type": "string" }, "hash": { "type": "string" }, "path": { "type": "string" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "path", "bytes"], "properties": { "type": { "const": "resource" }, "path": { "type": "string" }, "bytes": { "type": "integer" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "path", "hash"], "properties": { "type": { "const": "artifact" }, "path": { "type": "string" }, "hash": { "type": "string" }, "mime": { "type": "string" } }, "additionalProperties": true }
+      ]
+    },
+    "message": {
+      "type": "object",
+      "required": ["role", "content"],
+      "properties": {
+        "role": { "enum": ["system", "user", "assistant", "tool"] },
+        "content": { "type": "array", "items": { "$ref": "#/$defs/content" } },
+        "toolCallId": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "modelCap": {
+      "type": "object",
+      "required": ["id", "contextWindow", "maxOutput", "tools", "images", "seed", "cache"],
+      "properties": {
+        "id": { "type": "string" },
+        "contextWindow": { "type": "integer", "minimum": 1 },
+        "maxOutput": { "type": "integer", "minimum": 1 },
+        "tools": { "type": "boolean" }, "images": { "type": "boolean" }, "seed": { "type": "boolean" },
+        "reasoning": { "type": "boolean" },
+        "cache": { "enum": ["explicit", "implicit", "none"] },
+        "price": { "type": "object", "properties": { "in": { "type": "number" }, "out": { "type": "number" }, "cachedRead": { "type": "number" }, "cachedWrite": { "type": "number" } }, "additionalProperties": true }
+      },
+      "additionalProperties": true
+    },
+    "describeResponse": { "type": "object", "required": ["models"], "properties": { "models": { "type": "array", "items": { "$ref": "#/$defs/modelCap" } } }, "additionalProperties": true },
+    "requestEvent": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "id", "model"], "properties": {
+            "type": { "const": "begin" }, "id": { "type": "string" }, "model": { "type": "string" },
+            "options": { "type": "object", "properties": { "maxTokens": { "type": "integer" }, "temperature": { "type": "number" }, "seed": { "type": "integer" }, "stop": { "type": "array", "items": { "type": "string" } } }, "additionalProperties": true },
+            "cache": { "type": "object", "required": ["prefixThrough"], "properties": { "prefixThrough": { "type": "integer", "minimum": -1 }, "anchorStride": { "type": "integer", "minimum": 1 } }, "additionalProperties": true },
+            "vendor": { "type": "object", "additionalProperties": true } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "role", "content"], "properties": { "type": { "const": "message" }, "role": { "enum": ["system", "user", "assistant", "tool"] }, "content": { "type": "array", "items": { "$ref": "#/$defs/content" } }, "toolCallId": { "type": "string" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "name", "description", "schema"], "properties": { "type": { "const": "tool" }, "name": { "type": "string" }, "description": { "type": "string" }, "schema": { "type": "object" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "end" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "id"], "properties": { "type": { "const": "cancel" }, "id": { "type": "string" } }, "additionalProperties": true }
+      ]
+    },
+    "responseEvent": {
+      "oneOf": [
+        { "type": "object", "required": ["type", "id", "model"], "properties": { "type": { "const": "start" }, "id": { "type": "string" }, "model": { "type": "string" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "text"], "properties": { "type": { "const": "delta.text" }, "text": { "type": "string" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type"], "properties": { "type": { "const": "delta.reasoning" }, "text": { "type": "string" }, "opaque": {} }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "callId", "args"], "properties": { "type": { "const": "delta.tool_call" }, "callId": { "type": "string" }, "name": { "type": "string" }, "args": { "type": "string" } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "counters"], "properties": { "type": { "const": "usage" }, "counters": { "type": "object", "required": ["cost"], "properties": { "cost": { "type": "number", "minimum": 0 } }, "additionalProperties": { "type": "number" } } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "reason"], "properties": { "type": { "const": "stop" }, "reason": { "enum": ["end", "tool_calls", "length", "cancel"] } }, "additionalProperties": true },
+        { "type": "object", "required": ["type", "code", "message"], "properties": { "type": { "const": "error" }, "code": { "enum": ["provider", "auth", "rate-limit", "budget", "context", "deadline"] }, "status": { "type": "integer" }, "message": { "type": "string" } }, "additionalProperties": true }
+      ]
+    }
+  },
+  "oneOf": [ { "$ref": "#/$defs/describeResponse" }, { "$ref": "#/$defs/requestEvent" }, { "$ref": "#/$defs/responseEvent" } ]
+}

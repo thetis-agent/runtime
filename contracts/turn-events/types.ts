@@ -1,0 +1,22 @@
+/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
+import type * as Provider from '../provider/types.ts';
+import type * as Skills from '../skills/types.ts';
+export type Content = Provider.Content;
+export type Message = { "role": "system" | "user" | "assistant" | "tool"; "content": (Content)[]; "protected"?: boolean; "source": string; "toolCallId"?: string; [key: string]: unknown; };
+export type Envelope = { "type": "input" | "retrieve" | "context" | "offer" | "model.begin" | "model.event" | "model.end" | "call" | "token" | "output" | "end" | "notice"; "conversation": string; "turn": number; "iteration": number; "seq": number; "payload": { [key: string]: unknown; }; [key: string]: unknown; };
+export type Input = { "text": string; "attachments": ({ "name": unknown; "mime": unknown; "bytes": unknown; "hash": unknown; "path": unknown; [key: string]: unknown; })[]; "activate"?: (string)[]; "project"?: string; [key: string]: unknown; };
+export type Context = { "sections": { "system": (Message)[]; "skills": (Message)[]; "harness": (Message)[]; "history": (Message)[]; [key: string]: unknown; }; "budget": { "window": number; "reserve": number; "used": number; [key: string]: unknown; }; [key: string]: unknown; };
+export type ToolDef = { "name": string; "description": string; "schema": { [key: string]: unknown; }; "readOnly": boolean; "endsTurn": boolean; "destructive"?: boolean; "source": string; "derived"?: boolean; "data"?: { [key: string]: string; }; [key: string]: unknown; };
+export type OfferRequest = { "mode": { "readOnly": boolean; "deny": (string)[]; [key: string]: unknown; }; "pinned"?: ({ "name": unknown; "hash": unknown; [key: string]: unknown; })[]; [key: string]: unknown; };
+export type Offer = { "tools": (ToolDef)[]; "mode": { [key: string]: unknown; }; [key: string]: unknown; };
+export type CallRequest = { "id": string; "name": string; "args": unknown; "deadlineMs": number; "mode": { "readOnly": unknown; "deny": unknown; [key: string]: unknown; }; "roots": ({ "path": string; "mode": "ro" | "rw"; "space": string; [key: string]: unknown; })[]; "budget": { "resultBytes": number; [key: string]: unknown; }; [key: string]: unknown; };
+export type CallAnswer = { "id": string; "ok": boolean; "content"?: (Content)[]; "error"?: { "code": "not-offered" | "invalid-args" | "deadline" | "outside-roots" | "read-only-mode" | "not-found" | "not-unique" | "gone" | "budget" | "io" | "tool"; "message": string; [key: string]: unknown; }; "spilled"?: { "path": unknown; "bytes": unknown; "hash": unknown; "head": unknown; "tail": unknown; [key: string]: unknown; }; "pending"?: { "handle": string; [key: string]: unknown; }; "data"?: { [key: string]: number | string | boolean; }; "endsTurn"?: boolean; [key: string]: unknown; };
+export type ModelBegin = { "provider": string; "model": string; "request": (Provider.RequestEvent)[]; [key: string]: unknown; };
+export type ModelEvent = { "event": Provider.ResponseEvent; [key: string]: unknown; };
+export type ModelEnd = { "stop": string; "usage": { [key: string]: number; }; [key: string]: unknown; };
+export type Token = { "text": string; [key: string]: unknown; };
+export type Output = { "message": Message; "usage": { [key: string]: number; }; [key: string]: unknown; };
+export type End = { "reason": "answer" | "limit" | "cancel" | "crash" | "restart"; "iterations": number; "compactions": number; [key: string]: unknown; };
+export type Notice = { "source": string; "handle"?: string; "content": (Content)[]; "wake"?: boolean; [key: string]: unknown; };
+export type Prefix = { "rendererVersion": string; "systemHash": string; "skills": (Skills.PinnedEntry)[]; "offer": ({ "name": unknown; "source": unknown; "schemaHash": unknown; [key: string]: unknown; })[]; "bytes": string; [key: string]: unknown; };
+export type Contract = Envelope;
