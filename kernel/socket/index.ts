@@ -16,11 +16,11 @@ export interface Operations {
 export async function accept(
   socket: Socket, credential: string, identity: Identity, schemas: Schemas, clock: Clock, operations: Operations
 ): Promise<Result<Peer>> {
-  const authenticated = identity.authenticate(credential);
+  const authenticated = identity.authenticate(credential, 'probe');
   if (!authenticated.ok) { socket.destroy(); return authenticated; }
   const handlers = new Map<Method, Handler>();
   for (const [method, handler] of operations.methods) handlers.set(method, params => {
-    const current = identity.authenticate(credential);
+    const current = identity.authenticate(credential, ['health.probe', 'profile.get', 'package.register'].includes(method) ? 'probe' : 'call');
     return current.ok ? handler(current.value, params) : Promise.resolve(current);
   });
   const peer = new Peer(socket, schemas, clock, [...handlers.keys(), ...operations.notes], {

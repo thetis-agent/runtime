@@ -11,6 +11,8 @@ import { Cgroup, resourceLimits } from './cgroup.ts';
 import { failure } from '../schema/index.ts';
 import type { Result } from '../schema/index.ts';
 import { gap } from '../semver-match/index.ts';
+import { freeze } from './freezer.ts';
+import type { Clock } from '../events/index.ts';
 
 export interface Mount { source: string; path: string; mode: 'ro' | 'rw'; maximumBytes?: number }
 export interface Plan {
@@ -19,7 +21,12 @@ export interface Plan {
 }
 export const limits = { ...resourceLimits, temporaryBytes: 32 * 1024 * 1024, mounts: 64, tokenBytes: 256, secretBytes: 65536 };
 export interface Exit { code: number | null; signal: NodeJS.Signals | null }
-export interface Running { process: ChildProcess; exited: Promise<Exit>; events(): Promise<Result<Record<string, number>, 'io'>>; stop(): Promise<Result<void, 'io'>>; dispose(): Promise<Result<void, 'io'>> }
+export interface Running {
+  process: ChildProcess; exited: Promise<Exit>;
+  freeze(frozen: boolean, clock: Clock): Promise<Result<void, 'io' | 'deadline'>>;
+  events(): Promise<Result<Record<string, number>, 'io'>>;
+  stop(): Promise<Result<void, 'io'>>; dispose(): Promise<Result<void, 'io'>>;
+}
 
 async function argumentsFor(plan: Plan, runtime: string): Promise<Result<string[], 'outside-roots' | 'gap'>> {
   const args: string[] = [];
@@ -60,6 +67,7 @@ export class SandboxRunner {
     if (Buffer.byteLength(secrets) > limits.secretBytes) return failure('budget', 'The spawn secret delivery exceeds its byte limit.');
     const args = await argumentsFor(plan, this.#runtime); if (!args.ok) return args;
     const group = await Cgroup.create(this.#cgroup); if (!group.ok) return failure('gap', gap(plan, 'cap/cgroup.v2', '*'));
+    plan.socket.pause();
     const child = spawn('/bin/sh', ['-c', 'IFS= read -r ready <&5 || exit 1; exec 5<&-; exec /usr/bin/bwrap "$@"', 'thetis-boundary', ...args.value], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', plan.socket, 'pipe', 'pipe', 'pipe'] });
     const done = exited(child); const token = child.stdio.at(4); const gate = child.stdio.at(5); const delivery = child.stdio.at(6);
     if (!child.pid || !(token instanceof Writable) || !(gate instanceof Writable) || !(delivery instanceof Writable) || !(await group.value.attach(child.pid)).ok) {
@@ -68,9 +76,10 @@ export class SandboxRunner {
     }
     for (const descriptor of [token, gate, delivery]) descriptor.once('error', () => { child.kill('SIGKILL'); });
     token.end(plan.token); delivery.end(secrets); gate.end('start\n');
+    plan.socket.destroy();
     let disposed: Promise<Result<void, 'io'>> | undefined;
     const dispose = () => { disposed ??= done.then(() => group.value.remove()); return disposed; };
-    return { ok: true, value: { process: child, exited: done, dispose, events: () => group.value.events(), async stop() {
+    return { ok: true, value: { process: child, exited: done, dispose, freeze: (frozen, clock) => freeze(group.value.path, frozen, clock), events: () => group.value.events(), async stop() {
       const killed = await group.value.kill(); if (!killed.ok) return killed;
       await done; return dispose();
     } } };
