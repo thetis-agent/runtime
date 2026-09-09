@@ -47,3 +47,4 @@
 - 2026-09-09: Encode a successful void socket operation as result:null; omitting result violates the response schema and prevented real usage-report acknowledgements (KS-021).
 - 2026-09-09: Merge exported spawns with init registrations before activation; bound the combined list, reject duplicate ids and enforce one envelope and declared secret references for both sources. Omitted args and env mean empty collections, matching the evaluator's documented spawn (ADR 0016).
 - 2026-09-09: Materialize adapter defaults from its package settings schema through the same shared helper as discovery; reject policy fields in adapter settings and keep the declared LLM_KEY spawn delivery separate (PR-010, PR-013).
+- 2026-09-09: A worker error, unexpected exit or initialization-only message after ready fails environment health and resolves its lifecycle result; it never triggers an unannounced reinitialization (TE-022, ADR 0027).

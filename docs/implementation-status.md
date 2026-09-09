@@ -81,7 +81,7 @@ Implemented and exercised so far:
 
 Validation:
 
-- The current suite has 184 passing tests, zero failures and zero skips.
+- The current suite has 185 passing tests, zero failures and zero skips.
   It is a partial implementation suite, not full conformance acceptance.
 - `check` passes strict type checking and lint with zero warnings.
 - Tests run inside bubblewrap with user, process and network namespaces.

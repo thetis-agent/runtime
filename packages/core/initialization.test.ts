@@ -52,6 +52,17 @@ await test('TE-021 independent initializations register identical names and reje
   } finally { await f.close(); }
 });
 
+await test('TE-022 an actual worker crash after ready makes health fail and never silently reinitializes', async () => {
+  const f = await fixture('init() { setImmediate(() => { throw new Error("background failure"); }); }');
+  const notices: string[] = []; const initializer = new Initializer(f.clock, f.schemas, message => { notices.push(message.type); });
+  try {
+    assert.ok((await initializer.start(f.setup)).ok);
+    const finished = await initializer.finished(); assert.ok(!finished.ok); assert.equal(finished.error.code, 'io');
+    assert.equal(initializer.status().ready, false); assert.equal(notices.filter(type => type === 'ready').length, 1);
+    assert.ok(!(await initializer.start(f.setup)).ok);
+  } finally { await initializer.stop(); await f.close(); }
+});
+
 await test('TE-021 every shipped package initializes twice with identical registration and no vendor access', async () => {
   const root = await mkdtemp('/tmp/shipped-init-'); const schemas = new Schemas(); await schemas.load();
   const discovered = await discover(new URL('..', import.meta.url).pathname, root, {}, schemas); assert.ok(discovered.ok, JSON.stringify(discovered));
