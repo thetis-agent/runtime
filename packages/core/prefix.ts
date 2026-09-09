@@ -1,7 +1,7 @@
 /** Render the immutable prompt head once and reuse stored bytes; ADR 0013, TE-009. */
 import { createHash } from 'node:crypto';
 import type { Message, Prefix, ToolDef } from '../../contracts/turn-events/types.ts';
-import type { SkillEntry } from './types.ts';
+import type { Entry as SkillEntry } from '../../contracts/skills/types.ts';
 import type { RequestEvent } from '../../contracts/provider/types.ts';
 
 export function hash(value: string): string { return `sha256:${createHash('sha256').update(value).digest('hex')}`; }

@@ -60,7 +60,7 @@ export async function generate(name: string, root = new URL('../../contracts/', 
   const serialized = JSON.stringify(raw);
   for (const match of serialized.matchAll(/thetis:\/\/contract\/([^/]+)\/\d+#/gu)) {
     const contract = match[1];
-    if (contract && contract !== name) {
+    if (contract && (contract !== name || root.href !== new URL('../../contracts/', import.meta.url).href)) {
       const path = relative(fileURLToPath(new URL(`${name}/`, root)), fileURLToPath(new URL(`../../contracts/${contract}/types.ts`, import.meta.url)));
       imports.add(`import type * as ${title(contract)} from '${path.startsWith('.') ? path : `./${path}`}';`);
     }
@@ -77,7 +77,7 @@ export async function generate(name: string, root = new URL('../../contracts/', 
 
 export async function generateAll(check: boolean): Promise<boolean> {
   let fresh = true;
-  for (const directory of ['../../contracts/', '../../lib/']) {
+  for (const directory of ['../../contracts/', '../../lib/', '../../packages/']) {
     const root = new URL(directory, import.meta.url);
     for (const name of await readdir(root)) {
       if (!(await readdir(new URL(`${name}/`, root))).includes('schema.json')) continue;
