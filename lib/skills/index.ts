@@ -1,12 +1,13 @@
 /** Load standard skill cards without accepting unchecked paths or duplicate ids; SK-001–009. */
 import { parseDocument } from 'yaml';
-import { readFile, readdir, realpath } from 'node:fs/promises';
+import { readdir, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, relative, basename } from 'node:path';
 import type { Card, Frontmatter } from '../../contracts/skills/types.ts';
 import type { Schemas, Result } from '../schema/index.ts';
 import { failure } from '../schema/index.ts';
-import { boundedFile, resolvePath } from '../files/index.ts';
+import { readBounded } from '../files/read-bounded.ts';
+import { resolvePath } from '../files/index.ts';
 
 export interface LoadedSkill { card: Card; body: string }
 export interface Pack { name: string; version: string; path: string }
@@ -29,8 +30,8 @@ export async function loadPack(pack: Pack, schemas: Schemas): Promise<Result<{ s
   try {
     const root = await realpath(join(pack.path, 'skills'));
     for (const path of await listing(root)) {
-      const bound = await boundedFile(path, defaults.fileBytes); if (!bound.ok) return bound;
-      const text = await readFile(path, 'utf8');
+      const bytes = await readBounded(path, defaults.fileBytes); if (!bytes.ok) return bytes;
+      const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes.value);
       const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/u.exec(text);
       if (!match) return failure('invalid-args', `${path} has no standard YAML frontmatter.`);
       const document = parseDocument(match[1] ?? '');
@@ -49,7 +50,7 @@ export async function loadPack(pack: Pack, schemas: Schemas): Promise<Result<{ s
       }
       const card: Card = { id, pack: pack.name, version: pack.version, path, name: front.name, description: front.description,
         tags: front.metadata?.tags ?? [], related: front.metadata?.related ?? [], universal: front.metadata?.universal === 'true',
-        bytes: Buffer.byteLength(text), contentHash: `sha256:${createHash('sha256').update(text).digest('hex')}`, children: [] };
+        bytes: bytes.value.length, contentHash: `sha256:${createHash('sha256').update(bytes.value).digest('hex')}`, children: [] };
       if (!schemas.validator<Card>('skills', 'card')(card)) return failure('invalid-args', `${id} is not installed at its versioned package path.`);
       skills.push({ card, body });
     }

@@ -1,0 +1,22 @@
+/** Commit private metadata by synced replacement without exposing partial values; ADR 0009, ADR 0012. */
+import { open, rename, rm } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { dirname, join } from 'node:path';
+import { failure } from '../schema/index.ts';
+import type { Result } from '../schema/index.ts';
+
+export async function atomicWrite(path: string, bytes: Uint8Array): Promise<Result<void, 'io'>> {
+  const temporary = join(dirname(path), `${randomBytes(16).toString('hex')}.pending`);
+  try {
+    const file = await open(temporary, 'wx', 0o600);
+    try { await file.writeFile(bytes); await file.sync(); } finally { await file.close(); }
+    await rename(temporary, path);
+    const directory = await open(dirname(path), 'r');
+    try { await directory.sync(); } finally { await directory.close(); }
+    return { ok: true, value: undefined };
+  } catch {
+    try { await rm(temporary, { force: true }); }
+    catch { return failure('io', 'The incomplete private write could not be removed.'); }
+    return failure('io', 'The private write could not be committed.');
+  }
+}

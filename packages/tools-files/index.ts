@@ -1,9 +1,10 @@
 /** Enforce granted roots and request mode on every file operation; TE-018–020, proposal §13. */
-import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { Schemas, failure, isObject } from '../../lib/schema/index.ts';
 import type { Result } from '../../lib/schema/index.ts';
-import { resolvePath, boundedFile } from '../../lib/files/index.ts';
+import { readBounded } from '../../lib/files/read-bounded.ts';
+import { resolvePath } from '../../lib/files/index.ts';
 import type { SpillSink } from '../../lib/spill/index.ts';
 import type { CallRequest, CallAnswer, OfferRequest } from '../../contracts/turn-events/types.ts';
 import { definitions } from './definitions.ts';
@@ -14,8 +15,8 @@ export const settings = { editBytes: 4 * 1024 * 1024, maxResults: 1000 };
 const schemas = new Schemas();
 
 async function edit(path: string, args: Record<string, unknown>): Promise<Result<void, 'io' | 'budget' | 'not-found' | 'not-unique'>> {
-  const bounded = await boundedFile(path, settings.editBytes); if (!bounded.ok) return bounded;
-  const text = await readFile(path, 'utf8');
+  const bytes = await readBounded(path, settings.editBytes); if (!bytes.ok) return bytes;
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes.value);
   const old = typeof args['old_text'] === 'string' ? args['old_text'] : '';
   const replacement = typeof args['new_text'] === 'string' ? args['new_text'] : '';
   const index = text.indexOf(old);
