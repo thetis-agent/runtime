@@ -30,7 +30,7 @@
     "additionalProperties": false
   },
   "requires": {
-    "contract/provider": "^1"
+    "contract/provider": "^1.1"
   },
   "provides": {
     "service/llm-provider.mock": "1.0.0"

@@ -1,10 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "thetis://contract/provider/1",
-  "title": "contract/provider 1.0.0",
+  "title": "contract/provider 1.1.0",
   "$defs": {
+    "connectRequest": { "type": "object", "required": ["v", "runToken"], "properties": { "v": { "const": "1" }, "runToken": { "type": "string", "minLength": 1, "maxLength": 256 } }, "additionalProperties": true },
+    "describeRequest": { "type": "object", "required": ["v", "method"], "properties": { "v": { "const": "1" }, "method": { "const": "describe" } }, "additionalProperties": true },
     "content": {
       "oneOf": [
+        { "type": "object", "required": ["type", "id", "name", "args"], "properties": { "type": { "const": "tool_call" }, "id": { "type": "string" }, "name": { "type": "string" }, "args": { "type": "string" } }, "additionalProperties": true },
         { "type": "object", "required": ["type", "text"], "properties": { "type": { "const": "text" }, "text": { "type": "string" } }, "additionalProperties": true },
         { "type": "object", "required": ["type"], "properties": { "type": { "const": "reasoning" }, "text": { "type": "string" }, "opaque": {} }, "additionalProperties": true },
         { "type": "object", "required": ["type", "mime", "hash", "path"], "properties": { "type": { "const": "image" }, "mime": { "type": "string" }, "hash": { "type": "string" }, "path": { "type": "string" } }, "additionalProperties": true },

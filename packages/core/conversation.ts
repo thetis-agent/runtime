@@ -81,5 +81,19 @@ export class Conversation {
 }
 
 export function compact(history: readonly Message[], retain: number): Message[] {
-  return history.filter((message, index) => message.protected || index >= history.length - retain).map(message => structuredClone(message));
+  const kept = new Set<number>();
+  const groups: number[][] = [];
+  let group: number[] | undefined;
+  let calls = new Set<string>();
+  for (const [index, message] of history.entries()) {
+    if (message.protected || index >= history.length - retain) kept.add(index);
+    if (message.role === 'assistant') {
+      calls = new Set(message.content.filter(content => content.type === 'tool_call').map(content => content.id));
+      group = calls.size ? [index] : undefined;
+      if (group) groups.push(group);
+    } else if (message.role === 'tool' && message.toolCallId && calls.has(message.toolCallId)) group?.push(index);
+    else if (message.role !== 'tool') { group = undefined; calls = new Set(); }
+  }
+  for (const indices of groups) if (indices.some(index => kept.has(index))) for (const index of indices) kept.add(index);
+  return history.filter((_message, index) => kept.has(index)).map(message => structuredClone(message));
 }

@@ -1,13 +1,13 @@
 /** Keep authentication, reservations and final usage on every provider path; PR-003–012. */
-import type { RequestEvent, ResponseEvent, ModelCap } from '../../contracts/provider/types.ts';
-import type { Authority, Provider, Budgets } from './index.ts';
+import type { RequestEvent, ResponseEvent } from '../../contracts/provider/types.ts';
+import type { Authority, Provider, Budgets, Description } from './index.ts';
 import type { Result } from '../schema/index.ts';
 import { failure } from '../schema/index.ts';
 
 export type Counters = Extract<ResponseEvent, { type: 'usage' }>['counters'];
 export type Begin = Extract<RequestEvent, { type: 'begin' }>;
 export interface Vendor {
-  describe(): Promise<{ models: ModelCap[] }>;
+  describe(): Promise<Description>;
   estimate(request: readonly RequestEvent[]): number;
   exchange(request: readonly RequestEvent[], signal: AbortSignal): AsyncIterable<ResponseEvent>;
 }
@@ -37,18 +37,16 @@ export class ProviderEngine implements Provider {
     this.#vendor = vendor; this.#authority = authority; this.#budgets = budgets;
     this.#scope = scope; this.#limits = limits;
   }
-  describe(): Promise<{ models: ModelCap[] }> { return this.#vendor.describe(); }
+  describe(): Promise<Description> { return this.#vendor.describe(); }
 
   async *run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncGenerator<ResponseEvent> {
     const caller = await this.#authority.whois(token);
     if (!caller.ok) { yield { type: 'error', ...caller.error }; return; }
     const collected = await collect(request, this.#limits);
+    if (signal.aborted) { yield { type: 'usage', counters: { cost: 0 } }; yield { type: 'stop', reason: 'cancel' }; return; }
     if (!collected.ok) { yield { type: 'error', ...collected.error }; return; }
     const begin = collected.value[0];
     if (begin?.type !== 'begin') throw new Error('The validated provider request lost its begin.');
-    if (signal.aborted) {
-      yield { type: 'usage', counters: { cost: 0 } }; yield { type: 'stop', reason: 'cancel' }; return;
-    }
     const estimate = this.#vendor.estimate(collected.value);
     const reservation = this.#scope === 'deployment' ? this.#budgets.reserve(caller.value.person, estimate) : undefined;
     if (reservation && !reservation.ok) { yield { type: 'error', ...reservation.error }; return; }

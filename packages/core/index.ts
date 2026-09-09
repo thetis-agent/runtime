@@ -3,10 +3,11 @@ import type { Provider } from '../../lib/provider/index.ts';
 import type { Stage } from '../../lib/events/stages.ts';
 import type { Clock } from '../../lib/events/index.ts';
 import { failure } from '../../lib/schema/index.ts';
+import { createHash } from 'node:crypto';
 import type { Result, Schemas } from '../../lib/schema/index.ts';
 import { SpillSink } from '../../lib/spill/index.ts';
 import type { RequestEvent } from '../../contracts/provider/types.ts';
-import type { Input, Envelope, Message, Prefix, ToolDef, Notice, End } from '../../contracts/turn-events/types.ts';
+import type { Input, Envelope, Message, Prefix, ToolDef, Notice, End, CallAnswer } from '../../contracts/turn-events/types.ts';
 import { Dispatcher } from './dispatcher.ts';
 import { compact } from './conversation.ts';
 import type { Conversation } from './conversation.ts';
@@ -119,19 +120,27 @@ export class Loop {
     this.#emit(state, options, 'model.end', { stop: model.value.stop, usage: state.usage });
     if (model.value.stop === 'cancel') { state.reason = 'cancel'; return { ok: true, value: true }; }
     if (!model.value.calls.length) return { ok: true, value: true };
+    const assistant: Message = { ...state.output, content: [...state.output.content, ...model.value.calls.map(call => ({ type: 'tool_call', ...call } satisfies Message['content'][number]))] };
+    const saved = await this.#conversation.append({ type: 'message', value: assistant });
+    if (!saved.ok) return saved; state.history.push(assistant);
+    state.output = { ...state.output, content: [] };
+    let ended = false;
     for (const call of model.value.calls) {
-      const result = await this.#call(state, options, call, offered);
-      if (!result.ok || result.value) return result;
+      const result = await this.#call(state, options, call, offered, ended);
+      if (!result.ok) return result; ended ||= result.value;
     }
-    return { ok: true, value: false };
+    return { ok: true, value: ended };
   }
 
-  async #call(state: TurnState, options: Options, call: { id: string; name: string; args: string }, tools: ToolDef[]): Promise<Result<boolean, 'io' | 'budget'>> {
+  async #call(state: TurnState, options: Options, call: { id: string; name: string; args: string }, tools: ToolDef[], ended: boolean): Promise<Result<boolean, 'io' | 'budget'>> {
     let args: unknown;
-    try { args = JSON.parse(call.args); } catch { args = undefined; }
-    const sink = new SpillSink(options.space, call.id);
+    try { args = JSON.parse(call.args); } catch { args = call.args; }
+    const safe = /^[a-zA-Z0-9_-]{1,128}$/u.test(call.id);
+    const sink = new SpillSink(options.space, safe ? call.id : createHash('sha256').update(call.id).digest('hex'));
     const request = { id: call.id, name: call.name, args, mode: options.mode, roots: options.roots, deadlineMs: defaults.deadlineMs, budget: { resultBytes: defaults.resultBytes } };
-    const answer = await this.#dispatcher.call(request, sink);
+    const answer: CallAnswer = ended ? { id: call.id, ok: false, error: { code: 'tool', message: 'The turn ended before this call ran.' } }
+      : !safe ? { id: call.id, ok: false, error: { code: 'outside-roots', message: 'The tool call id cannot name an artifact in the person’s space.' } }
+      : await this.#dispatcher.call(request, sink);
     for (const content of answer.content ?? []) if (content.type === 'text') {
       const written = await sink.write(Buffer.from(content.text));
       if (!written.ok) { await sink.abort(); return failure('io', written.error.message); }

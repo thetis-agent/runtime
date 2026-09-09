@@ -6,7 +6,7 @@
   "stages": "./index.ts",
   "requires": {
     "contract/turn-events": "^1",
-    "contract/provider": "^1",
+    "contract/provider": "^1.1",
     "contract/skills": "^1"
   },
   "provides": {},

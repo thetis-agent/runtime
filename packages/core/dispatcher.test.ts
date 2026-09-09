@@ -92,3 +92,21 @@ await test('Calls use the recorded offer owner and overwrite a forged source', a
   assert.equal((await dispatcher.offer({ mode }))[0]?.source, 'files@1');
   assert.equal((await dispatcher.call({ ...call, source: 'forged' }, new SpillSink('/tmp', 'unused'))).ok, true);
 });
+
+await test('Call policy is checked again against the recorded owner when denials change', async () => {
+  let called = false;
+  const dispatcher = new Dispatcher([{ source: 'files@1', offer: () => Promise.resolve([definition]), call: () => { called = true; return Promise.resolve({ id: 'call', ok: true }); } }], schemas, new ManualClock());
+  await dispatcher.offer({ mode });
+  const result = await dispatcher.call({ ...call, mode: { readOnly: false, deny: ['files/read_path'] } }, new SpillSink('/tmp', 'unused'));
+  assert.equal(result.error?.code, 'read-only-mode'); assert.equal(called, false);
+});
+
+await test('Async context failures are observed and their additions never persist', async () => {
+  const dispatcher = new Dispatcher([{ source: 'bad', async context(append) {
+    await Promise.resolve(); append({ role: 'system', source: 'bad', content: [{ type: 'text', text: 'late' }] });
+    throw new Error('late rejection');
+  } }], schemas, new ManualClock());
+  const result = dispatcher.context(context);
+  await Promise.resolve(); await Promise.resolve();
+  assert.deepEqual(result, context); assert.ok(dispatcher.rows.every(row => row.outcome === 'contract-violation'));
+});
