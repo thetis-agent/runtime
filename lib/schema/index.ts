@@ -41,6 +41,18 @@ export class Schemas {
   arguments(schema: Record<string, unknown>, value: unknown): boolean {
     return this.#ajv.validate(schema, value);
   }
+
+  frame<T>(): ValidateFunction<T> {
+    const cached = this.#ajv.getSchema<T>('thetis://entry/kernel-socket/1'); if (cached) return cached;
+    const base = 'thetis://contract/kernel-socket/1';
+    const source: unknown = this.#ajv.getSchema(base)?.schema;
+    if (!isObject(source) || !isObject(source['$defs']) || !isObject(source['$defs']['params'])) throw new Error('The socket parameter schemas are missing.');
+    const constraints = Object.keys(source['$defs']['params']).map(method => ({
+      if: { allOf: [{ $ref: `${base}#/$defs/request` }, { properties: { method: { const: method } } }] },
+      then: { properties: { params: { $ref: `${base}#/$defs/params/${method}` } } }
+    }));
+    return this.#ajv.compile<T>({ $id: 'thetis://entry/kernel-socket/1', allOf: [{ $ref: `${base}#/$defs/frame` }, ...constraints] });
+  }
 }
 
 export function decode<T>(check: ValidateFunction<T>, value: unknown): Result<T, 'invalid-args'> {
