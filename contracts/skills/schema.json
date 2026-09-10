@@ -58,6 +58,7 @@
         "score": { "type": "number", "description": "the retriever's own ranking score, when it ranks" },
         "how": { "enum": ["dense", "lexical", "fusion", "parent-of-match", "whole-corpus", "universal", "activated"], "description": "why the entry was chosen, so a reader is never shown a bare number" }
       },
+      "dependentRequired": { "score": ["how"] },
       "additionalProperties": true
     },
     "pinnedEntry": {
