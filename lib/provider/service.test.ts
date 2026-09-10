@@ -46,6 +46,46 @@ await test('PR-012 a real shared service refuses unknown credentials without res
     const response = await collect(alice.provider.run(stream(request()), 'unknown', new AbortController().signal));
     assert.ok(response.some(row => row.type === 'error' && row.code === 'auth'));
     assert.ok(!(await f.rows()).includes('usage.report'));
-    assert.equal(await readFile(join(f.root, 'state/budget.json'), 'utf8'), '{"version":1,"windows":[]}');
+    assert.equal(await readFile(join(f.root, 'state/budget.json'), 'utf8'), '{"version":2,"people":[],"runs":[]}');
+  } finally { await f.close(); }
+});
+
+await test('PR-010 a cost-bound run crosses the real service boundary and retains its exact lifetime ceiling', async () => {
+  const f = await serviceFixture(1, { scripts: [[{ type: 'usage', counters: { cost: 0.01 } }]] });
+  try {
+    assert.ok((await f.process.probe()).ok); const caller = f.client('alice');
+    const bounded = f.identity.issue({ id: 'bounded', person: 'alice', scope: 'person', target: 'bounded', generation: 1, services: ['shared'], cost: 0.01 });
+    assert.ok(bounded.ok);
+    const first = await collect(caller.provider.run(stream(request()), bounded.value, new AbortController().signal));
+    assert.equal(first.at(-1)?.type, 'stop', JSON.stringify(first));
+    const second = await collect(caller.provider.run(stream(request()), bounded.value, new AbortController().signal));
+    assert.ok(second.some(row => row.type === 'error' && row.code === 'budget' && row.message.includes('would be exceeded')));
+    assert.equal((await f.rows()).split('\n').filter(row => row.includes('usage.report')).length, 1);
+  } finally { await f.close(); }
+});
+
+await test('PR-014 the registered sandboxed mock serves configured scripts and reports early vendor errors', async () => {
+  const f = await serviceFixture(1, { scripts: [[{ type: 'delta.text', text: 'Configured response.' }], [{ type: 'error', code: 'rate-limit', message: 'Scripted refusal.' }]] });
+  try {
+    assert.ok((await f.process.probe()).ok); const caller = f.client('alice');
+    const first = await collect(caller.provider.run(stream(request()), caller.token, new AbortController().signal));
+    assert.ok(first.some(row => row.type === 'delta.text' && row.text === 'Configured response.'));
+    const second = await collect(caller.provider.run(stream(request()), caller.token, new AbortController().signal));
+    assert.ok(second.some(row => row.type === 'error' && row.code === 'rate-limit'));
+    assert.equal((await f.rows()).split('\n').filter(row => row.includes('usage.report')).length, 2);
+  } finally { await f.close(); }
+});
+
+await test('KS-022 a sandboxed personal service authenticates only its same run and reports candidate usage without deployment charging', async () => {
+  const f = await serviceFixture(0, {}, 'person');
+  try {
+    assert.ok((await f.process.probe()).ok); const caller = f.client('alice'); const other = f.client('bob');
+    const rows = await collect(caller.provider.run(stream(request()), caller.token, new AbortController().signal));
+    assert.equal(rows.at(-1)?.type, 'stop');
+    const rejected = await collect(other.provider.run(stream(request()), other.token, new AbortController().signal));
+    assert.ok(rejected.some(row => row.type === 'error' && row.code === 'auth'));
+    const log = await f.rows(); assert.ok(log.includes('candidate-reported')); assert.ok(!log.includes('reviewed-reported'));
+    assert.equal(log.split('\n').filter(row => row.includes('usage.report')).length, 1);
+    assert.equal(await readFile(join(f.root, 'state/budget.json'), 'utf8'), '{"version":2,"people":[],"runs":[]}');
   } finally { await f.close(); }
 });

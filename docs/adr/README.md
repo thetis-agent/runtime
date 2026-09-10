@@ -27,6 +27,32 @@ successor repository as `docs/adr/` on day one.
 | [0018](0018-identity-and-the-act.md) | The kernel needs identity and the act, not auth and approvals | Accepted |
 | [0019](0019-no-door.md) | No door: keys live on providers, usage is formless counters | Accepted; §4–5 corrected by 0020 |
 | [0020](0020-budgets-in-band.md) | Budgets are enforced in-band by the provider; `cost` is a reserved counter | Accepted |
+| [0021](0021-explicit-descriptor-forwarding.md) | Deliberate descriptor delegation shares the run principal | Accepted by the operator |
+| [0022](0022-ephemeral-context-sections.md) | Keep iteration context appends outside the stored prefix | Accepted |
+| [0023](0023-fenced-rollback.md) | Recover fenced generations without reviving credentials | Accepted |
+| [0024](0024-tool-call-history.md) | Preserve assistant tool calls as normalized content | Accepted |
+| [0025](0025-fence-before-repoint.md) | Persist commitment intent and fence before repointing | Accepted |
+| [0026](0026-probe-without-shared-writes.md) | Probe without shared writable grants | Accepted |
+| [0027](0027-isolate-initialization-from-the-environment-monitor.md) | Keep initialization off the environment monitor | Accepted |
+| [0028](0028-reset-failed-generations.md) | Reset failed targets through the generation table | Accepted |
+| [0029](0029-private-network-egress.md) | Configure egress inside the mandatory network namespace | Accepted |
+| [0030](0030-replay-recovery-before-admission.md) | Replay recovery before admitting a restarted target | Accepted |
+| [0031](0031-shared-state-format-mechanics.md) | Keep state-format mechanics in the shared files package | Accepted |
+| [0032](0032-bounded-journal-mechanics.md) | Keep journal provenance in the kernel | Accepted |
+| [0033](0033-generation-snapshot-projection.md) | Separate snapshot projection from transition authority | Accepted |
+| [0034](0034-sealed-envelope-mechanics.md) | Separate authenticated byte envelopes from secret authority | Accepted |
+| [0035](0035-separate-development-repositories.md) | Review separate repositories in the installed directory layout | Accepted |
+| [0036](0036-generation-local-compile-caches.md) | Keep optional Node compilation caches inside generation state | Accepted |
+| [0037](0037-verified-javascript-execution-artifacts.md) | Verify JavaScript execution artifacts alongside TypeScript sources | Accepted by the operator |
+| [0038](0038-per-person-public-sockets-and-session-whois.md) | Per-person public sockets for the web surface, and `session.whois` | Accepted by the operator |
+| [0039](0039-exclude-comment-only-kernel-lines.md) | Exclude comment-only lines from the kernel size budget | Accepted by the operator |
+| [0040](0040-storage-contract-and-default-file-backend.md) | Storage contract and default file backend | Accepted by the operator |
+| [0041](0041-raise-idle-memory-ceiling.md) | Allow 512 MB for the kernel and one idle environment | Accepted by the operator |
+| [0042](0042-allow-two-second-work-edits.md) | Allow two seconds for a watched work edit to serve | Accepted by the operator |
+| [0043](0043-observe-exits-and-recover-interrupted-freezes.md) | Observe process exits and recover interrupted freezes | Accepted |
+| [0044](0044-exact-provider-budget-lifetimes.md) | Preserve exact provider budgets for their proper lifetimes | Accepted |
+| [0045](0045-recapture-dynamic-work-provisions.md) | Recapture dynamic provisions for work edits | Accepted |
+| [0046](0046-retire-generation-resources.md) | Retire generation resources when their authority ends | Accepted |
 
 ## Decisions in the register that still need a record
 

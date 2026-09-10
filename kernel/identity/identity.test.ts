@@ -29,7 +29,7 @@ await test('ADR-0021 delegated credentials cannot cross people and expire at the
   const delegated = issued.value;
   assert.equal(identity.access(delegated, 'alice').ok, true);
   assert.equal(identity.access(delegated, 'bob').ok, false);
-  assert.equal(identity.whois(delegated, delegated).ok, false);
+  assert.equal(identity.whois(delegated, delegated).ok, true);
   identity.fence('alice', 2);
   assert.deepEqual(identity.authenticate(delegated), { ok: false, error: { code: 'fenced', message: 'The run generation has been fenced.' } });
 });

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/artifacts/1",
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["version", "generator", "runtime", "source", "output"],
+      "properties": {
+        "version": { "const": 1 },
+        "generator": { "const": "node:stripTypeScriptTypes:strip" },
+        "runtime": { "type": "string", "pattern": "^v[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$" },
+        "source": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "output": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+      }
+    },
+    "job": {
+      "type": "object",
+      "required": ["source", "destination"],
+      "properties": {
+        "source": { "type": "string", "pattern": "^/[^\\u0000]{1,4095}$" },
+        "destination": { "type": "string", "pattern": "^/[^\\u0000]{1,4095}$" },
+        "previous": { "type": "string", "pattern": "^/[^\\u0000]{1,4095}$" }
+      }
+    },
+    "reply": {
+      "oneOf": [
+        { "type": "object", "required": ["ok"], "properties": { "ok": { "const": true } } },
+        { "type": "object", "required": ["ok", "error"], "properties": { "ok": { "const": false }, "error": { "$ref": "#/$defs/error" } } }
+      ]
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "enum": ["invalid-args", "hash-mismatch", "outside-roots", "budget", "io", "deadline"] },
+        "message": { "type": "string" }
+      }
+    }
+  },
+  "$ref": "#/$defs/artifact"
+}

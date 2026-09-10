@@ -1,0 +1,20 @@
+# ADR 0035: both repositories use the runtime's installed-layout gate.
+name: Verify Thetis
+description: Build, check, test and assemble the exact runtime/packages checkout pair
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      with:
+        node-version: 24.18.0
+        package-manager-cache: false
+    - name: Prepare the mandatory Linux boundary
+      shell: bash
+      run: bash runtime/.github/scripts/prepare-runner.sh
+    - name: Install the locked development toolchain without lifecycle scripts
+      shell: bash
+      working-directory: runtime
+      run: npm ci --ignore-scripts --no-audit --no-fund
+    - name: Run all release gates and assemble delivery files
+      shell: bash
+      run: bash runtime/.github/scripts/verify.sh

@@ -27,7 +27,7 @@ async function fixture(mode = 'healthy', settings = logLimits) {
   const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: `${repository}/test/fixtures/controlled-process.ts`, args: [mode], cwd: '/tmp', mounts: [
     ...['lib', 'contracts', 'node_modules', 'test/fixtures'].map((name): Mount => ({ source: `${repository}/${name}`, path: `${repository}/${name}`, mode: 'ro' }))
   ] }, token.value, context); assert.ok(started.ok, JSON.stringify(started));
-  return { process: started.value, clock, rows: () => readFile(join(root, 'observed.jsonl'), 'utf8'), async close() {
+  return { process: started.value, clock, authenticate: () => identity.authenticate(token.value), rows: () => readFile(join(root, 'observed.jsonl'), 'utf8'), async close() {
     const stopped = await started.value.stop('test complete'); await journal.value.close(); await rm(root, { recursive: true, force: true }); assert.ok(stopped.ok, JSON.stringify(stopped));
   } };
 }
@@ -66,8 +66,12 @@ await test('KS-001 a process crash closes its inherited control endpoint without
   try {
     assert.ok((await f.process.probe()).ok);
     assert.ok(f.process.running.process.kill('SIGKILL')); await f.process.running.exited;
-    await f.process.control.finished();
+    const ended = await f.process.exited; assert.equal(ended.expected, false); assert.ok(ended.result.ok);
+    assert.equal(f.process.alive, false); assert.ok(!f.authenticate().ok); assert.ok(!(await f.process.running.events()).ok);
     const result = await f.process.control.call('health.probe', {}); assert.ok(!result.ok); assert.equal(result.error.code, 'io');
+    assert.match(await f.rows(), /"reason":"unexpected process exit"/u);
+    assert.ok((await f.process.stop('already observed')).ok);
+    assert.equal((await f.rows()).match(/"kind":"process.exit"/gu)?.length, 1);
   } finally { await f.close(); }
 });
 

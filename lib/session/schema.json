@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/session-events/1",
+  "$defs": {
+    "event": {
+      "allOf": [
+        {
+          "$ref": "thetis://contract/turn-events/1#/$defs/envelope"
+        },
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "token"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/token"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "output"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/output"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "end"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/end"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "batch": {
+      "type": "object",
+      "required": [
+        "type",
+        "conversation",
+        "cursor",
+        "events"
+      ],
+      "properties": {
+        "type": {
+          "const": "session.events"
+        },
+        "conversation": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "cursor": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "events": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/event"
+          }
+        }
+      }
+    },
+    "subscribed": {
+      "type": "object",
+      "required": [
+        "conversation",
+        "cursor",
+        "oldest"
+      ],
+      "properties": {
+        "conversation": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "cursor": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "oldest": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/batch"
+}

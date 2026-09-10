@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/profile/1",
+  "$defs": {
+    "layer": {
+      "type": "object",
+      "required": [
+        "kind",
+        "directory",
+        "pin",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "packages",
+            "lib",
+            "contracts",
+            "node_modules"
+          ]
+        },
+        "directory": {
+          "type": "string",
+          "pattern": "^(@[a-z0-9-]+/)?[a-z0-9][a-z0-9_.-]*$",
+          "maxLength": 128
+        },
+        "pin": {
+          "$ref": "thetis://contract/registry/1#/$defs/pin"
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "grant": {
+      "type": "object",
+      "required": [
+        "source",
+        "hash",
+        "mount"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "mount": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "entry",
+        "manifest"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "entry": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "manifest": {
+          "type": "object"
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "required": [
+        "source",
+        "hash",
+        "mount",
+        "aliases",
+        "packages",
+        "layers"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "mount": {
+          "const": "/opt/thetis-runtime"
+        },
+        "aliases": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/grant"
+          }
+        },
+        "packages": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/package"
+          }
+        },
+        "layers": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/layer"
+          }
+        }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "pins"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "pins": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": [
+              "kind",
+              "directory",
+              "pin"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "packages",
+                  "lib",
+                  "contracts",
+                  "node_modules"
+                ]
+              },
+              "directory": {
+                "type": "string",
+                "maxLength": 128
+              },
+              "pin": {
+                "$ref": "thetis://contract/registry/1#/$defs/pin"
+              }
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid-args",
+            "io",
+            "budget",
+            "outside-roots",
+            "conflict",
+            "hash-mismatch",
+            "switching"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "required": [
+        "id",
+        "owner",
+        "scope",
+        "state",
+        "package",
+        "entry",
+        "profile",
+        "selection"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "package": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "entry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "owner": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "scope": {
+          "enum": [
+            "person",
+            "deployment"
+          ]
+        },
+        "profile": {
+          "type": "object"
+        },
+        "selection": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "args": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "settings": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
+        "services": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "mount"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "mount": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            }
+          }
+        },
+        "mounts": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": [
+              "source",
+              "path",
+              "mode"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "mode": {
+                "enum": [
+                  "ro",
+                  "rw"
+                ]
+              },
+              "maximumBytes": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "environment": {
+          "type": "boolean"
+        },
+        "quotaBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "spawn": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "required": [
+        "root",
+        "cgroup",
+        "identity",
+        "source",
+        "at",
+        "discovery",
+        "targets"
+      ],
+      "properties": {
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "cgroup": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "identity": {
+          "type": "object"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "discovery": {
+          "$ref": "#/$defs/process"
+        },
+        "targets": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/process"
+          }
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/profile"
+}

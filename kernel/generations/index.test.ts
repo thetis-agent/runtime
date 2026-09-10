@@ -112,3 +112,68 @@ await test('ADR-0025 switching intent is durable before repointing and requires 
     assert.equal(driver.machine.view.current.n, 3); assert.equal(driver.machine.view.current.pins['release'], 'sha256:old');
   } finally { await driver.close(); }
 });
+
+await test('ADR-0028 failed reset is authorized, observed and restores into a fresh fenced epoch', async () => {
+  const driver = await generationDriver();
+  try {
+    await driver.advance(3); await driver.move({ event: 'failed', reason: 'apply failed' });
+    await driver.move({ event: 'failed', reason: 'restore failed' });
+    const reset: Input = { event: 'reset', reason: 'reset requested', candidate };
+    assert.equal((await driver.machine.transition(reset)).ok, false);
+    assert.equal(driver.machine.view.state, 'FAILED');
+    await driver.move({ ...reset, authorized: true });
+    assert.equal(driver.machine.view.state, 'ROLLING_BACK');
+    await driver.move({ event: 'restored', reason: 'verified healthy snapshot', restored: true, probed: true });
+    assert.equal(driver.machine.view.current.n, 3);
+    assert.equal(driver.machine.view.current.pins['release'], 'sha256:old');
+    assert.match(await driver.rows(), /"event":"reset"/u);
+  } finally { await driver.close(); }
+});
+
+for (const step of [0, 1, 2, 3, 4, 5, 6, 7]) await test(`ADR-0030 restart at transition ${String(step)} requires authority and consumes a fresh epoch`, async () => {
+  const driver = await generationDriver();
+  try {
+    await driver.advance(step === 7 ? 2 : step);
+    if (step === 7) await driver.move({ event: 'failed', reason: 'interrupted recovery' });
+    const before = driver.machine.view;
+    const input: Input = { event: 'restart', reason: 'supervisor returned', candidate: before.current };
+    assert.equal((await driver.machine.transition(input)).ok, false);
+    await driver.move({ ...input, authorized: true }); assert.equal(driver.machine.admits, false);
+    await driver.move({ event: 'restored', reason: 'verified', restored: true, probed: true });
+    assert.equal(driver.machine.view.current.n, Math.max(before.current.n, before.candidate?.n ?? 0) + 1);
+    assert.deepEqual(driver.machine.view.current.pins, before.current.pins);
+  } finally { await driver.close(); }
+});
+
+await test('ADR-0043 a serving crash requires an observed exit and exposes authorized reset', async () => {
+  const driver = await generationDriver();
+  try {
+    const input: Input = { event: 'crashed', reason: 'unexpected exit' };
+    assert.ok(!(await driver.machine.transition(input)).ok); assert.equal(driver.machine.admits, true);
+    await driver.move({ ...input, exited: true });
+    assert.equal(driver.machine.view.state, 'FAILED'); assert.equal(driver.machine.admits, false);
+    assert.ok(!(await driver.machine.transition({ event: 'reset', reason: 'unprivileged reset', candidate })).ok);
+    await driver.move({ event: 'reset', reason: 'authorized reset', candidate: driver.machine.view.current, authorized: true });
+    await driver.move({ event: 'restored', reason: 'healthy state restored', restored: true, probed: true });
+    assert.equal(driver.machine.view.current.n, 2); assert.equal(driver.machine.admits, true);
+  } finally { await driver.close(); }
+});
+
+await test('ADR-0043 recovery reserves only the next healthy epoch and restoration adopts that exact reservation', async () => {
+  const driver = await generationDriver();
+  try {
+    await driver.move({ event: 'crashed', reason: 'process exited', exited: true });
+    await driver.move({ event: 'reset', reason: 'reset', candidate: driver.machine.view.current, authorized: true });
+    const reservation = { ...driver.machine.view.current, n: 2 };
+    for (const input of [
+      { event: 'recovering', reason: 'no authority', candidate: reservation },
+      { event: 'recovering', reason: 'wrong epoch', candidate: { ...reservation, n: 1 }, authorized: true },
+      { event: 'recovering', reason: 'wrong state', candidate: { ...reservation, stateSnapshot: 'other' }, authorized: true },
+      { event: 'recovering', reason: 'wrong pins', candidate: { ...reservation, pins: candidate.pins }, authorized: true }
+    ] satisfies Input[]) assert.ok(!(await driver.machine.transition(input)).ok);
+    await driver.move({ event: 'recovering', reason: 'reserved', candidate: reservation, authorized: true });
+    assert.ok(!(await driver.machine.transition({ event: 'restored', reason: 'wrong reservation', candidate: { ...reservation, n: 3 }, restored: true, probed: true })).ok);
+    await driver.move({ event: 'restored', reason: 'verified reservation', candidate: reservation, restored: true, probed: true });
+    assert.equal(driver.machine.view.current.n, 2); assert.equal(driver.machine.admits, true);
+  } finally { await driver.close(); }
+});

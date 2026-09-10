@@ -27,7 +27,35 @@
         "reserved": { "type": "number", "minimum": 0 }, "requests": { "type": "integer", "minimum": 0 }
       }
     },
-    "checkpoint": { "type": "object", "required": ["version", "windows"], "properties": { "version": { "const": 1 }, "windows": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/window" } } } }
+    "decimal": { "type": "string", "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{0,323}[1-9])?$", "maxLength": 650 },
+    "personBalance": {
+      "type": "object", "required": ["person", "at", "spent", "reserved", "requests"],
+      "properties": {
+        "person": { "type": "string", "maxLength": 256, "pattern": "^[^\\u0000]*$" },
+        "at": { "type": "number", "minimum": 0 },
+        "spent": { "$ref": "#/$defs/decimal" }, "reserved": { "$ref": "#/$defs/decimal" },
+        "requests": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      }
+    },
+    "runBalance": {
+      "type": "object", "required": ["digest", "at", "spent", "reserved", "requests"],
+      "properties": {
+        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "expires": { "type": "number", "minimum": 0 }, "at": { "type": "number", "minimum": 0 },
+        "spent": { "$ref": "#/$defs/decimal" }, "reserved": { "$ref": "#/$defs/decimal" },
+        "requests": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      }
+    },
+    "ledger": {
+      "type": "object", "required": ["version", "people", "runs"],
+      "properties": {
+        "version": { "const": 2 },
+        "people": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/personBalance" } },
+        "runs": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/runBalance" } }
+      }
+    },
+    "legacy": { "type": "object", "required": ["version", "windows"], "properties": { "version": { "const": 1 }, "windows": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/window" } } } },
+    "checkpoint": { "oneOf": [{ "$ref": "#/$defs/legacy" }, { "$ref": "#/$defs/ledger" }] }
   },
   "$ref": "#/$defs/checkpoint"
 }

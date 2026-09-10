@@ -1,7 +1,10 @@
 /** Keep contract types subordinate to schemas, including open fields; ADR 0006. */
-import { readFile, writeFile, readdir } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { relative } from 'node:path';
+import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { posix } from 'node:path';
+import { packagesRoot } from '../profile/packages-root.ts';
+import { generateSupport } from '../artifacts/generate.ts';
+import { precompile } from './precompile.ts';
 
 type ObjectValue = Record<string, unknown>;
 
@@ -33,7 +36,15 @@ function members(schema: ObjectValue): string {
   return `{ ${fields.join(' ')} }`;
 }
 
-function render(value: unknown): string {
+/** `&` binds tighter than `|` in TypeScript, so a union member of an intersection must be
+ * parenthesized or the intersection silently narrows only its first alternative. */
+function intersected(member: unknown): string {
+  const rendered = render(member);
+  const union = object(member)['oneOf'] ?? object(member)['anyOf'];
+  return Array.isArray(union) && union.length > 1 ? `(${rendered})` : rendered;
+}
+
+export function render(value: unknown): string {
   if (value === false) return 'never';
   const schema = object(value);
   if (typeof schema['$ref'] === 'string') return reference(schema['$ref']);
@@ -42,7 +53,7 @@ function render(value: unknown): string {
   const union = schema['oneOf'] ?? schema['anyOf'];
   if (Array.isArray(union)) return union.map(render).join(' | ');
   const intersection = schema['allOf'];
-  if (Array.isArray(intersection)) return intersection.map(render).join(' & ');
+  if (Array.isArray(intersection)) return intersection.map(intersected).join(' & ');
   const kind = schema['type'];
   if (Array.isArray(kind)) return kind.map((item: unknown) => render({ ...schema, type: item })).join(' | ');
   if (kind === 'object') return members(schema);
@@ -56,14 +67,18 @@ export async function generate(name: string, root = new URL('../../contracts/', 
   const raw: unknown = JSON.parse(await readFile(new URL(`${name}/schema.json`, root), 'utf8'));
   const schema = object(raw);
   const defs = object(schema['$defs']);
+  const category = root.href === new URL('../../contracts/', import.meta.url).href ? 'contracts'
+    : root.href === new URL('../../lib/', import.meta.url).href ? 'lib' : 'packages';
   const imports = new Set<string>();
   const serialized = JSON.stringify(raw);
-  for (const match of serialized.matchAll(/thetis:\/\/contract\/([^/]+)\/\d+#/gu)) {
-    const contract = match[1];
-    if (contract && (contract !== name || root.href !== new URL('../../contracts/', import.meta.url).href)) {
-      const path = relative(fileURLToPath(new URL(`${name}/`, root)), fileURLToPath(new URL(`../../contracts/${contract}/types.ts`, import.meta.url)));
-      imports.add(`import type * as ${title(contract)} from '${path.startsWith('.') ? path : `./${path}`}';`);
-    }
+  for (const match of serialized.matchAll(/thetis:\/\/(contract|internal)\/([^/]+)\/\d+#/gu)) {
+    const kind = match[1]; const target = match[2];
+    if (!target) continue;
+    const directory = kind === 'contract' ? '../../contracts/' : '../../lib/';
+    const destination = new URL(`${directory}${target}/types.ts`, import.meta.url);
+    if (destination.href === new URL(`${name}/types.ts`, root).href) continue;
+    const path = posix.relative(`${category}/${name}`, `${kind === 'contract' ? 'contracts' : 'lib'}/${target}/types.ts`);
+    imports.add(`import type * as ${title(target)} from '${path.startsWith('.') ? path : `./${path}`}';`);
   }
   const lines = ['/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */', ...imports];
   for (const [key, value] of Object.entries(defs)) {
@@ -77,17 +92,19 @@ export async function generate(name: string, root = new URL('../../contracts/', 
 
 export async function generateAll(check: boolean): Promise<boolean> {
   let fresh = true;
-  for (const directory of ['../../contracts/', '../../lib/', '../../packages/']) {
-    const root = new URL(directory, import.meta.url);
+  const repo = fileURLToPath(new URL('../..', import.meta.url));
+  for (const root of [new URL('../../contracts/', import.meta.url), new URL('../../lib/', import.meta.url), pathToFileURL(`${packagesRoot(repo)}/`)]) {
     for (const name of await readdir(root)) {
-      if (!(await readdir(new URL(`${name}/`, root))).includes('schema.json')) continue;
+      const folder = new URL(`${name}/`, root);
+      try { if (!(await stat(folder)).isDirectory()) continue; } catch { continue; }
+      if (!(await readdir(folder)).includes('schema.json')) continue;
       const generated = await generate(name, root);
       const path = new URL(`${name}/types.ts`, root);
       if (check) fresh = (await readFile(path, 'utf8')) === generated && fresh;
       else await writeFile(path, generated);
     }
   }
-  return fresh;
+  return await generateSupport(check) && await precompile(check) && fresh;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

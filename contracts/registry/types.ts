@@ -1,0 +1,11 @@
+/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
+export type Pin = { "name": string; "version": string; "commit": string; "hash": string; [key: string]: unknown; };
+export type Release = { "pin": Pin; "at": number; "note": string; [key: string]: unknown; };
+export type Lock = { "version": 1; "pins": (Pin)[]; [key: string]: unknown; };
+export type Error = { "code": "invalid-args" | "io" | "budget" | "outside-roots" | "not-found" | "conflict" | "gap" | "hash-mismatch" | "deadline" | "cycle" | "scope" | "envelope" | "collision" | "forbidden"; "message": string; [key: string]: unknown; };
+export type Startup = { "cache": "/cache"; "registry": "/registry"; "sources": (string)[]; [key: string]: unknown; };
+export type Request = { "v": "1"; "id": string; "method": "inspect"; "name": string; "version": string; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "search"; "name": string; "range": string; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "fetch"; "pin": Pin; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "publish"; "source": string; "note": string; "at": number; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "resolve"; "pins": (Pin)[]; "facts"?: (Provision)[]; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "retention"; "live": (Pin)[]; "defaults": (Pin)[]; "at": number; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "bootstrap"; "source": string; "at": number; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "assemble"; "layers": (Selection)[]; [key: string]: unknown; } | { "v": "1"; "id": string; "method": "prune"; "pin": Pin; [key: string]: unknown; };
+export type Response = { "v": "1"; "id": string; "ok": true; "value": unknown; [key: string]: unknown; } | { "v": "1"; "id": string; "ok": false; "error": Error; [key: string]: unknown; };
+export type Provision = { "name": string; "version": string; "scope": "person" | "deployment"; "owner": string; [key: string]: unknown; };
+export type Selection = { "kind": "packages" | "lib" | "contracts" | "node_modules"; "directory": string; "pin": Pin; [key: string]: unknown; };
+export type Contract = Lock;

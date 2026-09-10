@@ -20,7 +20,7 @@ export class Usage {
 
   report(source: Run, params: UsageReportParams): Promise<Result<void>> {
     const caller = this.#identity.authenticate(params.runToken); if (!caller.ok) return Promise.resolve(caller);
-    if (source.scope === 'person' ? source.id !== caller.value.id : !caller.value.services.includes(source.id)) return Promise.resolve(failure('auth', 'The report does not name a recorded caller of this run.'));
+    if (source.scope === 'person' ? source.id !== caller.value.id || source.person !== caller.value.person || source.target !== caller.value.target || source.generation !== caller.value.generation : !caller.value.services.includes(source.id)) return Promise.resolve(failure('auth', 'The report does not name a recorded caller of this run.'));
     if (!Number.isFinite(params.counters.cost) || params.counters.cost < 0 || Object.keys(params.counters).length > this.#limits.counters || Buffer.byteLength(params.callId) > this.#limits.identifierBytes) return Promise.resolve(failure('invalid-args', 'The usage report exceeds its valid attribution shape.'));
     this.#reap();
     if (this.#queued >= this.#limits.queuedReports || !this.#charged.has(caller.value.person) && this.#charged.size >= this.#limits.people) return Promise.resolve(failure('budget', 'The usage attribution pool is full.'));

@@ -7,7 +7,7 @@ export type Role = 'admin' | 'reviewer' | 'user';
 export interface Principal { id: string; role: Role; projects: readonly string[]; observeOthers: boolean }
 export interface Run {
   id: string; person: string; scope: 'person' | 'deployment'; target: string;
-  generation: number; expires: number; services: readonly string[];
+  generation: number; expires: number; services: readonly string[]; cost?: number;
 }
 export interface IdentityConfig {
   people: readonly Principal[];
@@ -25,6 +25,7 @@ export class Identity {
   readonly #generations = new Map<string, number>();
   readonly #pending = new Map<string, string>();
   readonly #probeOnly = new Set<string>();
+  readonly #sessions = new Map<string, { person: string; expires: number }>();
   readonly #config: IdentityConfig;
   readonly #now: () => number;
 
@@ -39,6 +40,22 @@ export class Identity {
     const person = this.#bindings.get(JSON.stringify([kind, id]));
     const principal = person === undefined ? undefined : this.#people.get(person);
     return principal ? { ok: true, value: structuredClone(principal) } : failure('unbound', `The ${kind} identity has no binding.`);
+  }
+
+  session(authority: string, kind: string, id: string): Result<{ sessionToken: string; person: string; role: Role }, ErrorCode> {
+    const principal = this.assert(authority, kind, id); if (!principal.ok) return principal;
+    for (const [key, session] of this.#sessions) if (session.expires <= this.#now()) this.#sessions.delete(key);
+    if (this.#sessions.size >= (this.#config.tokens ?? 4096)) return failure('budget', 'The identity session pool is full.');
+    const token = randomBytes(32).toString('base64url');
+    this.#sessions.set(digest(token), { person: principal.value.id, expires: this.#now() + (this.#config.tokenLifetimeMs ?? 86400000) });
+    return { ok: true, value: { sessionToken: token, person: principal.value.id, role: principal.value.role } };
+  }
+
+  resolveSession(token: string): Result<Principal, ErrorCode> {
+    const session = this.#sessions.get(digest(token));
+    if (!session || session.expires <= this.#now()) return failure('auth', 'The identity session is unknown or expired.');
+    const person = this.#people.get(session.person);
+    return person ? { ok: true, value: structuredClone(person) } : failure('unbound', 'The identity session has no principal.');
   }
 
   issue(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {
@@ -67,6 +84,7 @@ export class Identity {
   access(token: string, owner: string, observe = false): Result<Run, ErrorCode> {
     const run = this.authenticate(token);
     if (!run.ok) return run;
+    if (run.value.scope !== 'person') return failure('forbidden', 'A service must resolve a person before accessing conversations.');
     const person = this.#people.get(run.value.person);
     if (run.value.person !== owner && !(observe && person?.observeOthers)) return failure('forbidden', 'The conversation belongs to another person.');
     return run;
@@ -75,8 +93,9 @@ export class Identity {
   whois(serviceToken: string, callerToken: string): Result<Run, ErrorCode> {
     const service = this.authenticate(serviceToken);
     if (!service.ok) return service;
-    if (service.value.scope !== 'deployment') return failure('forbidden', 'Only a deployment service can resolve another run.');
-    return this.authenticate(callerToken);
+    const caller = this.authenticate(callerToken); if (!caller.ok) return caller;
+    if (service.value.scope !== 'deployment' && (service.value.id !== caller.value.id || service.value.person !== caller.value.person || service.value.target !== caller.value.target || service.value.generation !== caller.value.generation)) return failure('forbidden', 'Only a deployment service can resolve another run.');
+    return caller;
   }
 
   fence(target: string, generation: number): void {
@@ -87,6 +106,12 @@ export class Identity {
   }
 
   revoke(token: string): void { this.#remove(digest(token)); }
+
+  /** Release only a runtime-owned, never-reused ephemeral target; persistent fencing survives ordinary revocation. */
+  retire(target: string): void {
+    for (const [key, run] of this.#tokens) if (run.target === target) this.#remove(key);
+    this.#pending.delete(target); this.#generations.delete(target);
+  }
 
   principal(id: string): Principal | undefined {
     const person = this.#people.get(id);
@@ -106,8 +131,9 @@ export class Identity {
 
   #mint(run: Omit<Run, 'expires'>): Result<string, ErrorCode> {
     this.#reap();
+    if (run.cost !== undefined && (!Number.isFinite(run.cost) || run.cost < 0) || run.person.includes('\0')) return failure('budget', 'The run cost boundary or principal is invalid.');
     if (this.#tokens.size >= (this.#config.tokens ?? 4096)) return failure('budget', 'The run token pool is full.');
-    if (!this.#people.has(run.person)) return failure('unbound', 'The run principal does not exist.');
+    if (!(run.scope === 'deployment' && run.person === '') && !this.#people.has(run.person)) return failure('unbound', 'The run principal does not exist.');
     const token = randomBytes(32).toString('base64url');
     this.#tokens.set(digest(token), { ...structuredClone(run), expires: this.#now() + (this.#config.tokenLifetimeMs ?? 86400000) });
     return { ok: true, value: token };

@@ -1,0 +1,362 @@
+{
+  "root": "/var/lib/thetis/kernel",
+  "cgroup": "/sys/fs/cgroup/thetis",
+  "identity": {
+    "people": [
+      {
+        "id": "alice",
+        "role": "user",
+        "projects": [],
+        "observeOthers": false
+      },
+      {
+        "id": "bob",
+        "role": "user",
+        "projects": [],
+        "observeOthers": false
+      }
+    ],
+    "bindings": [
+      {
+        "kind": "password",
+        "id": "alice-login",
+        "person": "alice"
+      },
+      {
+        "kind": "password",
+        "id": "bob-login",
+        "person": "bob"
+      }
+    ],
+    "authorities": {
+      "password": "login"
+    }
+  },
+  "source": "/sources/repository",
+  "at": 0,
+  "targets": [
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {
+        "rule": {
+          "name": "cost",
+          "cost": 1,
+          "requests": 100,
+          "windowMs": 86400000
+        },
+        "settings": {}
+      },
+      "id": "provider",
+      "owner": "",
+      "scope": "deployment",
+      "package": "provider-mock",
+      "entry": "service.ts",
+      "spawn": "provider",
+      "selection": [
+        "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "provider-mock"
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {
+        "profile": {},
+        "provided": {},
+        "spaces": [],
+        "excluded": [],
+        "runtime": {
+          "root": "/state/conversations",
+          "endpoint": "/endpoint/service.sock",
+          "providerSocket": "/services/provider/current.sock",
+          "person": "alice",
+          "token": "replaced-by-inherited-authority",
+          "model": "scripted",
+          "provider": "provider",
+          "space": "/space",
+          "system": [],
+          "roots": [
+            {
+              "path": "/space",
+              "mode": "rw",
+              "space": "person"
+            }
+          ],
+          "mode": {
+            "readOnly": false,
+            "deny": []
+          }
+        }
+      },
+      "id": "alice",
+      "owner": "alice",
+      "scope": "person",
+      "package": "core",
+      "entry": "main.ts",
+      "selection": [
+        "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "core",
+        "tools-files"
+      ],
+      "environment": true,
+      "services": [
+        {
+          "id": "provider",
+          "mount": "/services/provider"
+        }
+      ],
+      "mounts": [
+        {
+          "source": "/var/lib/thetis/spaces/alice",
+          "path": "/space",
+          "mode": "rw",
+          "maximumBytes": 536870912
+        }
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {},
+      "id": "alice-cli",
+      "owner": "alice",
+      "scope": "person",
+      "package": "cli",
+      "entry": "service.ts",
+      "spawn": "cli",
+      "selection": [
+        "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "cli"
+      ],
+      "services": [
+        {
+          "id": "alice",
+          "mount": "/services/environment"
+        }
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {
+        "profile": {},
+        "provided": {},
+        "spaces": [],
+        "excluded": [],
+        "runtime": {
+          "root": "/state/conversations",
+          "endpoint": "/endpoint/service.sock",
+          "providerSocket": "/services/provider/current.sock",
+          "person": "bob",
+          "token": "replaced-by-inherited-authority",
+          "model": "scripted",
+          "provider": "provider",
+          "space": "/space",
+          "system": [],
+          "roots": [
+            {
+              "path": "/space",
+              "mode": "rw",
+              "space": "person"
+            }
+          ],
+          "mode": {
+            "readOnly": false,
+            "deny": []
+          }
+        }
+      },
+      "id": "bob",
+      "owner": "bob",
+      "scope": "person",
+      "package": "core",
+      "entry": "main.ts",
+      "selection": [
+        "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "core",
+        "tools-files"
+      ],
+      "environment": true,
+      "services": [
+        {
+          "id": "provider",
+          "mount": "/services/provider"
+        }
+      ],
+      "mounts": [
+        {
+          "source": "/var/lib/thetis/spaces/bob",
+          "path": "/space",
+          "mode": "rw",
+          "maximumBytes": 536870912
+        }
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {},
+      "id": "bob-cli",
+      "owner": "bob",
+      "scope": "person",
+      "package": "cli",
+      "entry": "service.ts",
+      "spawn": "cli",
+      "selection": [
+        "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "cli"
+      ],
+      "services": [
+        {
+          "id": "bob",
+          "mount": "/services/environment"
+        }
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {},
+      "id": "alice-web",
+      "owner": "alice",
+      "scope": "person",
+      "package": "gateway-web",
+      "entry": "service.ts",
+      "spawn": "web",
+      "selection": [
+        "lib/assets", "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "gateway-web"
+      ],
+      "services": [
+        {
+          "id": "alice",
+          "mount": "/services/environment"
+        }
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/initial",
+      "profile": {},
+      "id": "bob-web",
+      "owner": "bob",
+      "scope": "person",
+      "package": "gateway-web",
+      "entry": "service.ts",
+      "spawn": "web",
+      "selection": [
+        "lib/assets", "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "gateway-web"
+      ],
+      "services": [
+        {
+          "id": "bob",
+          "mount": "/services/environment"
+        }
+      ]
+    },
+    {
+      "quotaBytes": 536870912,
+      "state": "/var/lib/thetis/login-state",
+      "profile": {},
+      "id": "login",
+      "owner": "",
+      "scope": "deployment",
+      "package": "gateway-login",
+      "entry": "service.ts",
+      "spawn": "login",
+      "selection": [
+        "lib/assets", "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+        "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+        "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+        "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+        "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+        "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+        "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+        "semver", "ws", "yaml", "gateway-login"
+      ]
+    }
+  ],
+  "discovery": {
+    "quotaBytes": 536870912,
+    "state": "/var/lib/thetis/initial",
+    "profile": {},
+    "id": "discovery",
+    "owner": "",
+    "scope": "deployment",
+    "package": "core",
+    "entry": "discovery-service.ts",
+    "selection": [
+      "lib/bm25", "lib/deployment", "lib/events", "lib/files",
+      "lib/generation-state", "lib/http", "lib/maintenance", "lib/ndjson",
+      "lib/package-loader", "lib/pins", "lib/profile", "lib/provider",
+      "lib/registry", "lib/result", "lib/sandbox-runner", "lib/schema",
+      "lib/semver-match", "lib/service", "lib/session", "lib/skills",
+      "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
+      "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
+      "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+      "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
+      "semver", "ws", "yaml", "core",
+      "tools-files", "provider-mock", "cli", "gateway-web", "gateway-login"
+    ]
+  }
+}

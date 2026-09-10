@@ -1,0 +1,44 @@
+/** Mount one person's direct stream beside inherited observed submissions; KS-004, ADR 0019. */
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, symlink, rm, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { Journal } from '../kernel/log/index.ts';
+import { Process } from '../kernel/boundary/process.ts';
+import type { Context } from '../kernel/boundary/process.ts';
+import { sessionWhois } from '../kernel/boundary/runtime.ts';
+import type { Operation } from '../kernel/socket/index.ts';
+import type { Method } from '../contracts/kernel-socket/types.ts';
+import { sessionMethods } from '../lib/socket/sessions.ts';
+import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
+import type { Mount } from '../lib/sandbox-runner/index.ts';
+import { Schemas } from '../lib/schema/index.ts';
+import { ManualClock } from '../lib/events/index.ts';
+import type { serviceFixture } from './provider-service.ts';
+import type { environmentProcess } from './environment-process.ts';
+import { packageEntry, packageMounts } from './package-mounts.ts';
+
+export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts') {
+  const root = await mkdtemp('/tmp/gateway-process-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));
+  await symlink('service.sock', join(environment.root, 'endpoint/current.sock'));
+  const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
+  const issued = shared.identity.issue({ id: `gateway-${person}`, person, scope: 'person', target: `gateway-${person}`, generation: 1, services: [] }); assert.ok(issued.ok);
+  const journal = await Journal.open(join(root, 'rows.jsonl'), () => clock.now()); assert.ok(journal.ok);
+  const methods = new Map<Method, Operation>(sessionMethods.filter(method => method !== 'session.subscribe').map(method => [method, (run, params) => {
+    assert.equal(run.person, person); return environment.process.invoke(method, params);
+  }]));
+  methods.set('health.probe', () => Promise.resolve({ ok: true, value: { ready: true } }));
+  methods.set('profile.get', () => Promise.resolve({ ok: true, value: { person } }));
+  methods.set('session.whois', (run, params) => Promise.resolve(sessionWhois(shared.identity, run, params['sessionToken'])));
+  methods.set('env.status', run => Promise.resolve({ ok: true, value: { person: run.person, state: 'LIVE' } }));
+  methods.set('env.reset', run => Promise.resolve({ ok: true, value: { person: run.person, state: 'LIVE' } }));
+  const context: Context = { target: `gateway-${person}`, identity: shared.identity, schemas, clock, journal: journal.value, runner: new SandboxRunner('/cgroup'), operations: { methods, notes: ['run.stop', 'env.updated'], note: () => Promise.resolve({ ok: true, value: undefined }) } };
+  const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
+  const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: packageEntry(repository, packageName, entry), args, cwd: '/state', mounts: [
+    ...packageMounts(repository, [packageName]),
+    { source: join(environment.root, 'endpoint'), path: '/services/environment', mode: 'ro' },
+    ...['state', 'endpoint'].map((name): Mount => ({ source: join(root, name), path: `/${name}`, mode: 'rw', maximumBytes: 67108864 }))
+  ] }, issued.value, context); assert.ok(started.ok, JSON.stringify(started));
+  return { root, process: started.value, socket: join(root, 'endpoint/service.sock'), rows: () => readFile(join(root, 'rows.jsonl'), 'utf8'), async close() {
+    assert.ok((await started.value.stop('test complete')).ok); await journal.value.close(); await rm(root, { recursive: true, force: true });
+  } };
+}

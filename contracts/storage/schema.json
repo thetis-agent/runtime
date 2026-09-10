@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/storage/1",
+  "$defs": {
+    "key": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$", "maxLength": 128 },
+    "limits": {
+      "type": "object",
+      "required": ["entries", "valueBytes", "bytes"],
+      "properties": {
+        "entries": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "valueBytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "bytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 }
+      },
+      "additionalProperties": true
+    },
+    "appendLimits": {
+      "type": "object",
+      "required": ["rowBytes", "queuedRows"],
+      "properties": {
+        "rowBytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+        "queuedRows": { "type": "integer", "minimum": 1, "maximum": 4096 }
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "enum": ["invalid-args", "budget", "io", "not-found"] },
+        "message": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$ref": "#/$defs/limits"
+}

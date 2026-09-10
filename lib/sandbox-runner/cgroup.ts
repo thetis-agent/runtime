@@ -1,5 +1,5 @@
 /** Apply resource controls before releasing a sandboxed process; ADR 0005 §4, ADR 0012 §8. */
-import { mkdir, readFile, writeFile, rmdir, readdir, realpath, statfs } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rmdir, readdir, realpath, statfs, opendir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { failure } from '../schema/index.ts';
@@ -28,6 +28,28 @@ export class Cgroup {
       if (path) try { await rmdir(path); } catch { return failure('io', 'The incomplete sandbox cgroup could not be removed.'); }
       return failure('io', 'The sandbox cgroup could not be created.');
     }
+  }
+
+  static async reap(root: string): Promise<Result<number, 'io'>> {
+    try {
+      const canonical = await realpath(root);
+      if (canonical !== root || (await statfs(root)).type !== 0x63677270) return failure('io', 'The orphan sweep requires its canonical delegated cgroup root.');
+      const controllers = (await readFile(join(root, 'cgroup.subtree_control'), 'utf8')).trim().split(/\s+/u);
+      if (!['cpu', 'memory', 'pids'].every(name => controllers.includes(name))) return failure('io', 'The orphan sweep requires delegated resource controllers.');
+      const paths: string[] = []; let entries = 0;
+      for await (const entry of await opendir(root)) {
+        if (++entries > resourceLimits.runs + 128) return failure('io', 'The orphan sweep exceeds its directory bound.');
+        if (!entry.name.startsWith('run-')) continue;
+        if (!entry.isDirectory() || !/^run-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u.test(entry.name)) return failure('io', 'The orphan sweep found an unrecognized run directory.');
+        const path = join(root, entry.name); if (await realpath(path) !== path) return failure('io', 'The orphan run directory is not canonical.');
+        paths.push(path); if (paths.length > resourceLimits.runs) return failure('io', 'The orphan sweep exceeds its run bound.');
+      }
+      for (const path of paths) {
+        const group = new Cgroup(path); const killed = await group.kill(); if (!killed.ok) return killed;
+        const removed = await group.remove(); if (!removed.ok) return removed;
+      }
+      return { ok: true, value: paths.length };
+    } catch { return failure('io', 'The orphan sandbox groups could not be reaped.'); }
   }
 
   async attach(pid: number): Promise<Result<void, 'io'>> {

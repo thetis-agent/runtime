@@ -1,0 +1,939 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/evaluator/1",
+  "$defs": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "identities": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "candidate",
+        "suite",
+        "scorer",
+        "provider",
+        "model",
+        "seed"
+      ],
+      "properties": {
+        "baseline": {
+          "$ref": "#/$defs/name"
+        },
+        "candidate": {
+          "$ref": "#/$defs/name"
+        },
+        "suite": {
+          "$ref": "#/$defs/name"
+        },
+        "scorer": {
+          "$ref": "#/$defs/name"
+        },
+        "provider": {
+          "$ref": "#/$defs/name"
+        },
+        "model": {
+          "$ref": "#/$defs/name"
+        },
+        "seed": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 256
+      }
+    },
+    "strings": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/name"
+      }
+    },
+    "row": {
+      "type": "object",
+      "required": [
+        "task",
+        "run",
+        "arm",
+        "scorer",
+        "pass",
+        "iterations",
+        "cost",
+        "counters",
+        "dropped",
+        "end",
+        "kind"
+      ],
+      "properties": {
+        "task": {
+          "$ref": "#/$defs/name"
+        },
+        "run": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "arm": {
+          "enum": [
+            "default",
+            "candidate"
+          ]
+        },
+        "scorer": {
+          "$ref": "#/$defs/name"
+        },
+        "pass": {
+          "type": "boolean"
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "counters": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "end": {
+          "type": "object",
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "answer",
+                "limit",
+                "cancel",
+                "crash",
+                "restart"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "kind": {
+          "enum": [
+            "task",
+            "regression"
+          ]
+        },
+        "ablation": {
+          "type": "object",
+          "required": [
+            "kind",
+            "item"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "tool",
+                "skill"
+              ]
+            },
+            "item": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "additionalProperties": true
+        },
+        "required_by": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "additionalProperties": true
+    },
+    "submission": {
+      "type": "object",
+      "required": [
+        "identities",
+        "rows"
+      ],
+      "properties": {
+        "identities": {
+          "$ref": "#/$defs/identities"
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8192,
+          "items": {
+            "$ref": "#/$defs/row"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "identities",
+        "tasks",
+        "regressions",
+        "runs",
+        "scorers",
+        "margin"
+      ],
+      "properties": {
+        "identities": {
+          "$ref": "#/$defs/identities"
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "regressions": {
+          "$ref": "#/$defs/strings"
+        },
+        "runs": {
+          "enum": [
+            3,
+            5
+          ]
+        },
+        "scorers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "margin": {
+          "type": "number",
+          "minimum": -100,
+          "maximum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "task": {
+      "type": "object",
+      "required": [
+        "id",
+        "family",
+        "request",
+        "mutable",
+        "requires",
+        "required",
+        "gold",
+        "budget",
+        "checks",
+        "fixture"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "family": {
+          "enum": [
+            "tool",
+            "skill",
+            "long",
+            "harness"
+          ]
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "mutable": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "names": {
+              "$ref": "#/$defs/strings"
+            },
+            "numbers": {
+              "$ref": "#/$defs/strings"
+            }
+          },
+          "additionalProperties": true
+        },
+        "requires": {
+          "$ref": "#/$defs/strings"
+        },
+        "required": {
+          "$ref": "#/$defs/strings"
+        },
+        "gold": {
+          "type": "object",
+          "required": [
+            "tools",
+            "skills"
+          ],
+          "properties": {
+            "tools": {
+              "$ref": "#/$defs/strings"
+            },
+            "skills": {
+              "$ref": "#/$defs/strings"
+            }
+          },
+          "additionalProperties": true
+        },
+        "budget": {
+          "type": "object",
+          "required": [
+            "cost",
+            "iterations"
+          ],
+          "properties": {
+            "cost": {
+              "type": "number",
+              "minimum": 0
+            },
+            "iterations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          "additionalProperties": true
+        },
+        "checks": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "fixture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "additionalProperties": true
+    },
+    "interval": {
+      "type": "object",
+      "required": [
+        "mean",
+        "lower",
+        "upper"
+      ],
+      "properties": {
+        "mean": {
+          "type": "number"
+        },
+        "lower": {
+          "type": "number"
+        },
+        "upper": {
+          "type": "number"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "suite_lift",
+        "suite_cost",
+        "regressions",
+        "improved"
+      ],
+      "properties": {
+        "suite_lift": {
+          "$ref": "#/$defs/interval"
+        },
+        "suite_cost": {
+          "type": "object",
+          "required": [
+            "default",
+            "candidate"
+          ],
+          "properties": {
+            "default": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "candidate": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        },
+        "regressions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "improved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "required": [
+        "passed",
+        "margin",
+        "summary"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "margin": {
+          "type": "number"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "hash"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "version": {
+          "$ref": "#/$defs/name"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": true
+    },
+    "outcome": {
+      "type": "object",
+      "required": [
+        "snapshot",
+        "iterations",
+        "cost",
+        "counters",
+        "dropped",
+        "end"
+      ],
+      "properties": {
+        "snapshot": {
+          "$ref": "#/$defs/name"
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "counters": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "number"
+          }
+        },
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "end": {
+          "type": "object",
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "answer",
+                "limit",
+                "cancel",
+                "crash",
+                "restart"
+              ]
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "scoreOutcome": {
+      "type": "object",
+      "required": [
+        "pass"
+      ],
+      "properties": {
+        "pass": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "startup": {
+      "type": "object",
+      "required": [
+        "plan",
+        "cases",
+        "releases",
+        "stoplist",
+        "coreChanged"
+      ],
+      "properties": {
+        "plan": {
+          "$ref": "#/$defs/plan"
+        },
+        "cases": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": [
+              "task",
+              "kind"
+            ],
+            "properties": {
+              "task": {
+                "$ref": "#/$defs/task"
+              },
+              "kind": {
+                "enum": [
+                  "task",
+                  "regression"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "releases": {
+          "type": "object",
+          "maxProperties": 2,
+          "additionalProperties": {
+            "$ref": "#/$defs/release"
+          }
+        },
+        "stoplist": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "$ref": "#/$defs/name"
+          }
+        },
+        "coreChanged": {
+          "type": "boolean"
+        },
+        "ablations": {
+          "type": "boolean"
+        },
+        "previousDefaultScorer": {
+          "$ref": "#/$defs/name"
+        },
+        "providerChanged": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "method",
+        "candidate",
+        "v"
+      ],
+      "properties": {
+        "method": {
+          "const": "evaluate"
+        },
+        "candidate": {
+          "$ref": "#/$defs/name"
+        },
+        "v": {
+          "const": "1"
+        }
+      },
+      "additionalProperties": true
+    },
+    "mutation": {
+      "type": "object",
+      "maxProperties": 513,
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 4096
+      }
+    },
+    "withheld": {
+      "type": "object",
+      "required": [
+        "tools",
+        "skills"
+      ],
+      "properties": {
+        "tools": {
+          "$ref": "#/$defs/strings"
+        },
+        "skills": {
+          "$ref": "#/$defs/strings"
+        }
+      },
+      "additionalProperties": true
+    },
+    "turnJob": {
+      "type": "object",
+      "required": [
+        "pins",
+        "input",
+        "fixture",
+        "mutation",
+        "provider",
+        "model",
+        "budget",
+        "withheld",
+        "modelSeed",
+        "task"
+      ],
+      "properties": {
+        "pins": {
+          "$ref": "#/$defs/name"
+        },
+        "input": {
+          "$ref": "thetis://contract/turn-events/1#/$defs/input"
+        },
+        "fixture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "mutation": {
+          "$ref": "#/$defs/mutation"
+        },
+        "provider": {
+          "$ref": "#/$defs/name"
+        },
+        "model": {
+          "$ref": "#/$defs/name"
+        },
+        "budget": {
+          "type": "object",
+          "required": [
+            "cost",
+            "iterations"
+          ],
+          "properties": {
+            "cost": {
+              "type": "number",
+              "minimum": 0
+            },
+            "iterations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          "additionalProperties": true
+        },
+        "withheld": {
+          "$ref": "#/$defs/withheld"
+        },
+        "modelSeed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "task": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "additionalProperties": true
+    },
+    "checkJob": {
+      "type": "object",
+      "required": [
+        "scorer",
+        "checks",
+        "snapshot",
+        "replacements"
+      ],
+      "properties": {
+        "scorer": {
+          "$ref": "#/$defs/name"
+        },
+        "checks": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "snapshot": {
+          "$ref": "#/$defs/name"
+        },
+        "replacements": {
+          "$ref": "#/$defs/mutation"
+        }
+      },
+      "additionalProperties": true
+    },
+    "runRequest": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/release"
+        },
+        {
+          "$ref": "#/$defs/turnJob"
+        },
+        {
+          "type": "object",
+          "required": [
+            "operation"
+          ],
+          "properties": {
+            "operation": {
+              "const": "evaluation.run"
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "scoreRequest": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/checkJob"
+        },
+        {
+          "type": "object",
+          "required": [
+            "target",
+            "operation"
+          ],
+          "properties": {
+            "target": {
+              "$ref": "#/$defs/name"
+            },
+            "operation": {
+              "const": "evaluation.score"
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "releaseRequest": {
+      "type": "object",
+      "required": [
+        "id",
+        "operation"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "operation": {
+          "const": "evaluation.release"
+        }
+      },
+      "additionalProperties": true
+    },
+    "fixtureWork": {
+      "type": "object",
+      "required": [
+        "path",
+        "mutation"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "mutation": {
+          "$ref": "#/$defs/mutation"
+        }
+      },
+      "additionalProperties": true
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "end"
+      ],
+      "properties": {
+        "end": {
+          "type": "object",
+          "required": [
+            "reason",
+            "iterations"
+          ],
+          "properties": {
+            "reason": {
+              "enum": [
+                "answer",
+                "limit",
+                "cancel",
+                "crash",
+                "restart"
+              ]
+            },
+            "iterations": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          },
+          "additionalProperties": true
+        },
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        }
+      },
+      "additionalProperties": true
+    },
+    "journalRow": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "target",
+        "kind",
+        "data"
+      ],
+      "properties": {
+        "provenance": {
+          "enum": [
+            "kernel-observed",
+            "candidate-reported",
+            "reviewed-reported"
+          ]
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "counters": {
+              "type": "object",
+              "maxProperties": 256,
+              "additionalProperties": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "rotationInput": {
+      "type": "object",
+      "required": [
+        "conversation",
+        "text"
+      ],
+      "properties": {
+        "conversation": {
+          "$ref": "#/$defs/name"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "required": [
+        "id",
+        "month",
+        "source",
+        "request"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^draft-[a-f0-9]{64}$"
+        },
+        "month": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+        },
+        "source": {
+          "$ref": "#/$defs/name"
+        },
+        "request": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        }
+      }
+    },
+    "taskHistory": {
+      "type": "object",
+      "required": [
+        "task",
+        "month",
+        "passed",
+        "total"
+      ],
+      "properties": {
+        "task": {
+          "$ref": "#/$defs/name"
+        },
+        "month": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/submission"
+}

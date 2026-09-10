@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import type { IdentityConfig } from '../kernel/identity/index.ts';
 import { Identity } from '../kernel/identity/index.ts';
 import { Journal } from '../kernel/log/index.ts';
 import { Usage } from '../kernel/boundary/usage.ts';
@@ -14,6 +15,7 @@ import { ManualClock } from '../lib/events/index.ts';
 import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
 import type { Mount } from '../lib/sandbox-runner/index.ts';
 import { ProviderClient } from '../lib/provider/client.ts';
+import { packageEntry, packageMounts } from './package-mounts.ts';
 
 function accounting(usage: Usage): Operation {
   return (run, params) => {
@@ -26,28 +28,37 @@ function accounting(usage: Usage): Operation {
   };
 }
 
-export async function serviceFixture(cost = 0.011) {
+export async function serviceFixture(cost = 0.011, settings: Record<string, unknown> = {}, scope: 'person' | 'deployment' = 'deployment', identityConfig?: IdentityConfig) {
   const root = await mkdtemp('/tmp/provider-service-'); const time = new ManualClock(); const schemas = new Schemas(); await schemas.load();
+  // The provider compares absolute expiry dates across processes; only elapsed fixture time is manual.
+  const epoch = Date.now();
   await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));
   const journal = await Journal.open(join(root, 'rows.jsonl'), () => time.now()); assert.ok(journal.ok);
-  const identity = new Identity({ people: ['alice', 'bob'].map(id => ({ id, role: 'user', projects: [], observeOthers: false })), authorities: {}, bindings: [] }, () => time.now());
-  const issued = identity.issue({ id: 'shared', person: 'alice', scope: 'deployment', target: 'shared', generation: 1, services: [] }); assert.ok(issued.ok);
+  const identity = new Identity(identityConfig ?? {
+    people: ['alice', 'bob'].map(id => ({ id, role: 'user', projects: [], observeOthers: false })),
+    authorities: { password: 'fixture-login' },
+    bindings: ['alice', 'bob'].map(id => ({ kind: 'password', id, person: id }))
+  }, () => epoch + time.now());
+  const issued = identity.issue({ id: 'shared', person: scope === 'person' ? 'alice' : '', scope, target: 'shared', generation: 1, services: [] }); assert.ok(issued.ok);
   const usage = new Usage(identity, journal.value, () => time.now());
   const operations = new Map<Method, Operation>([
     ['health.probe', () => Promise.resolve({ ok: true, value: { ready: true } })],
-    ['profile.get', () => Promise.resolve({ ok: true, value: { rule: { name: 'shared-cost', cost, requests: 100, windowMs: 86400000 }, settings: {} } })],
+    ['profile.get', () => Promise.resolve({ ok: true, value: { rule: { name: 'shared-cost', cost, requests: 100, windowMs: 86400000 }, settings } })],
     ['token.whois', (_run, params) => { assert.ok(typeof params['runToken'] === 'string'); return Promise.resolve(identity.whois(issued.value, params['runToken'])); }],
     ['usage.report', accounting(usage)]
   ]);
   const context: Context = { target: 'shared', identity, schemas, clock: time, journal: journal.value, runner: new SandboxRunner('/cgroup'), operations: { methods: operations, notes: ['run.stop', 'env.updated'], note: () => Promise.resolve({ ok: true, value: undefined }) } };
   const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
-  const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: `${repository}/packages/provider-mock/service.ts`, args: [], cwd: '/state', mounts: [
-    ...['lib', 'contracts', 'node_modules', 'packages/provider-mock'].map((name): Mount => ({ source: `${repository}/${name}`, path: `${repository}/${name}`, mode: 'ro' })),
+  const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: packageEntry(repository, 'provider-mock', 'service.ts'), args: [], cwd: '/state', mounts: [
+    ...packageMounts(repository, ['provider-mock']),
     ...['state', 'endpoint'].map((name): Mount => ({ source: join(root, name), path: `/${name}`, mode: 'rw', maximumBytes: 67108864 }))
   ] }, issued.value, context); assert.ok(started.ok, JSON.stringify(started));
   return { process: started.value, root, identity, client(person: string) {
-    const token = identity.issue({ id: person, person, scope: 'person', target: person, generation: 1, services: ['shared'] }); assert.ok(token.ok);
+    const token = identity.issue({ id: scope === 'person' ? 'shared' : person, person, scope: 'person', target: scope === 'person' ? 'shared' : person, generation: 1, services: ['shared'] }); assert.ok(token.ok);
     return { token: token.value, provider: new ProviderClient(join(root, 'endpoint/service.sock'), schemas, token.value) };
+  }, mintSession(person: string): string {
+    const minted = identity.session('fixture-login', 'password', person); assert.ok(minted.ok, JSON.stringify(minted));
+    return minted.value.sessionToken;
   }, rows: () => readFile(join(root, 'rows.jsonl'), 'utf8'), async close() {
     const stopped = await started.value.stop('test complete'); assert.ok(stopped.ok); await journal.value.close(); await rm(root, { recursive: true, force: true });
   } };

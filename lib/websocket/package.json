@@ -1,0 +1,1 @@
+{"name":"@thetis/websocket","version":"1.0.0","type":"module","exports":"./index.ts","dependencies":{"ws":"8.21.3"}}

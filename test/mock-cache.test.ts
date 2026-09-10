@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { providerFixture, request, collect, stream } from './provider-fixture.ts';
+import { loopFixture } from './loop-fixture.ts';
 
 await test('Mock cache serves at least 99 percent of turn two on the long-prefix fixture', async () => {
   const { provider, token } = providerFixture();
@@ -21,4 +22,16 @@ await test('Mock seeded runs reproduce identical event rows', async () => {
     await collect(a.provider.run(stream(input), a.token, new AbortController().signal)),
     await collect(b.provider.run(stream(input), b.token, new AbortController().signal))
   );
+});
+
+await test('PR-002 ordinary second turn reports at least 99 percent cache reuse with persisted history', async () => {
+  const f = await loopFixture();
+  try {
+    for (const text of ['First turn', 'Second turn']) assert.ok((await f.loop.turn({ text, attachments: [] }, f.options, new AbortController().signal)).ok);
+    assert.equal(f.provider.reports.length, 2);
+    const counters = f.provider.reports[1]?.counters; assert.ok(counters);
+    assert.ok((counters['cached'] ?? 0) / (counters['in'] ?? Infinity) >= 0.99);
+    assert.deepEqual(f.provider.provider.capturedPrefixes[0], f.provider.provider.capturedPrefixes[1]);
+    assert.equal(f.events.filter(event => event.type === 'model.end').length, 2);
+  } finally { await f.close(); }
 });

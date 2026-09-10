@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/maintenance/1",
+  "$defs": {
+    "command": {
+      "type": "object",
+      "required": [
+        "id",
+        "method"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "enum": [
+            "activate",
+            "pause",
+            "resume",
+            "stop",
+            "status"
+          ]
+        }
+      }
+    },
+    "reply": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "ok"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "ok": {
+              "const": true
+            },
+            "value": {}
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "ok",
+            "error"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "ok": {
+              "const": false
+            },
+            "error": {
+              "type": "object",
+              "required": [
+                "code",
+                "message"
+              ],
+              "properties": {
+                "code": {
+                  "enum": [
+                    "invalid-args",
+                    "unsupported",
+                    "deadline",
+                    "io",
+                    "forbidden",
+                    "budget"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ready": {
+      "type": "object",
+      "required": [
+        "ready",
+        "endpoint"
+      ],
+      "properties": {
+        "ready": {
+          "const": true
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "hello": {
+      "type": "object",
+      "required": [
+        "v",
+        "capabilities"
+      ],
+      "properties": {
+        "v": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "welcome": {
+      "type": "object",
+      "required": [
+        "v",
+        "capabilities",
+        "person",
+        "scope"
+      ],
+      "properties": {
+        "v": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "string"
+          }
+        },
+        "person": {
+          "type": "string"
+        },
+        "scope": {
+          "enum": [
+            "person",
+            "deployment"
+          ]
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "required": [
+        "clients"
+      ],
+      "properties": {
+        "clients": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          }
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/command"
+}

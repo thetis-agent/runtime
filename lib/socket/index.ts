@@ -1,6 +1,6 @@
 /** Negotiate methods and fence asynchronous RPC behind bounded frames; KS-001–003, KS-017–021. */
 import type { Socket } from 'node:net';
-import type { ValidateFunction } from 'ajv';
+import type { Validator as ValidateFunction } from '../schema/index.ts';
 import type { Clock } from '../events/index.ts';
 import type { Schemas, Result } from '../schema/index.ts';
 import { failure, isObject } from '../schema/index.ts';
@@ -31,6 +31,7 @@ export class Peer {
   #closed = false;
   #reading: Promise<Result<void>> | undefined;
   #fault: Result<void> | undefined;
+  supports(capability: string): boolean { return this.#common.has(capability); }
   constructor(socket: Socket, schemas: Schemas, clock: Clock, capabilities: readonly string[], callbacks: Callbacks) {
     this.#socket = socket; this.#schemas = schemas; this.#clock = clock; this.#callbacks = callbacks;
     this.#capabilities = [...capabilities]; this.#writer = new FrameWriter(socket); this.#frames = socketFrames(socket); this.#check = schemas.frame<Frame>();

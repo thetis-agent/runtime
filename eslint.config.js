@@ -2,7 +2,7 @@
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['docs/**', 'node_modules/**', 'packages/gateway-web/assets/**'] },
+  { ignores: ['docs/**', 'node_modules/**', '.runtime/**', '.registry/**', 'packages/gateway-web/assets/**'] },
   ...tseslint.configs.strictTypeChecked.map(config => ({ ...config, files: ['**/*.ts'] })),
   {
     files: ['**/*.ts'],
@@ -20,7 +20,7 @@ export default tseslint.config(
   {
     files: ['packages/**/*.ts'],
     rules: { 'no-restricted-imports': ['error', { patterns: [
-      { group: ['../*/index.ts', '../../packages/**', '**/packages/**', '@thetis/package-*'], message: 'Import shared lib or contracts only.' }
+      { regex: '^(?:@thetis/package-|#packages/|\\.\\./(?!\\.\\./(?:lib|contracts|test)/)|(?:\\.\\./){2}(?!(?:lib|contracts|test)/))', message: 'Import shared lib or contracts only.' }
     ] }] }
   }
 );

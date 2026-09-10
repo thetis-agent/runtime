@@ -1,4 +1,5 @@
 /** Keep authentication, reservations and final usage on every provider path; PR-003–012. */
+import { reserve } from './reservation.ts';
 import type { RequestEvent, ResponseEvent } from '../../contracts/provider/types.ts';
 import type { Authority, Provider, Budgets, Description } from './index.ts';
 import type { Result } from '../schema/index.ts';
@@ -39,11 +40,11 @@ export class ProviderEngine implements Provider {
     this.#scope = scope; this.#limits = limits;
   }
   describe(): Promise<Description> {
-    return this.#fault && !this.#fault.ok ? Promise.resolve(failure('budget', 'The provider cannot persist its budget; new calls are refused.')) : this.#vendor.describe();
+    return this.#fault && !this.#fault.ok ? Promise.resolve(failure('budget', 'The provider cannot persist its budget or attribution; new calls are refused.')) : this.#vendor.describe();
   }
 
   async *run(request: AsyncIterable<RequestEvent>, token: string, signal: AbortSignal): AsyncGenerator<ResponseEvent> {
-    if (this.#fault && !this.#fault.ok) { yield { type: 'error', code: 'budget', message: 'The provider cannot persist its budget; new calls are refused.' }; return; }
+    if (this.#fault && !this.#fault.ok) { yield { type: 'error', code: 'budget', message: 'The provider cannot persist its budget or attribution; new calls are refused.' }; return; }
     const caller = await this.#authority.whois(token);
     if (!caller.ok) { yield { type: 'error', ...caller.error }; return; }
     const collected = await collect(request, this.#limits);
@@ -52,18 +53,21 @@ export class ProviderEngine implements Provider {
     const begin = collected.value[0];
     if (begin?.type !== 'begin') throw new Error('The validated provider request lost its begin.');
     const estimate = this.#vendor.estimate(collected.value);
-    const reservation = this.#scope === 'deployment' ? this.#budgets.reserve(caller.value.person, estimate) : undefined;
+    const reservation = this.#scope === 'deployment' || caller.value.cost !== undefined ? reserve(this.#budgets, caller.value, token, estimate, this.#scope) : undefined;
     if (reservation && !reservation.ok) { yield { type: 'error', ...reservation.error }; return; }
     if (reservation?.ok) {
       const persisted = await this.#budgets.checkpoint();
       if (!persisted.ok) { this.#fault = persisted; reservation.value(0); yield { type: 'error', code: 'budget', message: 'The provider cannot persist its reservation; the vendor was not called.' }; return; }
     }
-    const state = { counters: { cost: estimate } satisfies Counters, measured: false };
+    const state = { counters: { cost: estimate } satisfies Counters, measured: false, reported: false };
     try { yield* this.#exchange(collected.value, begin, token, signal, state); }
-    finally { if (reservation?.ok) { reservation.value(state.counters.cost); const saved = await this.#budgets.checkpoint(); if (!saved.ok) this.#fault = saved; } }
+    finally {
+      if (!state.reported) { const report = await this.#authority.report(token, begin.id, state.counters); if (!report.ok) this.#fault = report; }
+      if (reservation?.ok) { reservation.value(state.counters.cost); const saved = await this.#budgets.checkpoint(); if (!saved.ok) this.#fault = saved; }
+    }
   }
 
-  async *#exchange(request: RequestEvent[], begin: Begin, token: string, signal: AbortSignal, state: { counters: Counters; measured: boolean }): AsyncGenerator<ResponseEvent> {
+  async *#exchange(request: RequestEvent[], begin: Begin, token: string, signal: AbortSignal, state: { counters: Counters; measured: boolean; reported: boolean }): AsyncGenerator<ResponseEvent> {
     let count = 0;
     let reason: 'end' | 'tool_calls' | 'length' | 'cancel' = 'end';
     for await (const event of this.#vendor.exchange(request, signal)) {
@@ -79,8 +83,9 @@ export class ProviderEngine implements Provider {
       yield { type: 'error', code: 'provider', message: 'The provider ended without usage.' }; return;
     }
     yield { type: 'usage', counters: state.counters };
+    state.reported = true;
     const report = await this.#authority.report(token, begin.id, state.counters);
-    if (!report.ok) { yield { type: 'error', ...report.error }; return; }
+    if (!report.ok) { this.#fault = report; yield { type: 'error', ...report.error }; return; }
     yield { type: 'stop', reason };
   }
 }

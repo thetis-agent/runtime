@@ -1,0 +1,7 @@
+{
+  "name": "@thetis/lib-storage",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./index.ts",
+  "requires": { "contract/storage": "^1" }
+}

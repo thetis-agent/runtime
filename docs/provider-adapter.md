@@ -19,8 +19,8 @@ the configured vendor breakpoint limit is refused before HTTP.
 
 Image transfer is not registered yet, so model declarations must advertise
 `images: false`. The runner now supports secret delivery at sandbox spawn;
-provider service wiring and live OpenRouter validation remain acceptance
-work. All HTTP tests use a scripted vendor.
+the service is wired through scoped inherited authority and bounded provider
+accounting. Live OpenRouter validation still requires an operator-supplied key. All HTTP tests use a scripted vendor.
 
 Protocol sources checked on 2026-09-09:
 

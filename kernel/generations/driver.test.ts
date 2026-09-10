@@ -1,11 +1,37 @@
 /** Exercise the complete switch with real processes, hashes, migrations and endpoints; GN-002–006. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { processGeneration, person, endpointVersion } from '../../test/process-generation.ts';
 import { snapshot } from '../../lib/snapshots/index.ts';
 import { isObject } from '../../lib/schema/index.ts';
+
+function writes(rows: string, action: string, expected: readonly string[]): void {
+  const values = rows.trim().split('\n').map((row): unknown => JSON.parse(row));
+  const found = values.find(row => isObject(row) && row['kind'] === 'generation.writes' && isObject(row['data']) && row['data']['action'] === action);
+  assert.ok(isObject(found) && isObject(found['data']) && Array.isArray(found['data']['paths']));
+  const paths: unknown[] = found['data']['paths']; const application: string[] = [];
+  for (const path of paths) {
+    assert.equal(typeof path, 'string'); assert.ok(typeof path === 'string');
+    if (path.startsWith('.node-compile-cache/')) assert.match(path, /^\.node-compile-cache\/[^/]+\/[a-f0-9]+$/u);
+    else application.push(path);
+  }
+  assert.deepEqual(application, expected);
+}
+
+await test('GN-002 unchanged pins reuse only the driver’s verified immutable copies', async () => {
+  const f = await processGeneration();
+  try {
+    assert.ok((await f.driver.switch(f.next, 1, person)).ok);
+    const retained = f.driver.pins['entry']; assert.ok(retained);
+    const original = f.next.pins['entry']; assert.ok(original);
+    const switched = await f.driver.switch({ ...f.next, pins: { entry: { ...original, source: '/absent-untrusted-source' } } }, 2, person);
+    assert.ok(switched.ok, JSON.stringify(switched));
+    assert.equal(f.driver.pins['entry']?.source, retained.source);
+    assert.equal(await endpointVersion(f.driver.endpoint), 'new');
+  } finally { await f.close(); }
+});
 
 await test('GN-004 a real switch serves the new pinned process and ADR-0026 denies shared writes during the private probe', async () => {
   const f = await processGeneration();
@@ -51,7 +77,7 @@ await test('GN-004 a serving failure after fencing restores old pins in a fresh 
     assert.equal(f.driver.machine.view.state, 'LIVE'); assert.equal(f.driver.machine.view.current.n, 3);
     assert.equal(await endpointVersion(f.driver.endpoint), 'old');
     assert.deepEqual(JSON.parse(await readFile(join(f.driver.state, 'value.json'), 'utf8')), { version: 1 });
-    assert.match(await f.rows(), /"action":"rollback","paths":\["post-commit.json","value.json"\]/u);
+    writes(await f.rows(), 'rollback', ['post-commit.json', 'value.json']);
   } finally { await f.close(); }
 });
 
@@ -73,7 +99,7 @@ await test('GN-006 undo restores the previous pins and pre-migration snapshot un
     assert.ok((await f.driver.switch(f.next, 1, person)).ok);
     const result = await f.driver.undo(person); assert.ok(result.ok, JSON.stringify(result));
     assert.equal(f.driver.machine.view.current.n, 3); assert.deepEqual(f.driver.machine.view.current.pins, pins);
-    assert.match(await f.rows(), /"action":"undo","paths":\["value.json"\]/u);
+    writes(await f.rows(), 'undo', ['value.json']);
     assert.deepEqual(JSON.parse(await readFile(join(f.driver.state, 'value.json'), 'utf8')), { version: 1 });
     assert.equal(await endpointVersion(f.driver.endpoint), 'old');
   } finally { await f.close(); }
@@ -108,5 +134,18 @@ await test('GN-001 the complete switch reports the stuck conversation to the new
     const result = await switched; assert.ok(result.ok, JSON.stringify(result)); assert.ok(!(await stuck).ok);
     assert.ok((await f.driver.process.probe()).ok);
     assert.deepEqual(JSON.parse(await readFile(join(f.root, 'target/runs/2/endpoint/update.json'), 'utf8')), { generation: 2, resume: true, writes: [], interrupted: ['stuck'] });
+  } finally { await f.close(); }
+});
+
+await test('KS-019 reset restores the last healthy pins and state while preserving work edits', async () => {
+  const f = await processGeneration();
+  try {
+    assert.ok((await f.driver.switch(f.next, 1, person)).ok);
+    await writeFile(join(f.root, 'work', 'edit.ts'), 'preserved work');
+    assert.ok((await f.driver.reset(person)).ok);
+    assert.equal(await endpointVersion(f.driver.endpoint), 'old');
+    assert.deepEqual(JSON.parse(await readFile(join(f.driver.state, 'value.json'), 'utf8')), { version: 1 });
+    assert.equal(await readFile(join(f.root, 'work', 'edit.ts'), 'utf8'), 'preserved work');
+    assert.equal(f.driver.machine.view.current.n, 3);
   } finally { await f.close(); }
 });

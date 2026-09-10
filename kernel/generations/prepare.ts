@@ -1,11 +1,11 @@
 /** Verify pins and migrate only an isolated state copy before probing; GN-002, GN-006. */
-import { mkdir, rm, readdir } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { join, resolve, isAbsolute, dirname } from 'node:path';
-import { createHash } from 'node:crypto';
-import { snapshot } from '../../lib/snapshots/index.ts';
+import { verify } from '../../lib/snapshots/index.ts';
+import { retainPin } from '../../lib/snapshots/pins.ts';
+import { activeRuns } from '../../lib/snapshots/retention.ts';
 import type { SnapshotStore } from '../../lib/snapshots/store.ts';
-import { readBounded } from '../../lib/files/read-bounded.ts';
-import { resolvePath } from '../../lib/files/index.ts';
+import { formats } from '../../lib/files/formats.ts';
 import { command } from '../../lib/sandbox-runner/command.ts';
 import type { Plan, Mount } from '../../lib/sandbox-runner/index.ts';
 import type { Context } from '../boundary/process.ts';
@@ -24,20 +24,25 @@ export interface Revision {
 export interface Prepared { root: string; state: string; endpoint: string; plan: Omit<Plan, 'socket' | 'token'>; pins: Revision['pins'] }
 export const limits = { pins: 256, formats: 256, migrations: 64, formatBytes: 1024 * 1024, generations: 128 };
 
-export async function prepare(root: string, revision: Revision, stateHash: string, store: SnapshotStore, token: string, context: Context): Promise<Result<Prepared>> {
+export async function prepare(root: string, revision: Revision, stateHash: string, store: SnapshotStore, token: string, context: Context, retained: Revision['pins'] = {}): Promise<Result<Prepared>> {
   if (Object.keys(revision.pins).length > limits.pins || revision.formats.length > limits.formats || revision.migrations.length > limits.migrations || !/^[a-zA-Z0-9_-]+\.sock$/u.test(revision.socketName)) return failure('budget', 'The generation plan exceeds its preparation limits.');
   if (!bound(revision)) return failure('outside-roots', 'The generation entry or writable grants are outside its verified mount plan.');
   const state = join(root, 'state'); const endpoint = join(root, 'endpoint');
   try {
-    if ((await readdir(dirname(root))).length >= limits.generations) return failure('budget', 'The retained generation pool is full.');
-    await mkdir(endpoint, { recursive: true, mode: 0o700 }); await mkdir(join(root, 'pins'), { mode: 0o700 });
+    const active = await activeRuns(dirname(root)); if (!active.ok) return active;
+    if (active.value >= limits.generations) return failure('budget', 'The active generation pool is full.');
+    await mkdir(endpoint, { recursive: true, mode: 0o700 });
     const restored = await store.restore(stateHash, state); if (!restored.ok) return restored;
     const mounts: Mount[] = revision.mounts.map(mount => ({ ...mount, mode: 'ro' }));
     const pins: Record<string, { source: string; hash: string; mount: string }> = {};
     for (const [name, pin] of Object.entries(revision.pins)) {
-      const destination = join(root, 'pins', createHash('sha256').update(name).digest('hex'));
-      const copied = await snapshot(pin.source, destination); if (!copied.ok) return copied;
-      if (copied.value !== pin.hash) return failure('invalid-args', `The pinned hash for ${name} does not match its tree.`);
+      const existing = retained[name];
+      if (existing?.hash === pin.hash && existing.mount === pin.mount) {
+        if (revision.plan.execution === 'artifacts') { const checked = await verify(existing.source); if (!checked.ok) return checked; }
+        mounts.push({ source: existing.source, path: pin.mount, mode: 'ro' }); pins[name] = existing; continue;
+      }
+      const copied = await retainPin(join(dirname(dirname(root)), 'pins'), pin.source, pin.hash, revision.plan.execution === 'artifacts'); if (!copied.ok) return copied;
+      const destination = copied.value;
       mounts.push({ source: destination, path: pin.mount, mode: 'ro' });
       pins[name] = { ...pin, source: destination };
     }
@@ -48,7 +53,7 @@ export async function prepare(root: string, revision: Revision, stateHash: strin
       const observed = await context.journal.observed(context.target, 'migration.exit', migrated.ok ? { ...migrated.value } : { error: migrated.error }); if (!observed.ok) return observed;
       if (!migrated.ok) return migrated; if (migrated.value.code !== 0) return failure('io', 'The state migration did not exit successfully.');
     }
-    const valid = await formats(state, revision, context); if (!valid.ok) return valid;
+    const valid = await formats(state, revision.formats, context.schemas, limits.formatBytes); if (!valid.ok) return valid;
     return { ok: true, value: { root, state, endpoint: join(endpoint, revision.socketName), plan, pins } };
   } catch { return failure('io', 'The isolated generation could not be prepared.'); }
 }
@@ -68,18 +73,6 @@ function bound(revision: Revision): boolean {
 
 export function serving(prepared: Prepared, revision: Revision): Omit<Plan, 'socket' | 'token'> {
   return { ...prepared.plan, mounts: prepared.plan.mounts.map(mount => revision.mounts.find(shared => shared.path === mount.path) ?? mount) };
-}
-
-async function formats(state: string, revision: Revision, context: Context): Promise<Result<void>> {
-  for (const format of revision.formats) {
-    const path = await resolvePath(format.path, [{ path: state, mode: 'ro', space: 'state' }]); if (!path.ok) return path;
-    const bytes = await readBounded(path.value, limits.formatBytes); if (!bytes.ok) return bytes;
-    try {
-      const value: unknown = JSON.parse(bytes.value.toString('utf8'));
-      if (!context.schemas.arguments(format.schema, value)) return failure('invalid-args', `${format.path} does not match its declared state format.`);
-    } catch { return failure('invalid-args', `${format.path} is not a valid state format document.`); }
-  }
-  return { ok: true, value: undefined };
 }
 
 export async function discard(root: string): Promise<Result<void>> {
