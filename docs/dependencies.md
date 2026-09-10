@@ -21,6 +21,22 @@ retain its runtime compiler. `package-lock.json` includes the internal
 | json-schema-traverse | 1.0.0 | Ajv schema traversal; Node has no JSON Schema traversal API. | sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug== |
 | require-from-string | 2.0.2 | Ajv generated-validator loading; Node has no compatible packaged loader interface. | sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw== |
 
+Browser code the web surface serves is vendored into the package that serves
+it, never fetched from a CDN: `lib/assets` sends `default-src 'self'`, so a
+third-party origin is refused by the browser rather than merely discouraged. A
+vendored bundle is committed, is bound by the same 4 MB-per-file and 256-row
+asset limits as any other served file, and declares no npm dependency — nothing
+resolves it at build time and nothing imports it from Node.
+
+| Library | Exact version | Purpose and standard-library gap | Integrity |
+| --- | --- | --- | --- |
+| mermaid | 11.17.2 | Lay out and draw ```mermaid diagrams in assistant messages (`packages/gateway-web/assets/vendor/mermaid.js`, loaded lazily by `assets/lib/mermaid.js`); a diagram layout engine is a body of graph algorithms with no standard-library equivalent, and a wrong layout is an unreadable diagram. Served from this origin only. | sha256:581ed7d74bd9048d0e3a91363927d72ef22942d7722546b27f7cc29e35390eb8 |
+
+Its output is the one place this codebase assigns model-adjacent markup to
+`innerHTML`; `assets/lib/mermaid.js` documents the three safeguards that make
+that sound (`securityLevel: "strict"`, `htmlLabels: false`, and parsing before
+rendering) and why the surface's CSP is not widened to accommodate it.
+
 The Linux runtime also uses these already-installed system tools. They are
 outside the npm package closure; the hashes below identify this deployment's
 executables. Packages still declare no direct dependency on them.
