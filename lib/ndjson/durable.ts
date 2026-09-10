@@ -3,10 +3,10 @@ import { open, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { FileHandle } from 'node:fs/promises';
-import { syncDirectory } from '../files/atomic.ts';
-import type { AppendLimits, AppendLog } from '../../contracts/storage/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { syncDirectory } from '@/lib/files/atomic.ts';
+import type { AppendLimits, AppendLog } from '@/contracts/storage/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export type Limits = AppendLimits;
 export class Durable implements AppendLog {

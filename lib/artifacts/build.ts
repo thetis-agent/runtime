@@ -5,7 +5,7 @@ import { stripTypeScriptTypes } from 'node:module';
 import { createHash } from 'node:crypto';
 import type { Artifact } from './types.ts';
 import { verified } from './verify.mjs';
-import { readBounded } from '../files/read-bounded.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
 export const limits = { entries: 10000, sourceBytes: 1048576, totalBytes: 67108864, depth: 64 };
 export async function sources(root: string): Promise<string[]> {
   let entries = 0; const files: string[] = [];

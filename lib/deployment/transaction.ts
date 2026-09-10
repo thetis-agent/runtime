@@ -1,6 +1,6 @@
 /** Apply bounded multi-target effects only through their supplied generation machines; GN-002, GN-005. */
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 export interface Member {
   id: string; freeze(): Promise<Result<void>>; capture(): Promise<Result<unknown>>;
   stage(): Promise<Result<void>>; commit(): Promise<Result<void>>; rollback(reason: string): Promise<Result<void>>;

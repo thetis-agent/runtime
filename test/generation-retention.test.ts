@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { processGeneration, endpointVersion, person } from './process-generation.ts';
-import { limits } from '../kernel/generations/prepare.ts';
-import { Driver } from '../kernel/generations/driver.ts';
-import { activeRuns } from '../lib/snapshots/retention.ts';
+import { processGeneration, endpointVersion, person } from '@/test/process-generation.ts';
+import { limits } from '@/kernel/generations/prepare.ts';
+import { Driver } from '@/kernel/generations/driver.ts';
+import { activeRuns } from '@/lib/snapshots/retention.ts';
 
 await test('GN-002 repeated real switches and undo release run capacity while preserving prior immutable pins', async () => {
   const maximum = limits.generations; limits.generations = 3;

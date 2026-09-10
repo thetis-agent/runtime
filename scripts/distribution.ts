@@ -2,9 +2,9 @@
 import { cp, mkdir, mkdtemp, realpath } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { catalog } from '../lib/profile/catalog.ts';
-import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
-import { sourceMounts, execute } from './workspace.ts';
+import { catalog } from '@/lib/profile/catalog.ts';
+import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
+import { sourceMounts, execute } from '@/scripts/workspace.ts';
 const limits = { temporaryBytes: 536870912 };
 
 async function distribution(): Promise<number> {
@@ -30,5 +30,5 @@ else {
   await mkdir(output, { recursive: true });
   process.exitCode = await execute('bwrap', [...namespace(dirname(dirname(process.execPath)), limits.temporaryBytes),
     ...await sourceMounts(root), '--bind', await realpath(output), '/delivery', '--chdir', '/workspace', ...seal,
-    '--', '/runtime/bin/node', '/workspace/scripts/distribution.ts', '--workspace']);
+    '--', '/runtime/bin/node', '--import', '/workspace/lib/artifacts/source.mjs', '/workspace/scripts/distribution.ts', '--workspace']);
 }

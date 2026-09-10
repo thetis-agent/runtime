@@ -1,10 +1,10 @@
 /** Preserve live conversation releases through restart and serialize prune against new leases; KS-011. */
 import { mkdir, lstat } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import { atomicWrite } from '../files/atomic.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Lease, State } from './types.ts';
 

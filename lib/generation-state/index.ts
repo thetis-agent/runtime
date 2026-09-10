@@ -1,8 +1,8 @@
 /** Recover only durable observed state; candidate rows cannot select pins or a recovery epoch; ADR 0014, ADR 0025. */
 import { readFile } from 'node:fs/promises';
-import { fileFrames } from '../ndjson/file.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { fileFrames } from '@/lib/ndjson/file.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import type { Row, View } from './types.ts';
 export type { Generation, View } from './types.ts';
 

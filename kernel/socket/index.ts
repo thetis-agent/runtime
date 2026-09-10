@@ -1,11 +1,11 @@
 /** Bind inherited endpoints to authenticated runs and recheck fences on every operation; KS-001, ADR 0019. */
 import type { Socket } from 'node:net';
-import type { Method, Note } from '../../contracts/kernel-socket/types.ts';
-import type { Clock } from '../../lib/events/index.ts';
-import type { Schemas, Result } from '../../lib/schema/index.ts';
-import { Peer } from '../../lib/socket/index.ts';
-import type { Handler } from '../../lib/socket/index.ts';
-import type { Identity, Run } from '../identity/index.ts';
+import type { Method, Note } from '@/contracts/kernel-socket/types.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import type { Handler } from '@/lib/socket/index.ts';
+import type { Identity, Run } from '@/kernel/identity/index.ts';
 
 export type Operation = (run: Run, params: Record<string, unknown>) => Promise<Result<unknown>>;
 export interface Operations {

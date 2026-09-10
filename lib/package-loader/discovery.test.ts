@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { discover } from './index.ts';
-import { Schemas } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 
 await test('KS-009 discovery ignores repository metadata and refuses a package symlink outside its root', async () => {
   const root = await mkdtemp('/tmp/package-discovery-');

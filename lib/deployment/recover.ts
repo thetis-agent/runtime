@@ -1,12 +1,12 @@
 /** Bind durable revision metadata to observed epochs before restoring authority; ADR 0030. */
 import { hasCheckpoint, loadCheckpoint } from './checkpoint.ts';
 import type { Checkpoint } from './checkpoint.ts';
-import { recover } from '../generation-state/index.ts';
-import type { View } from '../generation-state/types.ts';
-import { validator } from '../package-loader/index.ts';
-import type { Entry } from '../package-loader/types.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { recover } from '@/lib/generation-state/index.ts';
+import type { View } from '@/lib/generation-state/types.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import type { Entry } from '@/lib/package-loader/types.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import type { ConfiguredTarget } from './index.ts';
 
 export interface Recovery { checkpoint: Checkpoint; target: ConfiguredTarget; view: View }

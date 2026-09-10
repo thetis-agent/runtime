@@ -3,11 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { registryService } from './registry-service.ts';
-import { call } from '../lib/registry/client.ts';
-import { isObject } from '../lib/schema/index.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import type { Pin } from '../lib/registry/types.ts';
+import { registryService } from '@/test/registry-service.ts';
+import { call } from '@/lib/registry/client.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import type { Pin } from '@/lib/registry/types.ts';
 
 await test('GN-002 registered registry serves hash-verified packages through its private socket', async () => {
   const fixture = await registryService();

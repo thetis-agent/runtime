@@ -2,14 +2,14 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { sessionFixture } from './session-fixture.ts';
-import { cliOperations } from './cli-fixture.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Context } from '../kernel/boundary/process.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import { connect, send, socketFrames } from '../lib/ndjson/socket.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
+import { sessionFixture } from '@/test/session-fixture.ts';
+import { cliOperations } from '@/test/cli-fixture.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
 export async function cliProcess(entry: 'main' | 'service', args: string[] = []) {
   const f = await sessionFixture(); await mkdir(join(f.root, 'cli-state')); await mkdir(join(f.root, 'cli-endpoint'));

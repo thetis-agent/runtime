@@ -3,8 +3,8 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdir, realpath, open, link, unlink } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import { join, relative } from 'node:path';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const defaults = { inlineBytes: 32768, resultBytes: 64 * 1024 * 1024, previewBytes: 4096 };
 export class SpillSink {

@@ -4,8 +4,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { RawData } from 'ws';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 export const limits = { messageBytes: 1048576, queueBytes: 1048576, pendingWrites: 64, pendingCalls: 8, maxFragments: 1024, maxBufferedChunks: 4096, headerBytes: 16384 };
 export type RequestHandler = (request: IncomingMessage, response: ServerResponse) => Promise<Result<void>>;
 export interface Handler { message(value: unknown): Promise<Result<void>>; close(): void }

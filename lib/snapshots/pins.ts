@@ -3,8 +3,8 @@ import { lstat, mkdir, readdir, realpath, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { snapshot, verify } from './index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const pinLimits = { retained: 1024 };
 

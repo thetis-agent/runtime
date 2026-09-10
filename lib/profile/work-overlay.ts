@@ -1,17 +1,17 @@
 /** Overlay hashed work trees without rewriting immutable release sources; GN-001–002, KS-009. */
 import { dirname, join } from 'node:path';
-import { readBounded } from '../files/read-bounded.ts';
-import { validator } from '../package-loader/index.ts';
-import type { Manifest, Entry, Captured, Registration, Recorded } from '../package-loader/types.ts';
-import { Register } from '../package-loader/registration.ts';
-import { recorded, pinHash } from '../package-loader/requirements.ts';
-import { compose } from '../package-loader/composition.ts';
-import { configured } from '../schema/settings.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import { resolve, matches } from '../semver-match/index.ts';
-import type { Provision } from '../semver-match/index.ts';
-import type { ConfiguredTarget } from '../deployment/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import type { Manifest, Entry, Captured, Registration, Recorded } from '@/lib/package-loader/types.ts';
+import { Register } from '@/lib/package-loader/registration.ts';
+import { recorded, pinHash } from '@/lib/package-loader/requirements.ts';
+import { compose } from '@/lib/package-loader/composition.ts';
+import { configured } from '@/lib/schema/settings.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import { resolve, matches } from '@/lib/semver-match/index.ts';
+import type { Provision } from '@/lib/semver-match/index.ts';
+import type { ConfiguredTarget } from '@/lib/deployment/index.ts';
 import type { Work } from './work.ts';
 
 async function manifest(source: string, schemas: Schemas): Promise<Result<Manifest>> {

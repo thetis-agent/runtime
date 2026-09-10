@@ -2,20 +2,20 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Context } from '../kernel/boundary/process.ts';
-import type { Operation } from '../kernel/socket/index.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Schemas, failure } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import type { Mount, Plan } from '../lib/sandbox-runner/index.ts';
-import { discover } from '../lib/package-loader/index.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
-import { sessionMethods } from '../packages/core/protocol.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import type { serviceFixture } from './provider-service.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Schemas, failure } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Mount, Plan } from '@/lib/sandbox-runner/index.ts';
+import { discover } from '@/lib/package-loader/index.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
+import { sessionMethods } from '@/packages/core/protocol.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import type { serviceFixture } from '@/test/provider-service.ts';
 
 export async function environmentProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, person: string, publicEndpoint = false) {
   const root = await mkdtemp('/tmp/person-environment-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();

@@ -1,10 +1,10 @@
 /** Assemble reviewed trees without widening the selected target's package set; GN-002, ADR 0017. */
 import { mkdir, mkdtemp, realpath, rename, rm, readFile } from 'node:fs/promises';
 import { dirname, join, basename } from 'node:path';
-import { snapshot } from '../snapshots/index.ts';
-import { immutableLinks } from '../snapshots/link.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { immutableLinks } from '@/lib/snapshots/link.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import { validator } from './schema.ts';
 import type { Layer, Install, Package } from './types.ts';
 export type { Layer, Install, Profile } from './types.ts';

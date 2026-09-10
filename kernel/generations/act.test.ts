@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { actFixture, evidence, administrator, reviewer, source } from '../../test/default-act.ts';
+import { actFixture, evidence, administrator, reviewer, source } from '@/test/default-act.ts';
 
 for (const id of ['KS-014', 'EV-005']) await test(`${id} stale authorized results are stored and cannot prepare the default act`, async () => {
   const f = await actFixture();

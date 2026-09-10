@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { SandboxRunner } from './index.ts';
 import type { Mount } from './index.ts';
-import { socketPair } from '../socket/pair.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
 
 await test('GN-003 exclusive startup reaps actual orphan sandbox writers and preserves other delegated roots', async () => {
   const control = `/cgroup/test-reap-${randomUUID()}`; await mkdir(control); await writeFile(join(control, 'cgroup.subtree_control'), '+cpu +memory +pids');

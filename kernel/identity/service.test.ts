@@ -1,7 +1,7 @@
 /** Keep deployment identities personless and personal services inside one logical run; KS-022, ADR 0019. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Identity } from './index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
 
 await test('KS-022 deployment scope needs no person and cannot access a conversation as one', () => {
   const identity = new Identity({ people: [], bindings: [], authorities: {} }, () => 0);

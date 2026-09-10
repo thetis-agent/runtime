@@ -2,8 +2,8 @@
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join, dirname } from 'node:path';
-import { Schemas } from '../lib/schema/index.ts';
-import { loadPack } from '../lib/skills/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { loadPack } from '@/lib/skills/index.ts';
 
 export async function skillsFixture(files: Readonly<Record<string, string>>) {
   const name = `fixture-${randomUUID()}`;

@@ -1,8 +1,8 @@
 /** Keep bounded, person-local replay outside the kernel's control channel; ADR 0019, KS-004. */
-import type { Envelope } from '../../contracts/turn-events/types.ts';
-import type { Clock } from '../events/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import type { Envelope } from '@/contracts/turn-events/types.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 import { Batches } from './batch.ts';
 import type { Item, Send } from './batch.ts';
 import type { Subscribed } from './types.ts';

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { kernelProcess } from './kernel-process.ts';
-import { post } from './origin-http.ts';
-import { isObject } from '../lib/schema/index.ts';
-import { trustedFixture, authority } from './trusted-fixture.ts';
+import { kernelProcess } from '@/test/kernel-process.ts';
+import { post } from '@/test/origin-http.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { trustedFixture, authority } from '@/test/trusted-fixture.ts';
 
 await test('KS-015 the actual kernel consumes its master-key descriptor and completes a cookie-authenticated default act', async () => {
   const fixture = await trustedFixture(); const { root, path, origin, digest, material } = fixture;

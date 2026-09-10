@@ -1,9 +1,9 @@
 /** Keep seeded sampling an ordinary provider option rather than a benchmark marker; EV-006. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loopFixture } from './loop-fixture.ts';
-import type { ModelBegin } from '../contracts/turn-events/types.ts';
-import { Schemas } from '../lib/schema/index.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
+import type { ModelBegin } from '@/contracts/turn-events/types.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 await test('EV-006 ordinary turns forward seeded provider options without a benchmark flag', async () => {
   const f = await loopFixture(); const schemas = new Schemas(); await schemas.load();
   try {

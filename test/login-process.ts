@@ -4,14 +4,14 @@ import { mkdir, readFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { request } from 'node:http';
 import type { IncomingMessage } from 'node:http';
-import { loginFixture } from './login-fixture.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Context } from '../kernel/boundary/process.ts';
-import type { Operation } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
+import { loginFixture } from '@/test/login-fixture.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
 export async function loginProcess() {
   const f = await loginFixture(); await mkdir(join(f.root, 'endpoint')); await mkdir(join(f.root, 'state'));

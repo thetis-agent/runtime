@@ -1,6 +1,6 @@
 /** Run the negotiated transport intersection unchanged in both directions; KS-002–003, KS-021. */
 import assert from 'node:assert/strict';
-import type { Peer } from '../lib/socket/index.ts';
+import type { Peer } from '@/lib/socket/index.ts';
 
 export async function socketSuite(peer: Pick<Peer, 'call'>): Promise<void> {
   assert.deepEqual(await peer.call('health.probe', { future: { value: 2 } }), { ok: true, value: { ready: true, future: { value: 2 } } });

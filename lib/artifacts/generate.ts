@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import standalone from 'ajv/dist/standalone/index.js';
-import { isObject } from '../result/index.ts';
+import { isObject } from '@/lib/result/index.ts';
 
 export async function generateSupport(check: boolean): Promise<boolean> {
   const schema: unknown = JSON.parse(await readFile(new URL('./schema.json', import.meta.url), 'utf8'));
@@ -17,6 +17,10 @@ export async function generateSupport(check: boolean): Promise<boolean> {
       [`${name}.d.mts`, `/** Generated schema guard type; ADR 0037. Do not edit. */\nimport type { ${type} } from './types.ts';\ndeclare const validate: (value: unknown) => value is ${type};\nexport default validate;\n`]);
   }
   outputs.push(['register.mjs', stripTypeScriptTypes(await readFile(new URL('./loader.ts', import.meta.url), 'utf8'), { mode: 'strip' })]);
+  for (const [source, output] of [['aliases.ts', 'aliases.mjs'], ['source-loader.ts', 'source.mjs']] satisfies [string, string][]) {
+    outputs.push([output, stripTypeScriptTypes(await readFile(new URL(source, import.meta.url), 'utf8'), { mode: 'strip' })]);
+  }
+  outputs.push(['aliases.d.mts', "/** Generated resolution types; ADR 0047. Do not edit. */\nexport { rootImport } from './aliases.ts';\n"]);
   outputs.push(['verify.mjs', stripTypeScriptTypes(await readFile(new URL('./verify.ts', import.meta.url), 'utf8'), { mode: 'strip' })],
     ['verify.d.mts', "/** Generated bootstrap types; ADR 0037. Do not edit. */\nexport { verified, limits } from './verify.ts';\n"]);
   let fresh = true;

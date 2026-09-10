@@ -1,6 +1,6 @@
 /** Bound asynchronous handoffs without buffering an entire stream; PR-002, KS-018. */
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const queueLimits = { entries: 8192, bytes: 4 * 1024 * 1024 };
 export class Queue<T> implements AsyncIterable<T> {

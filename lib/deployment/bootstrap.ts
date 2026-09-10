@@ -1,16 +1,16 @@
 /** Delegate review execution through injected generation launchers, never host imports; KS-009, GN-002. */
 import { join } from 'node:path';
 import { mkdir } from 'node:fs/promises';
-import { atomicWrite } from '../files/atomic.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { assembleDeployment, writeDeployment } from '../profile/orchestrate.ts';
-import { writeProfile } from '../profile/bootstrap.ts';
-import { validator } from '../profile/schema.ts';
-import type { Recipe } from '../profile/types.ts';
-import { describe } from '../package-loader/discovery-client.ts';
-import type { Captured } from '../package-loader/types.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { assembleDeployment, writeDeployment } from '@/lib/profile/orchestrate.ts';
+import { writeProfile } from '@/lib/profile/bootstrap.ts';
+import { validator } from '@/lib/profile/schema.ts';
+import type { Recipe } from '@/lib/profile/types.ts';
+import { describe } from '@/lib/package-loader/discovery-client.ts';
+import type { Captured } from '@/lib/package-loader/types.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 import type { Deployment, Target, Bootstrap } from './types.ts';
 export interface Endpoint { endpoint(id: string): Result<string> }
 export interface Started { runtime: Endpoint; close(): Promise<Result<void>> }

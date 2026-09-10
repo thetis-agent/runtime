@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { serviceFixture } from './provider-service.ts';
-import { environmentProcess } from './environment-process.ts';
-import { isObject } from '../lib/schema/index.ts';
+import { serviceFixture } from '@/test/provider-service.ts';
+import { environmentProcess } from '@/test/environment-process.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 await test('KS-004 two real environment processes chat with inherited identities and isolated conversation state', async () => {
   const shared = await serviceFixture(1); assert.ok((await shared.process.probe()).ok);

@@ -1,7 +1,7 @@
 /** Restrict actors to one hook and retain owner identity outside payloads; ADR 0015 §6. */
-import type { Envelope, Context, Message, OfferRequest, CallRequest, Notice } from '../../contracts/turn-events/types.ts';
-import type { RetrieveRequest } from '../../contracts/skills/types.ts';
-import type { SpillSink } from '../spill/index.ts';
+import type { Envelope, Context, Message, OfferRequest, CallRequest, Notice } from '@/contracts/turn-events/types.ts';
+import type { RetrieveRequest } from '@/contracts/skills/types.ts';
+import type { SpillSink } from '@/lib/spill/index.ts';
 
 export interface Stage {
   source: string;

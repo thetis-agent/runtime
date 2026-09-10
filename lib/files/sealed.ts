@@ -1,7 +1,7 @@
 /** Authenticate bounded bytes without retaining keys or acquiring scope authority; ADR 0034. */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 export const sealedLimits = { plaintextBytes: 16384, envelopeBytes: 32768, aadBytes: 1024 };
 export function seal(key: Uint8Array, aad: string, plaintext: string): Result<Buffer, 'invalid-args' | 'io'> {
   if (key.byteLength !== 32 || Buffer.byteLength(aad) > sealedLimits.aadBytes || Buffer.byteLength(plaintext) > sealedLimits.plaintextBytes) return failure('invalid-args', 'The sealed input exceeds its key or byte limit.');

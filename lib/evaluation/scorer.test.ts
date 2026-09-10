@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Mount } from '../sandbox-runner/index.ts';
-import { SandboxRunner } from '../sandbox-runner/index.ts';
-import { socketPair } from '../socket/pair.ts';
-import { ManualClock } from '../events/index.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 import { Scorer } from './scorer.ts';
 
 await test('EV-002 private suite, seeds and checks are absent from candidate mounts and scorer spaces are read-only', async () => {

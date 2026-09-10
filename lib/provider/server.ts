@@ -1,15 +1,15 @@
 /** Authenticate outside prompt events and read cancellation beside streamed responses; PR-001–003, ADR 0019. */
 import type { Socket } from 'node:net';
-import { clock } from '../events/index.ts';
-import type { Clock } from '../events/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 import { Service, serviceLimits } from './lifecycle.ts';
 import type { Connection } from './lifecycle.ts';
-import { Queue } from '../events/queue.ts';
-import { socketFrames, send } from '../ndjson/socket.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { failure, isObject } from '../schema/index.ts';
+import { Queue } from '@/lib/events/queue.ts';
+import { socketFrames, send } from '@/lib/ndjson/socket.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
 import type { Provider } from './index.ts';
-import type { ConnectRequest, DescribeRequest, RequestEvent, ResponseEvent } from '../../contracts/provider/types.ts';
+import type { ConnectRequest, DescribeRequest, RequestEvent, ResponseEvent } from '@/contracts/provider/types.ts';
 
 type Reader = ReturnType<typeof socketFrames>;
 

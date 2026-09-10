@@ -1,11 +1,11 @@
 /** Validate one bounded registration description from the sandboxed worker service; TE-021, ADR 0027. */
-import { connect, send, socketFrames } from '../ndjson/socket.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
 import { validator } from './index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import type { Captured, DiscoveryResponse } from './types.ts';
-import { clock } from '../events/index.ts';
-import type { Clock } from '../events/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 const limits = { pending: 8, deadlineMs: 60000 }; let active = 0;
 export async function describe(path: string, schemas: Schemas, time: Clock = clock): Promise<Result<Captured>> {
   if (active >= limits.pending) return failure('budget', 'The discovery request pool is full.'); active++;

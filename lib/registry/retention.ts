@@ -1,7 +1,7 @@
 /** Retire only unpinned never-default versions while preserving immutability; proposal §13.14. */
 import { git, reference } from './git.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import type { Registry, Pin } from './index.ts';
 export const retentionMs = 30 * 86400000;
 

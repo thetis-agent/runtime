@@ -1,11 +1,11 @@
 /** Probe actual client-major negotiation on private trusted-kernel sockets; GN-007, ADR 0012 §6. */
 import type { Socket } from 'node:net';
-import { Service, serviceLimits } from '../service/lifecycle.ts';
-import type { Clock } from '../events/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
-import { socketFrames, send } from '../ndjson/socket.ts';
-import type { Request } from '../../contracts/kernel-socket/types.ts';
+import { Service, serviceLimits } from '@/lib/service/lifecycle.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import { socketFrames, send } from '@/lib/ndjson/socket.ts';
+import type { Request } from '@/contracts/kernel-socket/types.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Hello } from './types.ts';
 

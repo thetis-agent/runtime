@@ -1,8 +1,8 @@
 /** Resolve symlinks before checking the granted roots and their modes; TE-019, ADR 0005. */
 import { realpath, stat, lstat } from 'node:fs/promises';
 import { dirname, basename, resolve, relative, isAbsolute } from 'node:path';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export interface Root { path: string; mode: 'ro' | 'rw'; space: string }
 async function canonicalTarget(path: string): Promise<{ path: string; exists: boolean } | undefined> {

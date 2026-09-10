@@ -1,7 +1,7 @@
 /** Keep notices between turns and preserve a non-waking conversation; TE-029. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loopFixture } from './loop-fixture.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
 
 await test('TE-029 wake requests wait for the next input when waking is disabled', async () => {
   const fixture = await loopFixture();

@@ -1,9 +1,9 @@
 /** Bound one-shot state migrations inside the same mandatory runner; GN-002, GN-006. */
 import type { SandboxRunner, Plan, Exit } from './index.ts';
-import type { Clock } from '../events/index.ts';
-import { socketPair } from '../socket/pair.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export async function command(runner: SandboxRunner, plan: Omit<Plan, 'socket'>, clock: Clock, deadlineMs = 10000): Promise<Result<Exit>> {
   const pair = await socketPair(); if (!pair.ok) return pair;

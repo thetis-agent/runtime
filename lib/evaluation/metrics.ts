@@ -1,6 +1,6 @@
 /** Compute paired evidence by task so repeated runs cannot inflate confidence; ADR 0014 §3. */
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import type { Plan, Row, Submission } from './types.ts';
 import { random } from './random.ts';
 

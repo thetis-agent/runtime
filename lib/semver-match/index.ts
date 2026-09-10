@@ -1,7 +1,7 @@
 /** Resolve requirements by names and ranges without assigning package roles; proposal §3, ADR 0016. */
 import { satisfies, valid, validRange } from 'semver';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export interface Package {
   name: string; version: string; scope: 'person' | 'deployment';

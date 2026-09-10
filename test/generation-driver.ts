@@ -2,10 +2,10 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Generations } from '../kernel/generations/index.ts';
-import type { Input, Generation } from '../kernel/generations/index.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
+import { Generations } from '@/kernel/generations/index.ts';
+import type { Input, Generation } from '@/kernel/generations/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 
 export const initial: Generation = { n: 1, pins: { release: 'sha256:old' }, stateSnapshot: '', prefixRenderer: '1', at: 0 };
 export const candidate: Generation = { ...initial, pins: { release: 'sha256:new' } };

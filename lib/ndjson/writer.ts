@@ -1,8 +1,8 @@
 /** Prioritize control frames before queued bulk and bound every pending write; KS-018. */
 import type { Socket } from 'node:net';
 import { encode, PriorityFrames } from './index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export class FrameWriter {
   readonly #socket: Socket;

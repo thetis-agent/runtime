@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { descriptor } from '../lib/files/descriptor.ts';
-import { Secrets } from '../kernel/secrets/index.ts';
-import { runtimeFixture, revision, people } from './runtime-fixture.ts';
-import { kernelProcess } from './kernel-process.ts';
-import { discover } from '../lib/package-loader/index.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { releaseDigest } from '../lib/deployment/release.ts';
-import { administrator } from './default-act.ts';
-import { connect, send, socketFrames } from '../lib/ndjson/socket.ts';
-import { isObject } from '../lib/schema/index.ts';
-import type { Target } from '../kernel/boundary/runtime.ts';
+import { descriptor } from '@/lib/files/descriptor.ts';
+import { Secrets } from '@/kernel/secrets/index.ts';
+import { runtimeFixture, revision, people } from '@/test/runtime-fixture.ts';
+import { kernelProcess } from '@/test/kernel-process.ts';
+import { discover } from '@/lib/package-loader/index.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { releaseDigest } from '@/lib/deployment/release.ts';
+import { administrator } from '@/test/default-act.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import type { Target } from '@/kernel/boundary/runtime.ts';
 const limits = { model: 'openai/gpt-5.6-sol', contextWindow: 2048, maxOutput: 128, accountCost: 0.02, requests: 2, replyBytes: 1048576, replyFrames: 4096 };
 
 async function command(endpoint: string, args: string[]): Promise<unknown[]> {

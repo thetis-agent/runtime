@@ -2,13 +2,13 @@
 import { readFile, readdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import type { Validator as ValidateFunction } from '../schema/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { resolvePath } from '../files/index.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { matches, gap } from '../semver-match/index.ts';
-import { configured } from '../schema/settings.ts';
+import type { Validator as ValidateFunction } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { resolvePath } from '@/lib/files/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { matches, gap } from '@/lib/semver-match/index.ts';
+import { configured } from '@/lib/schema/settings.ts';
 import type { Entry, Manifest } from './types.ts';
 
 export const limits = { packages: 256, manifestBytes: 65536, messageBytes: 65536, messages: 256, probeMs: 10000 };

@@ -1,10 +1,10 @@
 /** Bound one registry exchange and validate the service reply once; ADR 0006, ADR 0007. */
 import { readFile } from 'node:fs/promises';
-import { connect, send, socketFrames } from '../ndjson/socket.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { clock } from '../events/index.ts';
-import type { Clock } from '../events/index.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 import type { Request, Response } from './types.ts';
 let active = 0;
 export const clientLimits = { exchanges: 32, deadlineMs: 30000 };

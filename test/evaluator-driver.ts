@@ -1,15 +1,15 @@
 /** Drive the evaluator through a real loop and mandatory outcome sandbox; EV-001–004. */
 import assert from 'node:assert/strict';
 import { rm } from 'node:fs/promises';
-import { loopFixture } from './loop-fixture.ts';
-import type { Execution, TurnJob, CheckJob, Outcome } from '../packages/evaluator/index.ts';
-import { Scorer } from '../lib/evaluation/scorer.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { socketPair } from '../lib/socket/pair.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import type { End } from '../contracts/turn-events/types.ts';
-import type { Result } from '../lib/result/index.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
+import type { Execution, TurnJob, CheckJob, Outcome } from '@/packages/evaluator/index.ts';
+import { Scorer } from '@/lib/evaluation/scorer.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import type { End } from '@/contracts/turn-events/types.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 export class EvaluationDriver implements Execution {
   readonly jobs: TurnJob[] = [];

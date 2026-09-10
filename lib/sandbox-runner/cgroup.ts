@@ -2,9 +2,9 @@
 import { mkdir, readFile, writeFile, rmdir, readdir, realpath, statfs, opendir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import { clock } from '../events/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { clock } from '@/lib/events/index.ts';
 import { state } from './freezer.ts';
 
 export const resourceLimits = { memoryBytes: 128 * 1024 * 1024, processes: 64, cpuPercent: 100, runs: 256 };

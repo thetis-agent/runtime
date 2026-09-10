@@ -5,6 +5,7 @@
     "exactOptionalPropertyTypes": true, "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true, "verbatimModuleSyntax": true,
     "isolatedModules": true, "noEmit": true, "allowImportingTsExtensions": true,
-    "erasableSyntaxOnly": true, "types": ["node"]
+    "erasableSyntaxOnly": true, "types": ["node"],
+    "paths": { "@/*": ["./*"] }
   }
 }

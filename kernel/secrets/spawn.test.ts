@@ -2,10 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { Secrets } from './index.ts';
-import { deliver, declaration } from './spawn.ts';
-import type { Spawn, Entry } from '../../lib/package-loader/types.ts';
-import { Schemas } from '../../lib/schema/index.ts';
+import { Secrets } from '@/kernel/secrets/index.ts';
+import { deliver, declaration } from '@/kernel/secrets/spawn.ts';
+import type { Spawn, Entry } from '@/lib/package-loader/types.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 
 await test('KS-008 spawn secret gaps use the exact requirement sentence and never fall through scopes', async () => {
   const root = await mkdtemp('/tmp/spawn-secret-');

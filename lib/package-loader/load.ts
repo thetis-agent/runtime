@@ -1,12 +1,12 @@
 /** Keep package identity and registration outside its returned payloads; ADR 0016, TE-032. */
 import { pathToFileURL } from 'node:url';
 import { mkdir } from 'node:fs/promises';
-import { failure, isObject } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import type { Stage } from '../events/stages.ts';
-import { frozen } from '../events/stages.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import type { Stage } from '@/lib/events/stages.ts';
+import { frozen } from '@/lib/events/stages.ts';
 import { Register } from './registration.ts';
-import type { Notice } from '../../contracts/turn-events/types.ts';
+import type { Notice } from '@/contracts/turn-events/types.ts';
 import type { Entry, Setup, Registration, WorkerMessage } from './types.ts';
 import { validator } from './index.ts';
 

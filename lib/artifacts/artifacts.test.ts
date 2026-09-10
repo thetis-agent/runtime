@@ -10,7 +10,7 @@ import { flags, compile } from './index.ts';
 import { verified } from './verify.mjs';
 import { verifyTree } from './verify-tree.ts';
 import { generateSupport } from './generate.ts';
-import { isObject } from '../result/index.ts';
+import { isObject } from '@/lib/result/index.ts';
 
 async function execute(path: string): Promise<{ code: number | null; output: string; error: string }> {
   const child = spawn(process.execPath, [...flags(), path], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe'] });

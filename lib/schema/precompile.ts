@@ -3,8 +3,8 @@ import { readFile, writeFile, readdir, mkdir, unlink } from 'node:fs/promises';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import standalone from 'ajv/dist/standalone/index.js';
 import { createHash } from 'node:crypto';
-import { isObject } from '../result/index.ts';
-import { packagesRoot } from '../profile/packages-root.ts';
+import { isObject } from '@/lib/result/index.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 export function signature(schema: Record<string, unknown>, root = false): string {
   return createHash('sha256').update(JSON.stringify(Object.fromEntries(Object.entries(schema).filter(([key]) => key !== '$id' && (root || key !== '$ref'))))).digest('hex');

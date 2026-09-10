@@ -1,13 +1,13 @@
 /** Serialize guarded transitions and persist every observation before exposing state; ADR 0012, GN-001–007. */
-import { failure } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
-import type { Journal } from '../log/index.ts';
-import { transitions } from './table.ts';
-import type { Event, Guard } from './table.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Journal } from '@/kernel/log/index.ts';
+import { transitions } from '@/kernel/generations/table.ts';
+import type { Event, Guard } from '@/kernel/generations/table.ts';
 
-import { project } from '../../lib/generation-state/projection.ts';
-import type { Generation, View } from '../../lib/generation-state/projection.ts';
-export type { Generation, View } from '../../lib/generation-state/projection.ts';
+import { project } from '@/lib/generation-state/projection.ts';
+import type { Generation, View } from '@/lib/generation-state/projection.ts';
+export type { Generation, View } from '@/lib/generation-state/projection.ts';
 export interface Input {
   event: Event; reason: string; candidate?: Generation; baseline?: number; authorized?: boolean;
   active?: number; snapshot?: string; snapshotVerified?: boolean; pinsVerified?: boolean;

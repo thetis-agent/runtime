@@ -2,10 +2,10 @@
 import { createHash } from 'node:crypto';
 import { lstat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileChunks } from '../ndjson/file.ts';
+import { fileChunks } from '@/lib/ndjson/file.ts';
 import { paths, limits } from './tree.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 async function signatures(root: string): Promise<Result<Map<string, string>>> {
   const listed = await paths(root); if (!listed.ok) return listed;

@@ -1,17 +1,17 @@
 /** Recover an interrupted default from its frozen member manifest, never mixed latest targets; ADR 0030, GN-005. */
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { recover } from '../generation-state/index.ts';
-import type { View } from '../generation-state/types.ts';
-import { SnapshotStore } from '../snapshots/store.ts';
-import { readBounded } from '../files/read-bounded.ts';
+import { recover } from '@/lib/generation-state/index.ts';
+import type { View } from '@/lib/generation-state/types.ts';
+import { SnapshotStore } from '@/lib/snapshots/store.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
 import { relocateCheckpoint } from './relocation.ts';
 import { checkpointValidator } from './checkpoint.ts';
-import { validator } from '../package-loader/index.ts';
-import type { Entry } from '../package-loader/types.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import type { Entry } from '@/lib/package-loader/types.ts';
 import type { Recovery } from './recover.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 export interface DefaultRecovery { view?: View; targets: Recovery[] }
 export async function defaultRecovery(root: string, journal: string, schemas: Schemas): Promise<Result<DefaultRecovery>> {
   const observed = await recover(journal, 'default', schemas); if (!observed.ok) return observed;

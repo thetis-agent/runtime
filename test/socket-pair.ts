@@ -1,6 +1,6 @@
 /** Exercise real local transports without relying on ports or external services; KS-021. */
 import assert from 'node:assert/strict';
-import { socketPair as open } from '../lib/socket/pair.ts';
+import { socketPair as open } from '@/lib/socket/pair.ts';
 
 export async function socketPair() {
   const result = await open(); assert.ok(result.ok, JSON.stringify(result));

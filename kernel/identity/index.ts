@@ -1,7 +1,7 @@
 /** Bind evidence and every delegated descriptor to one fenced run principal; KS-006–008, ADR 0021. */
 import { createHash, randomBytes } from 'node:crypto';
-import { failure } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export type Role = 'admin' | 'reviewer' | 'user';
 export interface Principal { id: string; role: Role; projects: readonly string[]; observeOthers: boolean }

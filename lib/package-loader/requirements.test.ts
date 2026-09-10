@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { requirements, pinHash } from './requirements.ts';
-import { Schemas } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 import type { Entry, Recorded } from './types.ts';
 const hash = `sha256:${'a'.repeat(64)}`;
 const changed = `sha256:${'b'.repeat(64)}`;

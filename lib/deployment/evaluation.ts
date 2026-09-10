@@ -1,12 +1,12 @@
 /** Adapt kernel-owned processes to private evaluation without delegating identity authority; EV-002, EV-006. */
-import type { Clock } from '../events/index.ts';
-import type { Schemas } from '../schema/index.ts';
-import type { Result } from '../result/index.ts';
-import type { Setup } from '../package-loader/types.ts';
-import type { Plan, SandboxRunner } from '../sandbox-runner/index.ts';
-import type { Method } from '../../contracts/kernel-socket/types.ts';
-import type { ExecutionHost } from '../evaluation/runtime.ts';
-import { facts } from '../evaluation/facts.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Schemas } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/result/index.ts';
+import type { Setup } from '@/lib/package-loader/types.ts';
+import type { Plan, SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import type { ExecutionHost } from '@/lib/evaluation/runtime.ts';
+import { facts } from '@/lib/evaluation/facts.ts';
 
 export interface EvaluationProcess {
   probe(): Promise<Result<void>>;

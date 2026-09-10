@@ -1,9 +1,9 @@
 /** Cover every table edge and guard without replacing the generation machine; ADR 0012, ADR 0023. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generationDriver, forward, candidate } from '../../test/generation-driver.ts';
-import { transitions } from './table.ts';
-import type { Input } from './index.ts';
+import { generationDriver, forward, candidate } from '@/test/generation-driver.ts';
+import { transitions } from '@/kernel/generations/table.ts';
+import type { Input } from '@/kernel/generations/index.ts';
 
 await test('Generation forward transitions each commit one observed row and reject invalid guards', async () => {
   const driver = await generationDriver();

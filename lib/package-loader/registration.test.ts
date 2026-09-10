@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Register } from './registration.ts';
 import { validator } from './index.ts';
-import { Schemas } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 import type { Entry, Registration } from './types.ts';
 
 const spawn = { id: 'service', cmd: 'node', args: ['entry.ts'], health: { rpc: 'health.probe' }, restart: 'on-failure', scope: 'deployment', network: 'none' };

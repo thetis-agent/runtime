@@ -1,5 +1,5 @@
 /** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
-import type * as TurnEvents from '../turn-events/types.ts';
+import type * as TurnEvents from '@/contracts/turn-events/types.ts';
 export type Name = string;
 export type Identities = { "baseline": Name; "candidate": Name; "suite": Name; "scorer": Name; "provider": Name; "model": Name; "seed": Name; [key: string]: string; };
 export type Strings = (Name)[];

@@ -2,16 +2,16 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { mkdir, writeFile, mkdtemp, rm } from 'node:fs/promises';
-import { executionFixture } from './execution-fixture.ts';
-import { revision } from './runtime-fixture.ts';
-import { discover } from '../lib/package-loader/index.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import { seedIdentity } from '../lib/evaluation/index.ts';
-import { releaseDigest } from '../lib/deployment/release.ts';
-import { Secrets } from '../kernel/secrets/index.ts';
-import { administrator } from './default-act.ts';
-import { kernelProcess } from './kernel-process.ts';
+import { executionFixture } from '@/test/execution-fixture.ts';
+import { revision } from '@/test/runtime-fixture.ts';
+import { discover } from '@/lib/package-loader/index.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { seedIdentity } from '@/lib/evaluation/index.ts';
+import { releaseDigest } from '@/lib/deployment/release.ts';
+import { Secrets } from '@/kernel/secrets/index.ts';
+import { administrator } from '@/test/default-act.ts';
+import { kernelProcess } from '@/test/kernel-process.ts';
 
 export async function evaluationMain() {
   const fixture = await executionFixture(); const root = await mkdtemp('/tmp/em-'); const state = join(root, 'initial'); await mkdir(state);

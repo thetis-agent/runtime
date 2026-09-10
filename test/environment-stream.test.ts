@@ -2,12 +2,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { serviceFixture } from './provider-service.ts';
-import { environmentProcess } from './environment-process.ts';
-import { SessionClient } from '../lib/session/client.ts';
-import type { Batch } from '../lib/session/types.ts';
-import { Schemas, isObject } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
+import { serviceFixture } from '@/test/provider-service.ts';
+import { environmentProcess } from '@/test/environment-process.ts';
+import { SessionClient } from '@/lib/session/client.ts';
+import type { Batch } from '@/lib/session/types.ts';
+import { Schemas, isObject } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 
 await test('KS-004 direct subscriptions deliver batched tokens and end without exposing content to kernel control', async () => {
   const shared = await serviceFixture(1, { scripts: [Array.from({ length: 1000 }, () => ({ type: 'delta.text', text: 'PRIVATE_STREAM_TEXT' }))] }); assert.ok((await shared.process.probe()).ok);

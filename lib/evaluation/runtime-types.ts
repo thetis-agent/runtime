@@ -1,9 +1,9 @@
 /** Describe trusted execution edges without teaching the kernel model or scorer semantics; ADR 0017. */
-import type { Setup } from '../package-loader/types.ts';
-import type { Plan as SandboxPlan, SandboxRunner } from '../sandbox-runner/index.ts';
-import type { Clock } from '../events/index.ts';
-import type { Result } from '../result/index.ts';
-import type { Method } from '../../contracts/kernel-socket/types.ts';
+import type { Setup } from '@/lib/package-loader/types.ts';
+import type { Plan as SandboxPlan, SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Result } from '@/lib/result/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
 import type { Startup, Row } from './types.ts';
 import type { Socket } from 'node:net';
 

@@ -6,7 +6,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import { once } from 'node:events';
 import { mkdtemp, writeFile, symlink, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Schemas, isObject } from '../schema/index.ts';
+import { Schemas, isObject } from '@/lib/schema/index.ts';
 import { load, respond, limits } from './index.ts';
 import type { Table } from './index.ts';
 

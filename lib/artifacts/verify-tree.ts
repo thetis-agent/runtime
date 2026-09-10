@@ -1,9 +1,9 @@
 /** Check every source/output pair before a pinned tree enters a sandbox; ADR 0037, GN-002. */
 import { join } from 'node:path';
-import { paths } from '../snapshots/tree.ts';
+import { paths } from '@/lib/snapshots/tree.ts';
 import { verified, limits } from './verify.mjs';
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 export async function verifyTree(root: string): Promise<Result<string>> {
   const entries = await paths(root); if (!entries.ok) return entries;
   let bytes = 0;

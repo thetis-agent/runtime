@@ -1,8 +1,8 @@
 /** Read append-only records without buffering their whole file; ADR 0013, TE-009. */
 import { open } from 'node:fs/promises';
 import { frames } from './index.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 export const fileLimits = { bytes: 67108864, rows: 100000, frameBytes: 65536 };
 

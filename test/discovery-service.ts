@@ -2,19 +2,19 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Identity } from '../kernel/identity/index.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Context } from '../kernel/boundary/process.ts';
-import type { Operation } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import type { Mount } from '../lib/sandbox-runner/index.ts';
-import { discover } from '../lib/package-loader/index.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import { discover } from '@/lib/package-loader/index.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
 export async function discoveryService(all = false) {
   const root = await mkdtemp('/tmp/discovery-service-'); const time = new ManualClock(); const schemas = new Schemas(); await schemas.load();

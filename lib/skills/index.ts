@@ -3,11 +3,11 @@ import { parseDocument } from 'yaml';
 import { readdir, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, relative, basename } from 'node:path';
-import type { Card, Frontmatter } from '../../contracts/skills/types.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { resolvePath } from '../files/index.ts';
+import type { Card, Frontmatter } from '@/contracts/skills/types.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { resolvePath } from '@/lib/files/index.ts';
 
 export interface LoadedSkill { card: Card; body: string }
 export interface Pack { name: string; version: string; path: string }

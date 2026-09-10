@@ -4,9 +4,10 @@ import { Writable } from 'node:stream';
 import { dirname } from 'node:path';
 import { realpath } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { delegate } from '../lib/sandbox-runner/cgroup.ts';
-import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
-import { sourceMounts } from './workspace.ts';
+import { delegate } from '@/lib/sandbox-runner/cgroup.ts';
+import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
+import { sourceFlags } from '@/lib/artifacts/index.ts';
+import { sourceMounts } from '@/scripts/workspace.ts';
 const limits = { keyBytes: 16384, memoryMiB: 1536, tasks: 128, temporaryBytes: 67108864 };
 
 async function key(path: string): Promise<Buffer> {
@@ -29,7 +30,7 @@ async function run(path: string): Promise<number> {
     const args = [...namespace(dirname(dirname(process.execPath)), limits.temporaryBytes).filter(argument => argument !== '--unshare-net'),
       '--dev-bind', '/dev/net/tun', '/dev/net/tun', '--dir', '/etc', '--dir', '/run', '--ro-bind', await realpath('/etc/resolv.conf'), '/etc/resolv.conf', ...await sourceMounts(fileURLToPath(new URL('..', import.meta.url))),
       '--bind', control.value, '/cgroup', '--chdir', '/workspace', ...seal,
-      '--', '/runtime/bin/node', '/workspace/test/live-openrouter.ts', String(value.length)];
+      '--', '/runtime/bin/node', '--import', '/workspace/lib/artifacts/source.mjs', '/workspace/test/live-openrouter.ts', String(value.length)];
     const child = spawn('/usr/bin/bwrap', args, { stdio: ['ignore', 'inherit', 'inherit', 'pipe'], env: { PATH: '/usr/bin:/bin' } });
     const pipe = child.stdio[3]; if (!(pipe instanceof Writable)) throw new Error('The live key descriptor is absent.');
     pipe.once('error', () => { child.kill('SIGKILL'); }); pipe.end(value);
@@ -41,6 +42,6 @@ const path = process.argv[2];
 if (!path) throw new Error('Provide the operator TOML key source; never pass the key itself.');
 if (process.argv.includes('--delegated')) process.exitCode = await run(path);
 else {
-  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', `MemoryMax=${String(limits.memoryMiB)}M`, '-p', `TasksMax=${String(limits.tasks)}`, '-p', 'CPUQuota=100%', process.execPath, fileURLToPath(import.meta.url), path, '--delegated'], { stdio: 'inherit' });
+  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', `MemoryMax=${String(limits.memoryMiB)}M`, '-p', `TasksMax=${String(limits.tasks)}`, '-p', 'CPUQuota=100%', process.execPath, ...sourceFlags(), fileURLToPath(import.meta.url), path, '--delegated'], { stdio: 'inherit' });
   child.once('error', () => { process.exitCode = 1; }); child.once('exit', code => { process.exitCode = code ?? 1; });
 }

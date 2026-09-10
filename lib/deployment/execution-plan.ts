@@ -1,9 +1,9 @@
 /** Translate an already authorized isolated plan into neutral generation data; EV-006, GN-002. */
-import { snapshot } from '../snapshots/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import type { Plan } from '../sandbox-runner/index.ts';
-import type { Setup } from '../package-loader/types.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Plan } from '@/lib/sandbox-runner/index.ts';
+import type { Setup } from '@/lib/package-loader/types.ts';
 import type { Revision } from './types.ts';
 export async function executionPlan(plan: Omit<Plan, 'socket' | 'token'>, setup: Setup): Promise<Result<{ revision: Revision; state: string; setup: Setup }>> {
   const state = plan.mounts.find(mount => mount.path === '/state'); if (!state) return failure('invalid-args', 'The isolated execution state mount is absent.');

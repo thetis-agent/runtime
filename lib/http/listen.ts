@@ -2,9 +2,9 @@
 import type { Server } from 'node:http';
 import { chmod, unlink } from 'node:fs/promises';
 import { dirname, basename } from 'node:path';
-import { resolvePath } from '../files/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { resolvePath } from '@/lib/files/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 export async function listen(server: Server, path: string): Promise<Result<{ close(): Promise<Result<void>> }>> {
   const canonical = await resolvePath(basename(path), [{ path: dirname(path), mode: 'rw', space: 'kernel origin' }], true); if (!canonical.ok) return canonical;
   const opened = await new Promise<Result<void>>(resolve => {

@@ -1,12 +1,12 @@
 /** Export only a stopped trusted store, then hash its explicit host-path relocation; GN-007. */
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { perform } from '../snapshots/pool.ts';
-import { snapshot } from '../snapshots/index.ts';
-import { atomicWrite } from '../files/atomic.ts';
+import { perform } from '@/lib/snapshots/pool.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
 import { relocations, relocationLimits } from './relocation.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export async function exportDeployment(source: string, destination: string): Promise<Result<string>> {
   const mappings = await relocations(source); if (!mappings.ok) return mappings;

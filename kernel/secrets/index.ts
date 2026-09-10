@@ -1,12 +1,12 @@
 /** Keep scoped secrets encrypted and deny package-origin writes; ADR 0009, ADR 0019, KS-008. */
 import { createHash } from 'node:crypto';
-import { storage } from '../../lib/storage/index.ts';
-import type { Storage } from '../../contracts/storage/index.ts';
-import { seal, unseal } from '../../lib/files/sealed.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
-import type { Principal } from '../identity/index.ts';
-import type { SecretSetParams } from '../../contracts/kernel-socket/types.ts';
+import { storage } from '@/lib/storage/index.ts';
+import type { Storage } from '@/contracts/storage/index.ts';
+import { seal, unseal } from '@/lib/files/sealed.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Principal } from '@/kernel/identity/index.ts';
+import type { SecretSetParams } from '@/contracts/kernel-socket/types.ts';
 
 export const limits = { entries: 4096, valueBytes: 16384, nameBytes: 256, grantNames: 64 };
 type Code = 'forbidden' | 'invalid-args' | 'budget' | 'io' | 'unbound';

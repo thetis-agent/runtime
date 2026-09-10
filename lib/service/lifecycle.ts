@@ -1,9 +1,9 @@
 /** Bound incomplete connections and drain without restarting a service; ADR 0010, KS-021. */
 import { createServer } from 'node:net';
 import type { Socket } from 'node:net';
-import type { Clock } from '../events/index.ts';
-import type { Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 
 export const serviceLimits = { connections: 64, probeMs: 10000, exchangeMs: 600000, drainMs: 30000 };
 export interface Connection {

@@ -3,8 +3,8 @@ import { createServer } from 'node:net';
 import type { Socket, Server } from 'node:net';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const privateLimits = { endpoints: 256 };
 let active = 0;

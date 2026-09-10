@@ -2,14 +2,14 @@
 import { mkdir, readFile, lstat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { atomicWrite } from '../files/atomic.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas, Validator } from '../schema/index.ts';
-import { validators } from '../evaluation/index.ts';
-import type { Checkpoint } from '../generation-state/types.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas, Validator } from '@/lib/schema/index.ts';
+import { validators } from '@/lib/evaluation/index.ts';
+import type { Checkpoint } from '@/lib/generation-state/types.ts';
 import { relocateCheckpoint } from './relocation.ts';
-export type { Checkpoint } from '../generation-state/types.ts';
+export type { Checkpoint } from '@/lib/generation-state/types.ts';
 export const checkpointLimits = { bytes: 1048576 };
 
 export async function checkpointValidator(schemas: Schemas): Promise<Validator<Checkpoint>> {

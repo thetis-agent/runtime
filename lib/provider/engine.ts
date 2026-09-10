@@ -1,9 +1,9 @@
 /** Keep authentication, reservations and final usage on every provider path; PR-003–012. */
 import { reserve } from './reservation.ts';
-import type { RequestEvent, ResponseEvent } from '../../contracts/provider/types.ts';
+import type { RequestEvent, ResponseEvent } from '@/contracts/provider/types.ts';
 import type { Authority, Provider, Budgets, Description } from './index.ts';
-import type { Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 
 export type Counters = Extract<ResponseEvent, { type: 'usage' }>['counters'];
 export type Begin = Extract<RequestEvent, { type: 'begin' }>;

@@ -31,20 +31,20 @@ gate() {
 }
 # Execution artifacts are deliberately untracked; committed schemas and validators
 # are checked for freshness by check.ts, never regenerated to make CI pass.
-node scripts/build.ts 2>&1 | tee "$workspace/reports/build.log"
-gate check node scripts/check.ts
-gate kernel-size node scripts/size.ts
+node --import ./lib/artifacts/source.mjs scripts/build.ts 2>&1 | tee "$workspace/reports/build.log"
+gate check node --import ./lib/artifacts/source.mjs scripts/check.ts
+gate kernel-size node --import ./lib/artifacts/source.mjs scripts/size.ts
 gate kernel-boundary bash .github/scripts/kernel-boundary.sh
 # GN-002 must read this job's bundle, rather than the previously committed seed.
-node scripts/release.ts 2>&1 | tee "$workspace/reports/registry.log"
+node --import ./lib/artifacts/source.mjs scripts/release.ts 2>&1 | tee "$workspace/reports/registry.log"
 # Includes conformance inventory, providers and dependants, recovery, deployment
 # smoke tests, evaluator isolation and the actual latency/RSS acceptance limits.
-gate test node scripts/test.ts
+gate test node --import ./lib/artifacts/source.mjs scripts/test.ts
 if (( failures != 0 )); then
   printf '::error::%s acceptance gate(s) failed; delivery is blocked.\n' "$failures"
   exit 1
 fi
-node scripts/distribution.ts "$workspace/delivery"
+node --import ./lib/artifacts/source.mjs scripts/distribution.ts "$workspace/delivery"
 cp profiles/default/{package.json,profile.lock.json,registry.json,registry.bundle} "$workspace/delivery/"
 cp "$workspace/reports/provenance.json" "$workspace/delivery/"
 cp "$workspace/reports/platform.txt" "$workspace/delivery/"

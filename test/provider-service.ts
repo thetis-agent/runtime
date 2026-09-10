@@ -2,20 +2,20 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { IdentityConfig } from '../kernel/identity/index.ts';
-import { Identity } from '../kernel/identity/index.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Usage } from '../kernel/boundary/usage.ts';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Context } from '../kernel/boundary/process.ts';
-import type { Operation } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import { Schemas, isObject } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import type { Mount } from '../lib/sandbox-runner/index.ts';
-import { ProviderClient } from '../lib/provider/client.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
+import type { IdentityConfig } from '@/kernel/identity/index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Usage } from '@/kernel/boundary/usage.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import { Schemas, isObject } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import { ProviderClient } from '@/lib/provider/client.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
 function accounting(usage: Usage): Operation {
   return (run, params) => {

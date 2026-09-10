@@ -1,7 +1,7 @@
 /** Enforce the publication ceiling atomically across concurrent publishers; ADR 0004 §10. */
 import { git } from './git.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 export async function quota(repository: string, name: string, at: number): Promise<Result<string>> {
   const ref = `refs/thetis/publications/${String(Math.floor(at / 86400000))}/${name}`;
   const current = await git(repository, ['rev-parse', '--verify', ref]); let count = 0;

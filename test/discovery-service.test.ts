@@ -3,8 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { discoveryService } from './discovery-service.ts';
-import { describe } from '../lib/package-loader/discovery-client.ts';
+import { discoveryService } from '@/test/discovery-service.ts';
+import { describe } from '@/lib/package-loader/discovery-client.ts';
 await test('TE-021 registered discovery captures exported spawns twice without starting them', async () => {
   const fixture = await discoveryService();
   try {

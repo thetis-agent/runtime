@@ -2,8 +2,8 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { declarations } from './conformance-names.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
+import { declarations } from '@/test/conformance-names.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
 export interface Inventory { required: string[]; covered: Record<string, string[]>; missing: string[]; skipped: string[] }
 const pattern = /^([A-Z]{2}-\d{3})\b/u;
 async function files(root: string): Promise<string[]> {

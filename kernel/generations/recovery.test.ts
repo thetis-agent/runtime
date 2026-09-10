@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { processGeneration, person, endpointVersion } from '../../test/process-generation.ts';
-import { atomicWrite } from '../../lib/files/atomic.ts';
+import { processGeneration, person, endpointVersion } from '@/test/process-generation.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
 
 for (const phase of ['QUIESCING', 'FROZEN']) await test(`ADR-0043 a ${phase} checkpoint failure restores admission and permits another switch`, async () => {
   let refused = false;

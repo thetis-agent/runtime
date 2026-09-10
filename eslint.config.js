@@ -20,7 +20,7 @@ export default tseslint.config(
   {
     files: ['packages/**/*.ts'],
     rules: { 'no-restricted-imports': ['error', { patterns: [
-      { regex: '^(?:@thetis/package-|#packages/|\\.\\./(?!\\.\\./(?:lib|contracts|test)/)|(?:\\.\\./){2}(?!(?:lib|contracts|test)/))', message: 'Import shared lib or contracts only.' }
+      { regex: '^(?:@thetis/package-|#packages/|@/(?!(?:lib|contracts|test)/)|\\.\\./(?!\\.\\./(?:lib|contracts|test)/)|(?:\\.\\./){2}(?!(?:lib|contracts|test)/))', message: 'Import shared lib or contracts only.' }
     ] }] }
   }
 );

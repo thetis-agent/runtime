@@ -1,14 +1,14 @@
 /** Route two people through the assembled kernel while keeping model content inside environments; KS-004–005, KS-023. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runtimeFixture, people } from '../../test/runtime-fixture.ts';
-import { isObject } from '../../lib/schema/index.ts';
-import { connect } from '../../lib/ndjson/socket.ts';
-import { Peer } from '../../lib/socket/index.ts';
-import { clock } from '../../lib/events/index.ts';
-import { sessionWhois } from './runtime.ts';
-import { Identity } from '../identity/index.ts';
-import type { Run } from '../identity/index.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { connect } from '@/lib/ndjson/socket.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import { sessionWhois } from '@/kernel/boundary/runtime.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import type { Run } from '@/kernel/identity/index.ts';
 
 for (const id of ['KS-004', 'KS-005']) await test(`${id} the kernel assembles isolated person-owned sessions and refuses cross-person submission`, async () => {
   const fixture = await runtimeFixture();

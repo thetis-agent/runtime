@@ -1,7 +1,7 @@
 /** Attribute service calls through the inherited kernel peer, never through prompt content; PR-011–012. */
-import type { Peer } from '../socket/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import type { Peer } from '@/lib/socket/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 import type { Authority, Caller } from './index.ts';
 
 export class KernelAuthority implements Authority {

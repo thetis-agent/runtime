@@ -1,13 +1,13 @@
 /** Start a registered shared service with inherited authority and kernel-supplied policy; ADR 0019–0020. */
 import { readFile } from 'node:fs/promises';
-import { authority } from '../sandbox-runner/authority.ts';
-import { Peer } from '../socket/index.ts';
-import type { Handler } from '../socket/index.ts';
-import type { Method, Note } from '../../contracts/kernel-socket/types.ts';
-import { Schemas, failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import { clock } from '../events/index.ts';
-import type { Clock } from '../events/index.ts';
+import { authority } from '@/lib/sandbox-runner/authority.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import type { Handler } from '@/lib/socket/index.ts';
+import type { Method, Note } from '@/contracts/kernel-socket/types.ts';
+import { Schemas, failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 import { Budgets } from './index.ts';
 import type { Provider, Authority } from './index.ts';
 import { BudgetCheckpoint } from './checkpoint.ts';

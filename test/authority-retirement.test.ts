@@ -3,14 +3,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Runtime } from '../kernel/boundary/runtime.ts';
-import { Identity } from '../kernel/identity/index.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import { processGeneration, person } from './process-generation.ts';
-import type { Setup } from '../lib/package-loader/types.ts';
+import { Runtime } from '@/kernel/boundary/runtime.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { processGeneration, person } from '@/test/process-generation.ts';
+import type { Setup } from '@/lib/package-loader/types.ts';
 
 await test('KS-008 repeatedly closing real empty authority sockets returns identity capacity', async () => {
   const root = await mkdtemp('/tmp/authority-'); const clock = new ManualClock();

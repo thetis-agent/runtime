@@ -8,7 +8,7 @@ import { Registry } from './index.ts';
 import { retain, retentionMs } from './retention.ts';
 import { lock } from './profile.ts';
 import { git } from './git.ts';
-import { Schemas } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 import { compact } from './compact.ts';
 
 async function fixture() {

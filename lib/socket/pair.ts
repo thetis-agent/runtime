@@ -1,8 +1,8 @@
 /** Transfer connected descriptors after removing their private listening path; KS-001. */
 import type { Socket } from 'node:net';
-import { connect } from '../ndjson/socket.ts';
+import { connect } from '@/lib/ndjson/socket.ts';
 import { privateEndpoint } from './private.ts';
-import type { Result } from '../schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export interface Pair { client: Socket; peer: Socket; close(): Promise<Result<void, 'io'>> }
 

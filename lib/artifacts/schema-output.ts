@@ -3,9 +3,9 @@ import { readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import { packageGuard } from '../schema/precompile.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { isObject } from '../result/index.ts';
+import { packageGuard } from '@/lib/schema/precompile.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { isObject } from '@/lib/result/index.ts';
 const limits = { schemaBytes: 1048576, directories: 256, totalBytes: 67108864 };
 export async function schemaOutput(root: string, previous?: string): Promise<void> {
   if (!(await readdir(root)).includes('schema.json')) return;

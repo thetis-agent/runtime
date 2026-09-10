@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { watchWork } from '../lib/deployment/work.ts';
-import { configuration } from '../lib/deployment/index.ts';
-import { start } from '../kernel/main.ts';
-import type { Runtime } from '../kernel/boundary/runtime.ts';
-import type { Schemas, Result } from '../lib/schema/index.ts';
+import { watchWork } from '@/lib/deployment/work.ts';
+import { configuration } from '@/lib/deployment/index.ts';
+import { start } from '@/kernel/main.ts';
+import type { Runtime } from '@/kernel/boundary/runtime.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
 
 const maximumEditLatencyMs = 2000;
 
@@ -23,7 +23,7 @@ export async function edited(root: string, path: string, runtime: Runtime, schem
     const updated = original.replace("const contents = typeof args['contents'] === 'string' ? args['contents'] : '';", "const contents = 'Work edit is serving.';"); assert.notEqual(updated, original);
     began = performance.now(); await writeFile(file, updated); const applied = await ready.promise; assert.ok(applied.ok, JSON.stringify(applied));
     const endpoint = runtime.endpoint('alice-cli'); assert.ok(endpoint.ok); const created = await command(endpoint.value, ['new']);
-    const { isObject } = await import('../lib/schema/index.ts'); const value = created.at(-1); assert.ok(isObject(value) && isObject(value['value']) && typeof value['value']['id'] === 'string', JSON.stringify(created));
+    const { isObject } = await import('@/lib/schema/index.ts'); const value = created.at(-1); assert.ok(isObject(value) && isObject(value['value']) && typeof value['value']['id'] === 'string', JSON.stringify(created));
     await command(endpoint.value, ['send', value['value']['id'], 'Use the edited file tool.']);
     assert.equal(await readFile(join(root, 'alice/edited.txt'), 'utf8'), 'Work edit is serving.');
     const alice = config.value.identity.people.find(person => person.id === 'alice'); const bob = config.value.identity.people.find(person => person.id === 'bob'); assert.ok(alice && bob);

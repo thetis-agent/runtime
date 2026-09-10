@@ -8,13 +8,13 @@ import { resolve, isAbsolute, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { namespace, seal } from './namespace.ts';
 import { Cgroup, resourceLimits } from './cgroup.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import { gap } from '../semver-match/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { gap } from '@/lib/semver-match/index.ts';
 import { freeze } from './freezer.ts';
 import { egress, privateNetwork } from './network.ts';
 import type { Network } from './network.ts';
-import type { Clock } from '../events/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 
 export interface Mount { source: string; path: string; mode: 'ro' | 'rw'; maximumBytes?: number }
 export interface Plan {
@@ -52,11 +52,11 @@ async function argumentsFor(plan: Plan, runtime: string): Promise<Result<string[
       args.push(mount.mode === 'rw' ? '--bind' : '--ro-bind', source, path);
     }
     const bootstrap = fileURLToPath(new URL('./bootstrap.ts', import.meta.url)); const flags: string[] = [];
+    args.push('--ro-bind', fileURLToPath(new URL('../artifacts/', import.meta.url)), '/thetis-artifacts');
     if (plan.execution === 'artifacts') {
-      args.push('--ro-bind', fileURLToPath(new URL('../artifacts/', import.meta.url)), '/thetis-artifacts');
       for (const suffix of ['.js', '.artifact.json']) args.push('--ro-bind', `${bootstrap}${suffix}`, `/thetis-bootstrap.ts${suffix}`);
       flags.push('--no-experimental-strip-types', '--import', '/thetis-artifacts/register.mjs');
-    }
+    } else flags.push('--import', '/thetis-artifacts/source.mjs');
     args.push('--setenv', 'NODE_COMPILE_CACHE', join(plan.cwd, '.node-compile-cache'), '--ro-bind', bootstrap, '/thetis-bootstrap.ts', '--remount-ro', '/proc', ...seal, '--chdir', plan.cwd, '--', '/runtime/bin/node', `--max-old-space-size=${String(limits.heapMiB)}`, `--max-semi-space-size=${String(limits.youngMiB)}`, ...flags, '/thetis-bootstrap.ts', plan.entry, ...plan.args);
     return { ok: true, value: args };
   } catch { return failure('outside-roots', 'The sandbox mount source could not be canonicalised.'); }

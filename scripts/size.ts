@@ -2,7 +2,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sourceLines } from './source-lines.ts';
+import { sourceLines } from '@/scripts/source-lines.ts';
 const limits = { kernelLines: 1300, entries: 10000, sourceBytes: 16777216 };
 const files: { path: string; lines: number; physicalLines: number; commentLines: number; bytes: number }[] = [];
 let entries = 0; let bytes = 0;

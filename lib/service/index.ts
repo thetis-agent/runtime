@@ -1,11 +1,11 @@
 /** Keep inherited control separate from service requests and admission; ADR 0010, ADR 0021. */
-import { authority } from '../sandbox-runner/authority.ts';
-import { Peer } from '../socket/index.ts';
-import type { Handler } from '../socket/index.ts';
-import { Schemas, failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import type { Method, Note, ConnectKernel } from '../../contracts/kernel-socket/types.ts';
-import { clock } from '../events/index.ts';
+import { authority } from '@/lib/sandbox-runner/authority.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import type { Handler } from '@/lib/socket/index.ts';
+import { Schemas, failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Method, Note, ConnectKernel } from '@/contracts/kernel-socket/types.ts';
+import { clock } from '@/lib/events/index.ts';
 import { Service, serviceLimits } from './lifecycle.ts';
 import type { Connection } from './lifecycle.ts';
 export type Factory = (settings: unknown, schemas: Schemas, peer: Peer, identity: ConnectKernel) => Promise<Result<(connection: Connection) => Promise<Result<void>>>>;

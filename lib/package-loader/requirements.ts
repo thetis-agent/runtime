@@ -1,9 +1,9 @@
 /** Admit concrete requirements only from recorded pins and inherited profile facts; KS-009, ADR 0016. */
 import type { Entry, Registration, Recorded } from './types.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import { resolve, matches } from '../semver-match/index.ts';
-import type { Provision } from '../semver-match/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import { resolve, matches } from '@/lib/semver-match/index.ts';
+import type { Provision } from '@/lib/semver-match/index.ts';
 import { validator } from './index.ts';
 import { Register } from './registration.ts';
 import { compose } from './composition.ts';

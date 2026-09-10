@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { MockProvider } from '../../packages/provider-mock/index.ts';
-import { providerFixture, collect, request, stream } from '../../test/provider-fixture.ts';
+import { MockProvider } from '@/packages/provider-mock/index.ts';
+import { providerFixture, collect, request, stream } from '@/test/provider-fixture.ts';
 import { BudgetCheckpoint } from './checkpoint.ts';
 import { Budgets } from './index.ts';
-import { Schemas } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 import { reserve } from './reservation.ts';
 
 await test('PR-010 a trusted run ceiling refuses vendor access and cannot be enlarged by request options', async () => {

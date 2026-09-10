@@ -1,12 +1,12 @@
 /** Negotiate methods and fence asynchronous RPC behind bounded frames; KS-001–003, KS-017–021. */
 import type { Socket } from 'node:net';
-import type { Validator as ValidateFunction } from '../schema/index.ts';
-import type { Clock } from '../events/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import { socketFrames } from '../ndjson/socket.ts';
-import { FrameWriter } from '../ndjson/writer.ts';
-import type { ConnectClient, ConnectKernel, Frame, Request, Response, Note, Method } from '../../contracts/kernel-socket/types.ts';
+import type { Validator as ValidateFunction } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import { socketFrames } from '@/lib/ndjson/socket.ts';
+import { FrameWriter } from '@/lib/ndjson/writer.ts';
+import type { ConnectClient, ConnectKernel, Frame, Request, Response, Note, Method } from '@/contracts/kernel-socket/types.ts';
 import { response, note } from './guards.ts';
 
 export const limits = { capabilities: 128, pending: 128, handlers: 32, controlReserve: 4, timeoutMs: 10000, incomingBytes: 4 * 1024 * 1024, windowMs: 1000 };

@@ -5,12 +5,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer, createConnection } from 'node:net';
 import type { Socket } from 'node:net';
 import { spawn } from 'node:child_process';
+import { sourceFlags } from '@/lib/artifacts/index.ts';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 async function forward(socket: Socket): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [new URL('./fixtures/descriptor-parent.ts', import.meta.url).pathname], {
+    const child = spawn(process.execPath, [...sourceFlags(), new URL('./fixtures/descriptor-parent.ts', import.meta.url).pathname], {
       env: {}, stdio: ['ignore', 'inherit', 'inherit', socket]
     });
     child.once('error', reject);
@@ -56,7 +57,7 @@ await test('TE-024 ordinary children inherit neither kernel descriptors nor cred
       socket.once('connect', resolve); socket.once('error', reject);
     });
     const result = await new Promise<{ code: number; output: string }>((resolve, reject) => {
-      const child = spawn(process.execPath, [new URL('./fixtures/ordinary-parent.ts', import.meta.url).pathname], {
+      const child = spawn(process.execPath, [...sourceFlags(), new URL('./fixtures/ordinary-parent.ts', import.meta.url).pathname], {
         env: {}, stdio: ['ignore', 'pipe', 'inherit', socket]
       });
       let output = '';

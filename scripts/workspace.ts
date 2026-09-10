@@ -3,8 +3,8 @@ import { spawn } from 'node:child_process';
 import { readdir, realpath } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
 
 export const workspace = '/workspace';
 export const workspaceLimits = { entries: 256, temporaryBytes: 67108864 };
@@ -36,5 +36,5 @@ export async function checkWorkspace(): Promise<number> {
   const root = fileURLToPath(new URL('..', import.meta.url));
   const runtime = dirname(dirname(process.execPath));
   return execute('bwrap', [...namespace(runtime, workspaceLimits.temporaryBytes), ...await sourceMounts(root),
-    '--chdir', workspace, ...seal, '--', '/runtime/bin/node', `${workspace}/scripts/check.ts`, '--workspace']);
+    '--chdir', workspace, ...seal, '--', '/runtime/bin/node', '--import', `${workspace}/lib/artifacts/source.mjs`, `${workspace}/scripts/check.ts`, '--workspace']);
 }

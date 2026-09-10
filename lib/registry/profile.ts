@@ -1,8 +1,8 @@
 /** Pin resolution before installation and reject reordered or mismatched identities; proposal §5–6. */
-import { resolve } from '../semver-match/index.ts';
-import type { Provision, Package } from '../semver-match/index.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { resolve } from '@/lib/semver-match/index.ts';
+import type { Provision, Package } from '@/lib/semver-match/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import type { Registry, Lock, Pin } from './index.ts';
 
 export async function lock(registry: Registry, requested: readonly Pin[], facts: readonly Provision[] = []): Promise<Result<Lock>> {

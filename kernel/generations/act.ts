@@ -2,14 +2,14 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { atomicWrite } from '../../lib/files/atomic.ts';
-import type { Principal, Run } from '../identity/index.ts';
-import type { Journal } from '../log/index.ts';
-import type { DefaultPrepareParams, DefaultSetParams } from '../../contracts/kernel-socket/types.ts';
-import type { Schemas, Result } from '../../lib/schema/index.ts';
-import { failure } from '../../lib/schema/index.ts';
-import { validators } from '../../lib/evaluation/index.ts';
-import type { Plan, Submission } from '../../lib/evaluation/index.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import type { Principal, Run } from '@/kernel/identity/index.ts';
+import type { Journal } from '@/kernel/log/index.ts';
+import type { DefaultPrepareParams, DefaultSetParams } from '@/contracts/kernel-socket/types.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import { validators } from '@/lib/evaluation/index.ts';
+import type { Plan, Submission } from '@/lib/evaluation/index.ts';
 
 export const actLimits = { plans: 256, codes: 256, codeMs: 600000, submissionBytes: 1024 * 1024 };
 interface Evidence { source: string; plan: Plan; submission?: Submission; passed?: boolean }

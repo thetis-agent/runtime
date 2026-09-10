@@ -1,11 +1,11 @@
 /** Deliver only the declared spawn's selected secret scope, never settings values; ADR 0009, ADR 0019. */
-import { Register } from '../../lib/package-loader/registration.ts';
-import { validator } from '../../lib/package-loader/index.ts';
-import type { Entry, Registration, Spawn } from '../../lib/package-loader/types.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Result, Schemas } from '../../lib/schema/index.ts';
-import type { Secrets } from './index.ts';
-import { gap } from '../../lib/semver-match/index.ts';
+import { Register } from '@/lib/package-loader/registration.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import type { Entry, Registration, Spawn } from '@/lib/package-loader/types.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import type { Secrets } from '@/kernel/secrets/index.ts';
+import { gap } from '@/lib/semver-match/index.ts';
 
 export async function declaration(entry: Entry, input: Record<string, unknown>, schemas: Schemas): Promise<Result<Spawn>> {
   const check = await validator<Registration>(schemas, 'registration'); const register = new Register(entry, check);

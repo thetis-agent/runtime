@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loopFixture } from './loop-fixture.ts';
-import type { Entry } from '../contracts/skills/types.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
+import type { Entry } from '@/contracts/skills/types.ts';
 
 await test('SK-014 changed skill content cannot rewrite an existing conversation prefix before refresh', async () => {
   let current: Entry = { id: 'skill', pack: 'pack', version: '1.0.0', path: 'skill.md', contentHash: `sha256:${'a'.repeat(64)}`, universal: false, body: 'Old skill body.' };

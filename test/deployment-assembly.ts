@@ -2,20 +2,20 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { start } from '../kernel/main.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { catalog } from '../lib/profile/catalog.ts';
-import { materialize } from '../lib/profile/index.ts';
-import { target } from '../lib/profile/target.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import { git } from '../lib/registry/git.ts';
-import { describe } from '../lib/package-loader/discovery-client.ts';
-import { validator } from '../lib/profile/schema.ts';
-import { assembleDeployment, writeDeployment } from '../lib/profile/orchestrate.ts';
-import { credential } from '../packages/gateway-login/password.ts';
-import type { Layer, Recipe } from '../lib/profile/types.ts';
-import type { Deployment, Target, Principal } from '../lib/deployment/types.ts';
-import type { Accounts, Credential } from '../packages/gateway-login/types.ts';
+import { start } from '@/kernel/main.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { catalog } from '@/lib/profile/catalog.ts';
+import { materialize } from '@/lib/profile/index.ts';
+import { target } from '@/lib/profile/target.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { git } from '@/lib/registry/git.ts';
+import { describe } from '@/lib/package-loader/discovery-client.ts';
+import { validator } from '@/lib/profile/schema.ts';
+import { assembleDeployment, writeDeployment } from '@/lib/profile/orchestrate.ts';
+import { credential } from '@/packages/gateway-login/password.ts';
+import type { Layer, Recipe } from '@/lib/profile/types.ts';
+import type { Deployment, Target, Principal } from '@/lib/deployment/types.ts';
+import type { Accounts, Credential } from '@/packages/gateway-login/types.ts';
 
 /** The recipe never carries real credentials (they would ship in the repo); the operator populates
  * this state directory at deploy time via `packages/gateway-login/password.ts:credential`, as documented

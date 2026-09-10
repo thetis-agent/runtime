@@ -2,9 +2,9 @@
 import { mkdir, writeFile, chmod, lstat, readdir, rmdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { git, limits } from './git.ts';
-import { paths } from '../snapshots/tree.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { paths } from '@/lib/snapshots/tree.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 export function safe(path: string): boolean {
   return path.length <= 4096 && !path.includes('\\') && !path.includes('\0') && path.split('/').every(part => part.length > 0 && part !== '.' && part !== '..' && part.toLowerCase() !== '.git' && part !== '.gitmodules');

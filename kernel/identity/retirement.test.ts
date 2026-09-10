@@ -1,7 +1,7 @@
 /** Reclaim ephemeral identities without weakening persistent generation fences; KS-008, ADR 0046. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Identity } from './index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
 
 await test('KS-008 retiring ephemeral targets reclaims capacity and revokes serving and provisional credentials', () => {
   const identity = new Identity({ people: [], bindings: [], authorities: {}, tokens: 3 }, () => 0);

@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { open, readFile } from 'node:fs/promises';
-import { connect, send, socketFrames } from '../lib/ndjson/socket.ts';
-import { isObject } from '../lib/schema/index.ts';
-import { evaluationMain } from './evaluation-main.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { evaluationMain } from '@/test/evaluation-main.ts';
 await test('EV-006 production evaluator delegation uses ordinary accounts, real candidate generations and isolated scorer observations', async () => {
   const fixture = await evaluationMain();
   try {

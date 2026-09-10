@@ -1,16 +1,16 @@
 /** Bind private execution inputs to the approved evidence plan before admitting its designated reporter; EV-002, EV-006. */
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { ExecutionRuntime, executionCapabilities } from '../evaluation/runtime.ts';
-import type { ExecutionConfiguration, Arm } from '../evaluation/runtime.ts';
+import { ExecutionRuntime, executionCapabilities } from '@/lib/evaluation/runtime.ts';
+import type { ExecutionConfiguration, Arm } from '@/lib/evaluation/runtime.ts';
 import { evaluationHost } from './evaluation.ts';
 import type { EvaluationBridge } from './evaluation.ts';
-import { validator } from '../package-loader/index.ts';
-import type { Setup } from '../package-loader/types.ts';
-import { failure } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import type { Setup } from '@/lib/package-loader/types.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
 import type { Execution, Trusted } from './types.ts';
-import type { Method } from '../../contracts/kernel-socket/types.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
 interface Context extends Omit<EvaluationBridge, 'start'> {
   start(account: string, services: readonly string[], ...args: Parameters<EvaluationBridge['start']>): ReturnType<EvaluationBridge['start']>;
   endpoint(id: string): Result<string>;

@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Schemas } from '../schema/index.ts';
-import { revision } from '../../test/runtime-fixture.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { revision } from '@/test/runtime-fixture.ts';
 import { saveCheckpoint, loadCheckpoint } from './checkpoint.ts';
 
 await test('ADR-0019 checkpoint writes only neutral process plans and replaces inherited runtime authority', async () => {

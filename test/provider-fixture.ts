@@ -1,9 +1,9 @@
 /** Supply scripted vendor events and a real run identity to provider tests; PR-014. */
-import { Identity } from '../kernel/identity/index.ts';
-import { MockProvider } from '../packages/provider-mock/index.ts';
-import { Budgets } from '../lib/provider/index.ts';
-import { failure } from '../lib/schema/index.ts';
-import type { RequestEvent, ResponseEvent } from '../contracts/provider/types.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { MockProvider } from '@/packages/provider-mock/index.ts';
+import { Budgets } from '@/lib/provider/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { RequestEvent, ResponseEvent } from '@/contracts/provider/types.ts';
 
 export function providerFixture(scripts: readonly (readonly ResponseEvent[])[] = [], cost = 10) {
   const identity = new Identity({ people: [{ id: 'person', role: 'user', projects: [], observeOthers: false }], bindings: [], authorities: {} }, () => 0);

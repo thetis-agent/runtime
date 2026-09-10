@@ -4,10 +4,10 @@ import { test } from 'node:test';
 import { watch } from 'node:fs';
 import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { trustedFixture, authority } from './trusted-fixture.ts';
-import { kernelProcess } from './kernel-process.ts';
-import { post } from './origin-http.ts';
-import { isObject } from '../lib/schema/index.ts';
+import { trustedFixture, authority } from '@/test/trusted-fixture.ts';
+import { kernelProcess } from '@/test/kernel-process.ts';
+import { post } from '@/test/origin-http.ts';
+import { isObject } from '@/lib/schema/index.ts';
 await test('GN-005 killed halfway through default promotion restores every frozen member before admission', async () => {
   const fixture = await trustedFixture(true); let kernel = await kernelProcess(fixture.path); let crashed = false;
   const promoting = Promise.withResolvers<undefined>(); const watcher = watch(fixture.work, (_event, name) => { if (name === 'promoting') promoting.resolve(undefined); });

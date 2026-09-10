@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { serviceFixture } from '../../test/provider-service.ts';
-import { collect, stream, request } from '../../test/provider-fixture.ts';
-import { isObject } from '../schema/index.ts';
+import { serviceFixture } from '@/test/provider-service.ts';
+import { collect, stream, request } from '@/test/provider-fixture.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 await test('PR-011 a real sandboxed shared service attributes both callers and durably enforces their individual budgets', async () => {
   const f = await serviceFixture();

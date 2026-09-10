@@ -1,17 +1,17 @@
 /** Bind the default act to a frozen multi-target transaction and immutable authorized evidence; GN-005, KS-015. */
 import { join } from 'node:path';
-import { Act } from './act.ts';
-import { Generations } from './index.ts';
-import type { Input, View } from './index.ts';
-import type { Runtime, Target } from '../boundary/runtime.ts';
-import type { Principal } from '../identity/index.ts';
-import type { Journal } from '../log/index.ts';
-import type { Schemas, Result } from '../../lib/schema/index.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Trusted } from '../../lib/deployment/types.ts';
-import { manifestSnapshot } from '../../lib/deployment/snapshot.ts';
-import { atomicWrite } from '../../lib/files/atomic.ts';
-import { calculate } from '../../lib/evaluation/index.ts';
+import { Act } from '@/kernel/generations/act.ts';
+import { Generations } from '@/kernel/generations/index.ts';
+import type { Input, View } from '@/kernel/generations/index.ts';
+import type { Runtime, Target } from '@/kernel/boundary/runtime.ts';
+import type { Principal } from '@/kernel/identity/index.ts';
+import type { Journal } from '@/kernel/log/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Trusted } from '@/lib/deployment/types.ts';
+import { manifestSnapshot } from '@/lib/deployment/snapshot.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { calculate } from '@/lib/evaluation/index.ts';
 
 export type DefaultSettings = Pick<Trusted, 'baseline' | 'digest' | 'plans'> & { releases: readonly { digest: string; targets: readonly Target[] }[] };
 export interface DefaultContext { root: string; schemas: Schemas; journal: Journal; runtime: Runtime; administrator: Principal; now(): number }

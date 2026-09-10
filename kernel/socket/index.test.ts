@@ -1,13 +1,13 @@
 /** Reject uncredentialled connections and prevent frame extensions from changing identity; KS-001, KS-021. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { accept } from './index.ts';
-import type { Operations } from './index.ts';
-import { Identity } from '../identity/index.ts';
-import { Peer } from '../../lib/socket/index.ts';
-import { Schemas } from '../../lib/schema/index.ts';
-import { ManualClock } from '../../lib/events/index.ts';
-import { socketPair } from '../../test/socket-pair.ts';
+import { accept } from '@/kernel/socket/index.ts';
+import type { Operations } from '@/kernel/socket/index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { socketPair } from '@/test/socket-pair.ts';
 
 async function fixture() {
   const pair = await socketPair(); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();

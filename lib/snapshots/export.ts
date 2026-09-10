@@ -2,8 +2,8 @@
 import { mkdir, opendir, lstat, realpath, copyFile, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { hashTree, limits } from './tree.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 interface Budget { entries: number; bytes: number }
 async function copy(root: string, source: string, destination: string, budget: Budget, depth: number): Promise<Result<void>> {

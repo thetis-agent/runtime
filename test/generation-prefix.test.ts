@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { runtimeFixture, people } from './runtime-fixture.ts';
-import { isObject } from '../lib/schema/index.ts';
-import { loadCheckpoint } from '../lib/deployment/checkpoint.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { loadCheckpoint } from '@/lib/deployment/checkpoint.ts';
 
 await test('TE-010 a real generation update refreshes each conversation once and TE-009 ordinary turns reuse it', async () => {
   const f = await runtimeFixture(); const person = people[0]; assert.ok(person);

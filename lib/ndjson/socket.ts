@@ -1,8 +1,8 @@
 /** Keep socket framing bounded and backpressured; PR-002, KS-021. */
 import { Socket } from 'node:net';
 import { encode, frames } from './index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 async function* bytes(socket: Socket): AsyncGenerator<Uint8Array> {
   const incoming: AsyncIterable<unknown> = socket.iterator({ destroyOnReturn: false });

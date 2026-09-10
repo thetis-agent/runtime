@@ -1,10 +1,10 @@
 /** Present credentials separately and forward response frames without collecting the stream; PR-002–003. */
 import type { Socket } from 'node:net';
 import type { Provider, Description } from './index.ts';
-import { connect, send, socketFrames } from '../ndjson/socket.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
-import type { DescribeResponse, RequestEvent, ResponseEvent } from '../../contracts/provider/types.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { DescribeResponse, RequestEvent, ResponseEvent } from '@/contracts/provider/types.ts';
 
 async function writeRequest(socket: Socket, request: AsyncIterable<RequestEvent>, signal: AbortSignal, state: { id: string }, cancel: () => void): Promise<Result<void>> {
   try {

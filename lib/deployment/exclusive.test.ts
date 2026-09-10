@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { mkdtemp, rename, writeFile, lstat, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { exclusive, retireOrigin } from './exclusive.ts';
-import { ManualClock } from '../events/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 await test('The deployment OS lock refuses a concurrent kernel and releases after shutdown', async () => {
   const root = await mkdtemp('/tmp/kernel-lock-'); const clock = new ManualClock();
   const first = await exclusive(root, clock); assert.ok(first.ok);

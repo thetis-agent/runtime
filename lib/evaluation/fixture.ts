@@ -1,8 +1,8 @@
 /** Copy fixtures by hash before seeded mutation and never mount suite metadata; EV-001, EV-002. */
 import { Worker } from 'node:worker_threads';
-import { snapshot } from '../snapshots/index.ts';
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 export const fixtureLimits = { workers: 2, fileBytes: 1048576 };
 let active = 0;
 export async function fixture(source: string, hash: string, destination: string, mutation: Readonly<Record<string, string>>): Promise<Result<string>> {

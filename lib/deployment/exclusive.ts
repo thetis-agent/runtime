@@ -3,10 +3,10 @@ import { spawn } from 'node:child_process';
 import { lstat, mkdir, realpath, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Socket } from 'node:net';
-import { resolvePath } from '../files/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import type { Clock } from '../events/index.ts';
+import { resolvePath } from '@/lib/files/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 export const exclusiveLimits = { deadlineMs: 10000, outputBytes: 32 };
 export interface Exclusive { close(): Promise<Result<void>> }
 export async function exclusive(root: string, clock: Clock): Promise<Result<Exclusive>> {

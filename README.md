@@ -66,12 +66,12 @@ cd runtime
 npm install --ignore-scripts
 
 # Generate committed guards/types, then adjacent execution artifacts.
-"$THETIS_NODE" lib/schema/generate.ts
-"$THETIS_NODE" scripts/build.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs lib/schema/generate.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/build.ts
 
 # Both of these must be green before you commit anything.
-"$THETIS_NODE" scripts/check.ts    # generated freshness + tsc --strict + eslint + artifact freshness
-"$THETIS_NODE" scripts/test.ts     # the whole suite, inside bubblewrap
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/check.ts    # generated freshness + tsc --strict + eslint + artifact freshness
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts     # the whole suite, inside bubblewrap
 ```
 
 `check` verifies committed contract types, bootstrap code and generated schema
@@ -85,7 +85,7 @@ using the installed `packages/`, `lib/`, and `contracts/` layout (ADR 0035).
 The package checkout defaults to `../packages`; set `THETIS_PACKAGES` for a
 different location. No development path is written into generated types.
 For a focused run, pass workspace-relative test paths or directory prefixes:
-`"$THETIS_NODE" scripts/test.ts lib/registry lib/profile`.
+`"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts lib/registry lib/profile`.
 
 `test` re-executes itself inside a `systemd-run --user` delegated scope bounded to
 2,048 MiB, 256 tasks and 100% CPU, then runs every `*.test.ts` inside bubblewrap
@@ -93,21 +93,21 @@ with user, process and network namespaces. Each sandbox keeps its own 64-task
 limit. Tests use no external network, real key or real model. Protocol deadlines
 use injected clocks; performance assertions measure actual elapsed time.
 
-`"$THETIS_NODE" scripts/bench.ts` asserts edit-to-serve at most two seconds (ADR 0042) and
+`"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/bench.ts` asserts edit-to-serve at most two seconds (ADR 0042) and
 aggregate kernel-plus-idle-environment RSS at most 512,000,000 bytes (ADR 0041)
-through the same sandbox launcher. `"$THETIS_NODE" scripts/size.ts` counts
+through the same sandbox launcher. `"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/size.ts` counts
 non-test kernel TypeScript lines excluding comment-only lines against 1,300
 (ADR 0039), while reporting physical and excluded counts. The kernel-size gate
 remains over budget; current benchmark results are in [implementation status](docs/implementation-status.md).
 
-`"$THETIS_NODE" scripts/release.ts` exports the exact default profile and offline
+`"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/release.ts` exports the exact default profile and offline
 registry bundle. The optional paid `scripts/live.ts` check is documented in
 [docs/headless-startup.md](docs/headless-startup.md); it is never part of `test`.
 
 ### Checking conformance coverage
 
 ```sh
-"$THETIS_NODE" test/conformance-inventory.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs test/conformance-inventory.ts
 ```
 
 Every conformance id in `docs/contracts/conformance/*.md`,
@@ -138,6 +138,15 @@ The temporary `/opt/zero` compatibility symlink is no longer present; it was
 not an installed release. Relocation preserved the original checkout
 at `/opt/zero.pre-relocation-20260909`; it is a backup, not another working copy
 to edit. Continue work in the new runtime directory.
+
+### Root imports
+
+`@/` names the runtime root: `import type { Secrets } from
+'@/kernel/secrets/index.ts';`. Shared imports use `@/lib/...` and
+`@/contracts/...`. Imports within independently versioned packages remain
+relative. Source commands require `--import ./lib/artifacts/source.mjs`;
+the npm scripts include it. Verified artifact launches use `register.mjs`,
+which already includes alias resolution. See [ADR 0047](docs/adr/0047-root-relative-module-imports.md).
 
 ### The kernel
 
@@ -298,7 +307,7 @@ Some rules worth knowing before your first edit:
 - [TODO.md](TODO.md) — what remains, ordered by what blocks what
 - [docs/implementation-status.md](docs/implementation-status.md) — the detailed
   record of what is implemented and exercised
-- [docs/adr/](docs/adr/) — 46 records, including the approved 512 MB memory and two-second edit ceilings in ADRs 0041–0042; all listed in the index
+- [docs/adr/](docs/adr/) — 47 records, including the approved 512 MB memory and two-second edit ceilings in ADRs 0041–0042; all listed in the index
 - [docs/decisions-taken.md](docs/decisions-taken.md) — every implementation choice
   taken where the design was silent
 - [docs/compatibility.md](docs/compatibility.md) — the two-direction socket matrix

@@ -1,12 +1,12 @@
 /** Give a clean candidate only verified code and a mutated fixture copy; EV-002, ADR 0004 §3. */
 import { realpath, mkdir } from 'node:fs/promises';
 import { join, relative, isAbsolute } from 'node:path';
-import { snapshot } from '../snapshots/index.ts';
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import type { Arm, ExecutionConfiguration, ExecutionHost, Candidate } from './runtime-types.ts';
-import type { Mount } from '../sandbox-runner/index.ts';
-import type { Setup } from '../package-loader/types.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import type { Setup } from '@/lib/package-loader/types.ts';
 import { executionLimits } from './runtime-types.ts';
 import { fixture } from './fixture.ts';
 import type { TurnJob, Outcome } from './types.ts';

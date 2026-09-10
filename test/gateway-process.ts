@@ -2,20 +2,20 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, symlink, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Journal } from '../kernel/log/index.ts';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Context } from '../kernel/boundary/process.ts';
-import { sessionWhois } from '../kernel/boundary/runtime.ts';
-import type { Operation } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import { sessionMethods } from '../lib/socket/sessions.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import type { Mount } from '../lib/sandbox-runner/index.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import type { serviceFixture } from './provider-service.ts';
-import type { environmentProcess } from './environment-process.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import { sessionWhois } from '@/kernel/boundary/runtime.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import { sessionMethods } from '@/lib/socket/sessions.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import type { serviceFixture } from '@/test/provider-service.ts';
+import type { environmentProcess } from '@/test/environment-process.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
 export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts') {
   const root = await mkdtemp('/tmp/gateway-process-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));

@@ -1,5 +1,5 @@
 /** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
-import type * as Evaluator from '../../contracts/evaluator/types.ts';
+import type * as Evaluator from '@/contracts/evaluator/types.ts';
 export type Mount = { "source": string; "path": string; "mode": "ro" | "rw"; "maximumBytes"?: number; [key: string]: unknown; };
 export type Revision = { "plan": { "name": string; "version": string; "entry": string; "args": (string)[]; "cwd": string; "execution"?: "source" | "artifacts"; "network"?: "none" | "egress"; [key: string]: unknown; }; "pins": { [key: string]: { "source": string; "hash": string; "mount": string; [key: string]: unknown; }; }; "mounts": (Mount)[]; "stateMount": string; "endpointMount": string; "socketName": string; "quotaBytes": number; "formats": ({ "path": string; "schema": { [key: string]: unknown; }; [key: string]: unknown; })[]; "migrations": ({ "entry": string; "args": (string)[]; [key: string]: unknown; })[]; "migrate": "stop" | "shared"; [key: string]: unknown; };
 export type Principal = { "id": string; "role": "admin" | "reviewer" | "user"; "projects": (string)[]; "observeOthers": boolean; [key: string]: unknown; };

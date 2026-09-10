@@ -2,14 +2,14 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import type { Mount } from '../lib/sandbox-runner/index.ts';
-import { socketPair } from '../lib/socket/pair.ts';
-import { accept } from '../kernel/socket/index.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import type { providerFixture } from './provider-fixture.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import { accept } from '@/kernel/socket/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import type { providerFixture } from '@/test/provider-fixture.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
 export async function faultProcess(provider: ReturnType<typeof providerFixture>, providerPath: string) {
   const root = await mkdtemp('/tmp/frame-fault-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));

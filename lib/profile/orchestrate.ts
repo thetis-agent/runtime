@@ -1,14 +1,14 @@
 /** Assemble only explicitly selected immutable layers and captured spawns; KS-009, GN-002, ADR 0017. */
-import { validators } from '../evaluation/index.ts';
+import { validators } from '@/lib/evaluation/index.ts';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { call } from '../registry/client.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import type { Captured } from '../package-loader/types.ts';
-import type { Deployment, Target } from '../deployment/types.ts';
-import { clock } from '../events/index.ts';
-import { atomicWrite } from '../files/atomic.ts';
+import { call } from '@/lib/registry/client.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import type { Captured } from '@/lib/package-loader/types.ts';
+import type { Deployment, Target } from '@/lib/deployment/types.ts';
+import { clock } from '@/lib/events/index.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
 import { cache } from './cache.ts';
 import { target } from './target.ts';
 import { validator } from './schema.ts';

@@ -3,8 +3,8 @@ import { mkdir, lstat, link, realpath, chmod } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { paths } from './tree.ts';
 import { snapshot } from './index.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 export async function immutableLinks(source: string, destination: string): Promise<Result<string>> {
   try {
     if (await realpath(source) !== source || await realpath(dirname(destination)) !== dirname(destination) || destination === source || destination.startsWith(`${source}/`)) return failure('outside-roots', 'The immutable cache link requires separate canonical roots.');

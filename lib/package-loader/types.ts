@@ -1,5 +1,5 @@
 /** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
-import type * as TurnEvents from '../../contracts/turn-events/types.ts';
+import type * as TurnEvents from '@/contracts/turn-events/types.ts';
 export type Runtime = { "root": string; "providerSocket": string; "controlPath"?: string; "generation"?: number; "person": string; "model": string; "provider": string; "token": string; "space": string; "system": (TurnEvents.Message)[]; "roots": ({ "path": string; "mode": "ro" | "rw"; "space": string; [key: string]: unknown; })[]; "mode": { "readOnly": boolean; "deny": (string)[]; [key: string]: unknown; }; "endpoint"?: string; "modelOptions"?: { "maxTokens"?: number; "temperature"?: number; "seed"?: number; "stop"?: (string)[]; [key: string]: unknown; }; "maxIterations"?: number; "excludedSkills"?: (string)[]; "requiredSources"?: (string)[]; [key: string]: unknown; };
 export type Spawn = { "id": string; "cmd": string; "args"?: (string)[]; "env"?: { [key: string]: string; }; "health": { "rpc": string; [key: string]: unknown; } | { "url": string; [key: string]: unknown; } | { "cmd": string; "args"?: (string)[]; [key: string]: unknown; }; "restart": "never" | "on-failure" | "always"; "scope": "person" | "deployment"; "network": "none" | "egress" | "mount"; [key: string]: unknown; };
 export type Names = { [key: string]: string; };

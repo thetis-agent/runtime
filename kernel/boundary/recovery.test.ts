@@ -3,11 +3,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { appendFile } from 'node:fs/promises';
-import { Runtime } from './runtime.ts';
-import { Identity } from '../identity/index.ts';
-import { SandboxRunner } from '../../lib/sandbox-runner/index.ts';
-import { isObject } from '../../lib/schema/index.ts';
-import { runtimeFixture, people } from '../../test/runtime-fixture.ts';
+import { Runtime } from '@/kernel/boundary/runtime.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
 
 await test('ADR-0030 supervisor restart restores committed pins and conversations under a fresh epoch', async () => {
   const f = await runtimeFixture(); const person = people[0]; assert.ok(person);

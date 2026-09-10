@@ -2,8 +2,8 @@
 import { open, rename, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export async function atomicWrite(path: string, bytes: Uint8Array): Promise<Result<void, 'io'>> {
   const temporary = join(dirname(path), `${randomBytes(16).toString('hex')}.pending`);

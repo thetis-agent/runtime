@@ -1,7 +1,7 @@
 /** Mount kernel layers and named registry packages at their host paths; ADR 0005, ADR 0007. */
 import { join } from 'node:path';
-import type { Mount } from '../lib/sandbox-runner/index.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
 
 export function packageEntry(repository: string, name: string, file: string): string {
   return join(packagesRoot(repository), name, file);

@@ -1,8 +1,8 @@
 /** Refuse links and special files at the final open while bounding growth during a read; ST-002–003. */
 import { open } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import type { Result } from '../../contracts/storage/index.ts';
-import { failure } from '../result/index.ts';
+import type { Result } from '@/contracts/storage/index.ts';
+import { failure } from '@/lib/result/index.ts';
 
 export async function read(path: string, maximum: number): Promise<Result<Uint8Array, 'io' | 'budget'>> {
   try {

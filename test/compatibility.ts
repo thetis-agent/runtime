@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdtemp, mkdir, stat, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Plan } from '../lib/sandbox-runner/index.ts';
+import type { Plan } from '@/lib/sandbox-runner/index.ts';
 
 const execute = promisify(execFile);
 export const previous = { tag: 'compatibility/socket-v1.0.0', commit: 'd8aa0d1200c7c24a0fa7f671c41eece204b377fe' };

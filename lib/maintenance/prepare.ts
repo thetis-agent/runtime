@@ -1,10 +1,10 @@
 /** Install every kernel code pin beside the old binary and migrate only a private store copy; ADR 0012 §6. */
 import { mkdir, writeFile, realpath } from 'node:fs/promises';
 import { join, dirname, relative, isAbsolute } from 'node:path';
-import { snapshot } from '../snapshots/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import type { Deployment } from '../deployment/types.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Deployment } from '@/lib/deployment/types.ts';
 
 export interface Revision { pins: Readonly<Record<string, { source: string; hash: string }>>; entry: string; configuration: Deployment }
 export interface Prepared { root: string; entry: string; state: string; configuration: string; endpoint: string; hash: string }

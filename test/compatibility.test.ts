@@ -1,17 +1,17 @@
 /** Exercise previous-minor peers from a real git tag in both sandboxed directions; KS-003. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compatibilityArchive } from './compatibility.ts';
-import { socketSuite } from './socket-suite.ts';
-import { socketPair } from './socket-pair.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { Peer } from '../lib/socket/index.ts';
-import { clock } from '../lib/events/index.ts';
-import { Identity } from '../kernel/identity/index.ts';
-import { accept } from '../kernel/socket/index.ts';
-import type { Operations } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
+import { compatibilityArchive } from '@/test/compatibility.ts';
+import { socketSuite } from '@/test/socket-suite.ts';
+import { socketPair } from '@/test/socket-pair.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { accept } from '@/kernel/socket/index.ts';
+import type { Operations } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
 type Operation = NonNullable<ReturnType<Operations['methods']['get']>>;
 
 for (const direction of ['previous-client', 'previous-kernel']) await test(`KS-003 ${direction} passes the shared socket suite from its immutable tag`, async () => {

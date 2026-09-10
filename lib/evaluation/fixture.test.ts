@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fixture } from './fixture.ts';
-import { snapshot } from '../snapshots/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
 
 await test('EV-001 fixture mutation preserves binary data, mutates nested names and produces reproducible hashes', async () => {
   const root = await mkdtemp('/tmp/fixture-mutation-');
