@@ -368,8 +368,8 @@
       "pin": {
         "name": "lib/snapshots",
         "version": "1.0.0",
-        "commit": "fd3ecc58e93f7992c62d8991d1a763c5067cb148",
-        "hash": "sha256:cc669cf5ac1ddd6cf61ff08745cd0be6eb53d2a0d1839992f2685530edb7285a"
+        "commit": "89453900e624a4ac2644ec33f3805915a34c0af3",
+        "hash": "sha256:f4456846bca91053dfc7de50d02ae879d81a01962544a25d8fee2ced1212d6c7"
       }
     },
     {
