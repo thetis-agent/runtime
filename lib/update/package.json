@@ -1,0 +1,6 @@
+{
+  "name": "@thetis/lib-update",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./main.ts"
+}

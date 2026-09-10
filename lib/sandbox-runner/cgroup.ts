@@ -82,13 +82,19 @@ export class Cgroup {
   }
 }
 
-export async function delegate(): Promise<Result<string, 'io'>> {
+/** A named root also admits a delegated `.service` unit, so an installed supervisor and a test scope take one path (ADR 0048). */
+export function delegated(root: string, expected?: string): boolean {
+  return expected === undefined ? /\/run-[^/]+\.scope$/u.test(root) : root === expected && /\.(?:scope|service)$/u.test(root);
+}
+
+export async function delegate(expected?: string): Promise<Result<string, 'io'>> {
   try {
     const line = (await readFile('/proc/self/cgroup', 'utf8')).split('\n').find(line => line.startsWith('0::'));
     if (!line) return failure('io', 'The process has no cgroup v2 delegation.');
     const root = await realpath(`/sys/fs/cgroup${line.slice(3)}`);
     const processes = (await readFile(join(root, 'cgroup.procs'), 'utf8')).trim().split('\n').filter(Boolean);
-    if (!/\/run-[^/]+\.scope$/u.test(root) || processes.length !== 1 || processes[0] !== String(process.pid)) return failure('io', 'The supervisor requires its own newly delegated scope.');
+    const named = delegated(root, expected === undefined ? undefined : await realpath(expected));
+    if (!named || processes.length !== 1 || processes[0] !== String(process.pid)) return failure('io', 'The supervisor requires its own newly delegated scope.');
     const leaf = join(root, 'supervisor'); await mkdir(leaf, { recursive: true });
     for (const pid of processes) await writeFile(join(leaf, 'cgroup.procs'), pid);
     await writeFile(join(root, 'cgroup.subtree_control'), '+cpu +memory +pids');

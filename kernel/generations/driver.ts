@@ -74,6 +74,7 @@ export class Driver {
     return { ok: true, value: driver };
   }
 
+  get #context(): Context { return this.#config.context; }
   get pins(): Revision['pins'] { return this.#live.revision.pins; }
   get endpoint(): string { return this.#endpoint.path; }
   get state(): string { return this.#live.prepared.state; }
@@ -160,7 +161,7 @@ export class Driver {
     const drained = await this.#live.process.drain(deadlines.drain); if (!drained.ok) return drained;
     this.#oldKilled = drained.value.killed;
     this.#interrupted = drained.value.conversations;
-    if (!this.#oldKilled) { const frozen = await this.#live.process.running.freeze(true, this.#config.context.clock); if (!frozen.ok) return frozen; }
+    if (!this.#oldKilled) { const frozen = await this.#live.process.running.freeze(true, this.#context.clock); if (!frozen.ok) return frozen; }
     const frozen = await this.#move({ event: 'drained', reason: this.#oldKilled ? 'killed-for-switch' : 'turns drained', active: 0 }); if (!frozen.ok) return frozen;
     return { ok: true, value: undefined };
   }
@@ -177,18 +178,18 @@ export class Driver {
     if (!captured.ok) return this.#rollback(captured.error.message);
     const next = this.machine.view.candidate; if (!next) throw new Error('A switching generation lost its candidate.');
     if (undo) { const audit = await this.#audit(next.stateSnapshot, captured.value, 'undo'); if (!audit.ok) return this.#rollback(audit.error.message); }
-    const staged = this.#config.context.identity.stage(principal(this.#config, next.n)); if (!staged.ok) return this.#rollback(staged.error.message);
+    const staged = this.#context.identity.stage(principal(this.#config, next.n)); if (!staged.ok) return this.#rollback(staged.error.message);
     this.#stagedToken = staged.value;
-    const prepared = await prepare(join(this.#config.root, 'runs', String(next.n)), undo ? { ...revision, migrations: [] } : revision, undo ? next.stateSnapshot : captured.value, this.#store, staged.value, this.#config.context, this.#live.prepared.pins);
+    const prepared = await prepare(join(this.#config.root, 'runs', String(next.n)), undo ? { ...revision, migrations: [] } : revision, undo ? next.stateSnapshot : captured.value, this.#store, staged.value, this.#context, this.#live.prepared.pins);
     if (!prepared.ok) return this.#rollback(prepared.error.message);
     const applied = await this.#move({ event: 'applied', reason: 'pins, migrations and format verified', pinsVerified: true, migrationsPassed: true, formatValid: true }); if (!applied.ok) return this.#rollback(applied.error.message);
-    const started = await Process.start(prepared.value.plan, staged.value, this.#config.context); if (!started.ok) return this.#rollback(started.error.message);
+    const started = await Process.start(prepared.value.plan, staged.value, this.#context); if (!started.ok) return this.#rollback(started.error.message);
     this.#next = { process: started.value, prepared: prepared.value, revision: { ...revision, pins: prepared.value.pins } };
     const probed = await started.value.probe(); if (!probed.ok) return this.#rollback(probed.error.message);
     try { if (!(await lstat(prepared.value.endpoint)).isSocket()) return await this.#rollback('The private endpoint is not a socket.'); }
     catch { return this.#rollback('The private endpoint does not exist.'); }
     const stopped = await started.value.stop('private probe complete'); if (!stopped.ok) return this.#rollback(stopped.error.message);
-    const valid = await formats(prepared.value.state, revision.formats, this.#config.context.schemas, preparationLimits.formatBytes); if (!valid.ok) return this.#rollback(valid.error.message);
+    const valid = await formats(prepared.value.state, revision.formats, this.#context.schemas, preparationLimits.formatBytes); if (!valid.ok) return this.#rollback(valid.error.message);
     const state = await this.#store.capture(prepared.value.state); if (!state.ok) return this.#rollback(state.error.message);
     const healthy = await this.#move({ event: 'healthy', reason: 'private health answered', snapshot: state.value, probed: true, clientCompatible: true }); if (!healthy.ok) return this.#rollback(healthy.error.message);
     return { ok: true, value: undefined };
@@ -196,7 +197,7 @@ export class Driver {
 
   async #commit(revision: Revision): Promise<Result<void>> {
     const next = this.machine.view.candidate; if (!next || !this.#next) throw new Error('A commitment lost its candidate.');
-    this.#config.context.identity.fence(this.#config.context.target, next.n);
+    this.#context.identity.fence(this.#context.target, next.n);
     if (revision.migrate === 'stop') { const retired = await this.#retireOld(); if (!retired.ok) return this.#rollback(retired.error.message); }
     const promoted = await this.#promote(next.n); if (!promoted.ok) return this.#rollback(promoted.error.message);
     const switched = await this.#finishSwitch(revision.migrate); if (!switched.ok && this.machine.view.state !== 'LIVE') return this.#rollback(switched.error.message);
@@ -209,7 +210,7 @@ export class Driver {
 
   async #retireOld(): Promise<Result<void>> {
     if (this.#oldKilled || !this.#live.process.alive) { this.#oldKilled = true; return { ok: true, value: undefined }; }
-    const resumed = await this.#live.process.running.freeze(false, this.#config.context.clock); if (!resumed.ok) return resumed;
+    const resumed = await this.#live.process.running.freeze(false, this.#context.clock); if (!resumed.ok) return resumed;
     const stopped = await this.#live.process.shutdown('generation switched', deadlines.drain); if (!stopped.ok) return stopped;
     this.#oldKilled = true;
     const captured = await this.#store.capture(this.state); if (!captured.ok) return captured;
@@ -221,8 +222,8 @@ export class Driver {
     const stopped = await next.process.stop('promoting writable grants'); if (!stopped.ok) return stopped;
     try { await unlink(next.prepared.endpoint); }
     catch (error) { if (!isObject(error) || error['code'] !== 'ENOENT') return failure('io', 'The private probe endpoint could not be retired.'); }
-    const token = this.#config.context.identity.issue(principal(this.#config, n)); if (!token.ok) return token;
-    const started = await Process.start(serving(next.prepared, next.revision), token.value, this.#config.context); if (!started.ok) return started;
+    const token = this.#context.identity.issue(principal(this.#config, n)); if (!token.ok) return token;
+    const started = await Process.start(serving(next.prepared, next.revision), token.value, this.#context); if (!started.ok) return started;
     this.#next = { ...next, process: started.value };
     const probed = await started.value.probe(); if (!probed.ok) return probed;
     return this.#endpoint.repoint(next.prepared.endpoint);
@@ -235,12 +236,12 @@ export class Driver {
     }
     const moved = await this.#move({ event: 'repointed', reason: 'atomic endpoint rename', atomic: true }); if (!moved.ok) return moved;
     this.#oldKilled ||= !this.#live.process.alive;
-    if (!this.#oldKilled) { const resumed = await this.#live.process.running.freeze(false, this.#config.context.clock); if (!resumed.ok) return resumed; }
-    const since = this.#config.context.clock.now();
-    while (!this.#oldKilled && this.#config.context.clock.now() - since < deadlines.oldDrain) {
+    if (!this.#oldKilled) { const resumed = await this.#live.process.running.freeze(false, this.#context.clock); if (!resumed.ok) return resumed; }
+    const since = this.#context.clock.now();
+    while (!this.#oldKilled && this.#context.clock.now() - since < deadlines.oldDrain) {
       const status = await this.#live.process.control.call('health.probe', {}); if (!status.ok) return status;
       if (isObject(status.value) && status.value['connections'] === 0) break;
-      await this.#config.context.clock.wait(limits.connectionPollMs);
+      await this.#context.clock.wait(limits.connectionPollMs);
     }
     const stopped = await this.#live.process.shutdown('old connection drain ended', deadlines.drain); if (!stopped.ok) return stopped;
     return this.#move({ event: 'closed', reason: 'old connections closed or stopped', connections: 0 });
@@ -254,12 +255,12 @@ export class Driver {
       const state = await this.#store.capture(this.#next.prepared.state); if (!state.ok) return this.#failed(state.error.message);
       const audited = await this.#audit(this.machine.view.current.stateSnapshot, state.value, 'rollback'); if (!audited.ok) return this.#failed(audited.error.message);
     } else this.#writes = [];
-    if (this.#stagedToken) this.#config.context.identity.revoke(this.#stagedToken);
+    if (this.#stagedToken) this.#context.identity.revoke(this.#stagedToken);
     this.#next = undefined; this.#stagedToken = undefined;
     const candidate = this.machine.view.candidate;
     if (candidate) { const removed = await discard(join(this.#config.root, 'runs', String(candidate.n))); if (!removed.ok) return this.#failed(removed.error.message); }
     if (this.machine.view.committed || this.#oldKilled || !this.#live.process.alive) return this.#recover(reason);
-    const resumed = await this.#live.process.running.freeze(false, this.#config.context.clock); if (!resumed.ok) return this.#failed(resumed.error.message);
+    const resumed = await this.#live.process.running.freeze(false, this.#context.clock); if (!resumed.ok) return this.#failed(resumed.error.message);
     const probe = await this.#live.process.probe(); if (!probe.ok) return this.#failed(probe.error.message);
     const resumedNotice = await this.#announce(); if (!resumedNotice.ok) return this.#failed(resumedNotice.error.message);
     const restored = await this.#move({ event: 'restored', reason, restored: true, probed: true });
@@ -271,7 +272,7 @@ export class Driver {
     const drained = await this.#live.process.drain(deadlines.drain);
     if (drained.ok) this.#interrupted = [...new Set([...this.#interrupted, ...drained.value.conversations])];
     const stopped = await this.#live.process.stop('recovering interrupted quiesce'); this.#oldKilled = true;
-    const valid = stopped.ok ? await formats(this.state, this.#live.revision.formats, this.#config.context.schemas, preparationLimits.formatBytes) : stopped;
+    const valid = stopped.ok ? await formats(this.state, this.#live.revision.formats, this.#context.schemas, preparationLimits.formatBytes) : stopped;
     const snapshot = valid.ok ? await this.#store.capture(this.state) : valid;
     return this.#move({ event: 'restart', reason, authorized: true, candidate: this.machine.view.current, ...(snapshot.ok ? { snapshot: snapshot.value } : {}) });
   }
@@ -282,14 +283,14 @@ export class Driver {
     const candidate = { ...view.current, n };
     if (view.committed) {
       const reserved = await this.#move({ event: 'recovering', reason, authorized: true, candidate }); if (!reserved.ok) return this.#failed(reserved.error.message);
-      this.#config.context.identity.fence(this.#config.context.target, n);
+      this.#context.identity.fence(this.#context.target, n);
     }
-    const token = this.#config.context.identity.issue(principal(this.#config, n)); if (!token.ok) return this.#failed(token.error.message);
+    const token = this.#context.identity.issue(principal(this.#config, n)); if (!token.ok) return this.#failed(token.error.message);
     const root = join(this.#config.root, 'runs', `${String(n)}-recovery-${randomUUID()}`);
-    const restored = await prepare(root, { ...this.#live.revision, migrations: [] }, view.current.stateSnapshot, this.#store, token.value, this.#config.context, this.#live.prepared.pins);
-    if (!restored.ok) { const cleaned = await abandon(this.#config.context, token.value, root, restored); return this.#failed(cleaned.error.message); }
-    const started = await Process.start(serving(restored.value, this.#live.revision), token.value, this.#config.context);
-    if (!started.ok) { const cleaned = await abandon(this.#config.context, token.value, root, started); return this.#failed(cleaned.error.message); }
+    const restored = await prepare(root, { ...this.#live.revision, migrations: [] }, view.current.stateSnapshot, this.#store, token.value, this.#context, this.#live.prepared.pins);
+    if (!restored.ok) { const cleaned = await abandon(this.#context, token.value, root, restored); return this.#failed(cleaned.error.message); }
+    const started = await Process.start(serving(restored.value, this.#live.revision), token.value, this.#context);
+    if (!started.ok) { const cleaned = await abandon(this.#context, token.value, root, started); return this.#failed(cleaned.error.message); }
     this.#next = { process: started.value, prepared: restored.value, revision: { ...this.#live.revision, pins: restored.value.pins } };
     const probed = await started.value.probe(); if (!probed.ok) return this.#failed(probed.error.message);
     const pointed = await this.#endpoint.repoint(restored.value.endpoint); if (!pointed.ok) return this.#failed(pointed.error.message);
@@ -316,7 +317,7 @@ export class Driver {
   async #audit(before: string, after: string, action: string): Promise<Result<void>> {
     const changes = await this.#store.changed(before, after); if (!changes.ok) return changes;
     this.#writes = changes.value;
-    return this.#config.context.journal.observed(this.#config.context.target, 'generation.writes', { action, paths: changes.value }, true);
+    return this.#context.journal.observed(this.#context.target, 'generation.writes', { action, paths: changes.value }, true);
   }
 
   #announce(): Promise<Result<void>> {

@@ -1,0 +1,22 @@
+# ADR 0048: the timer only checks, stages and verifies; an administrator applies. ADR 0049 holds
+# every update policy but none refused, so this unit never changes the kernel.
+[Unit]
+Description=Zero update check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+Group=@USER@
+ExecStart=@PREFIX@/bin/zero update --check
+ProtectSystem=strict
+ReadWritePaths=@PREFIX@/releases @STATE@/updates
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=256M
+TimeoutStartSec=15min

@@ -2,6 +2,7 @@
 # ADR 0002, ADR 0006, ADR 0037: every acceptance failure blocks delivery.
 set -euo pipefail
 workspace=$(pwd -P)
+: "${RELEASE_SIGNING_KEY:?RELEASE_SIGNING_KEY must be set to sign this release delivery; ADR 0048.}"
 export THETIS_PACKAGES="$workspace/packages"
 mkdir -p reports delivery
 runtime_commit=$(git -C runtime rev-parse HEAD)
@@ -11,11 +12,17 @@ packages_repository=$(git -C packages remote get-url origin)
 for repository in runtime packages; do
   [[ -z $(git -C "$repository" status --porcelain --untracked-files=all) ]]
 done
+node_version=$(node --version)
+node_platform=linux-x64
+node_tarball="node-$node_version-$node_platform.tar.xz"
+node_sha256=$(curl -fsSL "https://nodejs.org/dist/$node_version/SHASUMS256.txt" | awk -v f="$node_tarball" '$2==f{print $1}')
+[[ $node_sha256 =~ ^[a-f0-9]{64}$ ]]
 jq -n --arg runtime "$runtime_commit" --arg packages "$packages_commit" \
   --arg runtime_repository "$runtime_repository" --arg packages_repository "$packages_repository" \
-  --arg node "$(node --version)" --arg workflow "$GITHUB_WORKFLOW_REF" \
+  --arg node_version "$node_version" --arg node_platform "$node_platform" --arg node_sha256 "$node_sha256" \
+  --arg workflow "$GITHUB_WORKFLOW_REF" \
   --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-  '{version: 1, runtime: {repository: $runtime_repository, commit: $runtime}, packages: {repository: $packages_repository, commit: $packages}, node: $node, generator: "node:stripTypeScriptTypes:strip", workflow: $workflow, run: $run}' > reports/provenance.json
+  '{version: 1, runtime: {repository: $runtime_repository, commit: $runtime}, packages: {repository: $packages_repository, commit: $packages}, node: {version: $node_version, sha256: {($node_platform): $node_sha256}}, generator: "node:stripTypeScriptTypes:strip", workflow: $workflow, run: $run}' > reports/provenance.json
 printf 'Runtime commit: %s\n\nPackages commit: %s\n' "$runtime_commit" "$packages_commit" >> "$GITHUB_STEP_SUMMARY"
 cd runtime
 failures=0
@@ -48,6 +55,14 @@ node --import ./lib/artifacts/source.mjs scripts/distribution.ts "$workspace/del
 cp profiles/default/{package.json,profile.lock.json,registry.json,registry.bundle} "$workspace/delivery/"
 cp "$workspace/reports/provenance.json" "$workspace/delivery/"
 cp "$workspace/reports/platform.txt" "$workspace/delivery/"
+node --import ./lib/artifacts/source.mjs scripts/kernel-pins.ts > "$workspace/delivery/kernel-pins.json"
 cd "$workspace/delivery"
-sha256sum thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt > SHA256SUMS
+sha256sum thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt kernel-pins.json > SHA256SUMS
 sha256sum --check --strict SHA256SUMS
+printf '%s\n' "$RELEASE_SIGNING_KEY" > "$workspace/release-signing-key"
+chmod 600 "$workspace/release-signing-key"
+ssh-keygen -Y sign -n zero-release -f "$workspace/release-signing-key" SHA256SUMS
+# Published for convenience and for etc/allowed_signers; the installer's trust root stays its own embedded copy.
+printf 'release@thetis-agent namespaces="zero-release" %s\n' "$(ssh-keygen -y -f "$workspace/release-signing-key")" > allowed_signers
+rm -f "$workspace/release-signing-key"
+ssh-keygen -Y verify -f allowed_signers -I release@thetis-agent -n zero-release -s SHA256SUMS.sig < SHA256SUMS

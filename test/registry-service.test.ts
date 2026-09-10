@@ -27,7 +27,10 @@ await test('GN-002 registered registry serves hash-verified packages through its
     const removed = await call(socket, { v: '1', id: 'removed', method: 'fetch', pin: published.value }, fixture.schemas); assert.ok(!removed.ok && removed.error.code === 'not-found');
     const reused = await call(socket, { v: '1', id: 'reuse', method: 'publish', source: '/sources/sample', note: '', at: 0 }, fixture.schemas); assert.ok(!reused.ok && reused.error.code === 'conflict');
     assert.ok((await fixture.process.control.notify({ note: 'run.stop', params: {} })).ok);
-    const health = await fixture.process.control.call('health.probe', {}); assert.ok(health.ok); assert.ok(isObject(health.value)); assert.equal(health.value['draining'], true);
-    assert.ok((await fixture.process.control.notify({ note: 'env.updated', params: { resume: true } })).ok); assert.ok((await fixture.process.probe()).ok);
+    const health = await fixture.process.control.call('health.probe', {});
+    assert.deepEqual(health, { ok: true, value: { ready: true, draining: true } });
+    assert.ok((await fixture.process.control.notify({ note: 'env.updated', params: { resume: true } })).ok);
+    const resumed = await fixture.process.control.call('health.probe', {});
+    assert.deepEqual(resumed, { ok: true, value: { ready: true, draining: false } });
   } finally { await fixture.close(); }
 });

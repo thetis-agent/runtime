@@ -1,0 +1,28 @@
+# ADR 0048: the service runs the supervisor, never kernel/main.ts, so every later kernel start
+# is a GN-007 transaction rather than a restart outside the generation machine.
+[Unit]
+Description=Zero kernel supervisor
+RequiresMountsFor=@STATE@
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+Group=@USER@
+Delegate=yes
+LoadCredential=master:/etc/zero/master.key
+ExecStart=/bin/sh -c 'exec @PREFIX@/node/current/bin/node --max-old-space-size=32 --max-semi-space-size=1 --no-experimental-strip-types --import @PREFIX@/current/lib/artifacts/register.mjs @PREFIX@/current/kernel/supervisor-main.ts @PREFIX@/etc/seed.json --release @PREFIX@/current --state @STATE@ --credential "$CREDENTIALS_DIRECTORY/master" --delegate'
+KillMode=mixed
+TimeoutStopSec=90
+MemoryMax=2G
+TasksMax=512
+DeviceAllow=/dev/net/tun rw
+ProtectSystem=strict
+ReadWritePaths=@STATE@
+ProtectHome=yes
+NoNewPrivileges=yes
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

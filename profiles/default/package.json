@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "autoupdate": "1.0.0",
     "cli": "1.0.0",
     "core": "1.0.0",
     "evaluator": "1.0.0",
@@ -43,6 +44,7 @@
     "lib/socket": "1.1.0",
     "lib/spill": "1.0.0",
     "lib/storage": "1.0.0",
+    "lib/update": "1.0.0",
     "lib/websocket": "1.0.0",
     "contract/evaluator": "1.0.0",
     "contract/kernel-socket": "1.1.0",

@@ -11,7 +11,7 @@ import type { Command } from './types.ts';
 import type { Principal as ConfiguredPrincipal } from '@/lib/deployment/types.ts';
 type Principal = Pick<ConfiguredPrincipal, 'id' | 'role' | 'observeOthers'> & { projects: readonly string[] };
 export interface KernelApplication {
-  identity: { principal(id: string): Principal | undefined };
+  identity: { principal(id: string): Principal | undefined; resolveSession(token: string): Result<Principal> };
   runtime: { maintenancePause(person: Principal): Promise<Result<void>>; maintenanceResume(person: Principal): Promise<Result<void>> };
   close(): Promise<Result<void>>;
 }
@@ -21,6 +21,12 @@ class Application {
   readonly #start: Start; readonly #path: string; readonly #administrator: string;
   constructor(current: KernelApplication, start: Start, path: string, administrator: string) { this.#current = current; this.#start = start; this.#path = path; this.#administrator = administrator; }
   async close(): Promise<Result<void>> { const current = this.#current; this.#current = undefined; return current ? current.close() : { ok: true, value: undefined }; }
+  // Identity codes are not maintenance-wire codes: replying with one would fail the reply schema and kill this kernel.
+  #whois(session: string): Result<{ person: string; role: Principal['role'] }> {
+    const caller = this.#current?.identity.resolveSession(session);
+    if (!caller) return failure('io', 'The kernel application is stopped.');
+    return caller.ok ? { ok: true, value: { person: caller.value.id, role: caller.value.role } } : failure('forbidden', 'The maintenance session is unknown, expired or unbound.');
+  }
   async execute(command: Command, server: KernelTransport): Promise<Result<unknown>> {
     if (command.method === 'stop') return this.close();
     if (!this.#current) return failure('io', 'The kernel application is stopped.');
@@ -28,6 +34,8 @@ class Application {
     if (!person || person.role !== 'admin') return failure('forbidden', 'Kernel maintenance requires its configured administrator.');
     switch (command.method) {
       case 'status': return { ok: true, value: { clients: server.clients } };
+      // The supervisor never names a person: the running kernel resolves the caller from its own evidence (ADR 0048).
+      case 'whois': return typeof command.session === 'string' ? this.#whois(command.session) : failure('invalid-args', 'The kernel maintenance identity command requires a session token.');
       case 'pause': return this.#current.runtime.maintenancePause(person);
       case 'resume': return this.#current.runtime.maintenanceResume(person);
       case 'activate': {
@@ -38,6 +46,14 @@ class Application {
     }
   }
 }
+const wireCodes = ['invalid-args', 'unsupported', 'deadline', 'io', 'forbidden', 'budget'] as const;
+/** A refusal carrying a code outside the reply schema would fail validation in the supervisor and kill this kernel, so report it instead. */
+function replied(id: string, result: Result<unknown>): object {
+  if (result.ok) return { id, ...result };
+  const code = wireCodes.find(item => item === result.error.code) ?? 'io';
+  return { id, ok: false, error: { code, message: result.error.message } };
+}
+
 async function control(application: Application, server: KernelTransport, schemas: Schemas, endpoint: string): Promise<Result<void>> {
   const check = schemas.compile<Command>({ ...schema, $id: 'thetis://internal/maintenance/command', $ref: '#/$defs/command' });
   const ended = Promise.withResolvers<Result<void>>(); let busy = false;
@@ -46,7 +62,7 @@ async function control(application: Application, server: KernelTransport, schema
     if (!check(value) || Buffer.byteLength(JSON.stringify(value)) > 65536 || busy) { ended.resolve(failure('budget', 'The kernel maintenance control queue is full or invalid.')); return; }
     busy = true;
     void application.execute(value, server).then(result => {
-      send({ id: value.id, ...result }); busy = false;
+      send(replied(value.id, result)); busy = false;
       if (value.method === 'stop') ended.resolve({ ok: true, value: undefined });
     }, () => { ended.resolve(failure('io', 'The kernel maintenance command failed.')); });
   });

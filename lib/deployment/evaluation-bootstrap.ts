@@ -16,36 +16,68 @@ interface Context extends Omit<EvaluationBridge, 'start'> {
   endpoint(id: string): Result<string>;
 }
 type Operation = (run: { target: string; scope: string }, params: Record<string, unknown>) => Promise<Result<unknown>>;
+type Invoke = (method: Method, ...args: Parameters<Operation>) => ReturnType<Operation>;
 export interface Evaluation { extension(source: string): { capabilities: readonly string[]; methods: ReadonlyMap<Method, Operation> }; close(): Promise<Result<void>> }
 export async function evaluationBootstrap(context: Context, trusted: Pick<Trusted, 'execution' | 'plans'>): Promise<Result<Evaluation>> {
-  const configurations = new Map<string, ExecutionConfiguration>();
+  const sources = new Map<string, Invoke>();
   const runtimes = new Map<string, ExecutionRuntime>();
   for (const input of trusted.execution ?? []) {
     const approved = trusted.plans.find(plan => plan.source === input.source);
-    if (!approved || JSON.stringify(approved.plan) !== JSON.stringify(input.startup.plan) || configurations.has(input.source)) return failure('forbidden', 'The private execution plan does not match its designated evidence authority.');
+    if (!approved || JSON.stringify(approved.plan) !== JSON.stringify(input.startup.plan) || sources.has(input.source)) return failure('forbidden', 'The private execution plan does not match its designated evidence authority.');
     const config = await configuration(input, context.schemas); if (!config.ok) return config;
-    configurations.set(input.source, config.value);
+    const create = (): Result<ExecutionRuntime> => {
+      const runtime = execution(context, input, config.value);
+      if (runtime.ok) runtimes.set(input.source, runtime.value);
+      return runtime;
+    };
+    sources.set(input.source, lazyInvoker(input.source, context.schemas, create));
   }
   return { ok: true, value: {
     extension(source: string) {
-      const input = trusted.execution?.find(input => input.source === source); const config = configurations.get(source);
-      if (!input || !config) return { capabilities: [], methods: new Map<Method, Operation>() };
-      const operations = new Map<Method, (run: { target: string; scope: string }, params: Record<string, unknown>) => Promise<Result<unknown>>>();
-      for (const method of ['install', 'snapshot', 'prune'] satisfies Method[]) operations.set(method, async (run, params) => {
-        if (run.target !== source || run.scope !== 'deployment') return failure('forbidden', 'This run is not authorized for private evaluation.');
-        let runtime = runtimes.get(source);
-        if (!runtime) {
-          const resolved = resolve(config, context); if (!resolved.ok) return resolved;
-          runtime = new ExecutionRuntime(evaluationHost({ ...context, root: join(context.root, createHash('sha256').update(source).digest('base64url')), start: (...args) => context.start(input.account, input.services, ...args) }), resolved.value); runtimes.set(source, runtime);
-        }
-        const handler = runtime.operations(context.schemas).get(method); if (!handler) throw new Error('An execution operation was not installed.');
-        return handler(run, params);
-      });
+      const invoke = sources.get(source);
+      if (!invoke) return { capabilities: [], methods: new Map<Method, Operation>() };
+      const operations = new Map<Method, Operation>();
+      for (const method of ['install', 'snapshot', 'prune'] satisfies Method[]) {
+        operations.set(method, (run, params) => invoke(method, run, params));
+      }
       return { capabilities: executionCapabilities, methods: operations };
     },
-    async close(): Promise<Result<void>> { for (const runtime of runtimes.values()) { const closed = await runtime.close(); if (!closed.ok) return closed; } return { ok: true, value: undefined }; }
+    async close(): Promise<Result<void>> {
+      for (const runtime of runtimes.values()) {
+        const closed = await runtime.close(); if (!closed.ok) return closed;
+      }
+      return { ok: true, value: undefined };
+    }
   } };
 }
+
+function lazyInvoker(source: string, schemas: Schemas, create: () => Result<ExecutionRuntime>): Invoke {
+  let runtime: ExecutionRuntime | undefined;
+  let operations: ReturnType<ExecutionRuntime['operations']> | undefined;
+  return async (method, run, params) => {
+    if (run.target !== source || run.scope !== 'deployment') return failure('forbidden', 'This run is not authorized for private evaluation.');
+    if (!runtime) {
+      const created = create(); if (!created.ok) return created;
+      runtime = created.value;
+    }
+    operations ??= runtime.operations(schemas);
+    const handler = operations.get(method);
+    if (!handler) throw new Error('An execution operation was not installed.');
+    return handler(run, params);
+  };
+}
+
+function execution(context: Context, input: Execution, config: ExecutionConfiguration): Result<ExecutionRuntime> {
+  const resolved = resolve(config, context); if (!resolved.ok) return resolved;
+  const root = join(context.root, createHash('sha256').update(input.source).digest('base64url'));
+  const host = evaluationHost({
+    ...context,
+    root,
+    start: (...args) => context.start(input.account, input.services, ...args)
+  });
+  return { ok: true, value: new ExecutionRuntime(host, resolved.value) };
+}
+
 async function configuration(input: Execution, schemas: Schemas): Promise<Result<ExecutionConfiguration>> {
   const check = await validator<Setup>(schemas, 'setup'); const arms: Record<string, Arm> = {};
   for (const [id, arm] of Object.entries(input.arms)) {

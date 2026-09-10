@@ -63,6 +63,34 @@ before printing `ready`. Do not share that subtree with a second kernel. Stop wi
 SIGTERM and restart with the same configuration and state. SIGKILL recovery is
 covered by the interrupted-default test.
 
+This direct launch remains the development path. **An installed deployment runs
+the supervisor instead** (ADR 0048): the service starts
+`kernel/supervisor-main.ts`, which holds the lock, builds the kernel revision
+from the release's published `kernel-pins.json` and drives every later kernel
+start through the GN-007 maintenance transaction, so no start after the first is
+a restart outside the generation machine.
+
+```sh
+node --max-old-space-size=32 --max-semi-space-size=1 \
+  --no-experimental-strip-types --import ./lib/artifacts/register.mjs \
+  kernel/supervisor-main.ts /opt/zero/etc/seed.json \
+  --release /opt/zero/current --state /var/lib/z \
+  --credential "$CREDENTIALS_DIRECTORY/master" --delegate
+```
+
+Under the supervisor the seed says **`keyFd: 4`**, not 3: the maintenance child
+receives the master key after its inherited IPC channel, and the supervisor
+reopens the credential for every kernel launch because a descriptor's offset
+advances after the kernel reads its 32 bytes. The supervisor prints
+`{"ok":true,"value":{"ready":true,...}}` with its control socket path, and the
+kernel prints its own `ready` row as before. Two further consequences to plan
+for, both recorded in ADR 0050: the live kernel's root is a short per-generation
+store under `<state>/g`, so **every target's public socket path contains the
+generation and must be repointed in the reverse proxy after each kernel
+update** (`zero status` prints the current root), and the state root must be
+short enough — `<state>/g` at most 18 bytes — that a target endpoint still fits
+the 107-byte Linux socket path limit. See [install.md](install.md).
+
 Use Node 24.18.0 and run `scripts/build.ts` before launching from a source
 checkout. The preload rejects missing or stale artifacts instead of interpreting
 TypeScript. These are the same V8 heap settings used by the sandbox runner and
@@ -159,6 +187,22 @@ cookie, reached directly by the browser only for the act
 (`default.prepare`/`default.set`) and secrets; no package reads or sets it,
 and neither `gateway-web` nor `gateway-login` ever shares its origin.
 
+**Known issue, observed 2026-09-10, not fixed here.** The flow above (a
+direct `GET /login` with no `next`) redirects to `/<person>/` with a trailing
+slash and works. A *second* path exists when `gateway-web` itself redirects
+an unauthenticated request to sign-in
+(`packages/gateway-web/http.ts:39-45`'s `redirectToLogin`, built from the
+`x-forwarded-prefix` header, e.g. `/alice`): that value has **no** trailing
+slash, and `packages/gateway-login/server.ts:52` echoes it back verbatim on
+success instead of normalizing it the way its no-`next` fallback does. The
+browser lands on `/alice` rather than `/alice/`, the SPA's relative asset
+paths (`theme.css`/`app.css`/`app.js`) resolve against the document root
+instead, all three 404, and the page is stuck at "connecting" with no way
+forward short of manually retyping the URL with a trailing slash. Confirmed
+via a live walkthrough (see `docs/implementation-status.md`, "Web surface
+acceptance · 2026-09-10"): the same redirect chain with a trailing-slash
+`next` (e.g. `/login?next=%2Fbob%2F`) lands cleanly.
+
 ## Password authority and trusted kernel origin
 
 The minimal recipe intentionally has no password authority or privileged origin.
@@ -188,7 +232,8 @@ share its origin.
 
 The trusted kernel configuration names its own `origin`, private Unix `socket`,
 `administrator`, baseline/digest, reviewed releases and authorized evaluator plans.
-It also names `keyFd`, normally 3. Supply exactly 32 bytes of master key through
+It also names `keyFd`, normally 3 for a direct launch and 4 under the supervisor
+(ADR 0048). Supply exactly 32 bytes of master key through
 that inherited descriptor from the operator's key store at every startup. Reuse
 the same key for the same encrypted secret store. Never put the master key in the
 configuration, environment, repository or an environment directory.
