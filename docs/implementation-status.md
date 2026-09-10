@@ -28,7 +28,7 @@ major architectural changes.
 
 ## Verification
 
-The complete sandboxed suite passed: 586 tests, zero failures, cancellations or
+The complete sandboxed suite passed: 588 tests, zero failures, cancellations or
 skips. Build, strict checks, generated-file freshness, shell checks and workflow
 validation also passed. The native system-service smoke passed installation,
 chat, restart, chat and purge. The signed installed lifecycle covers browser
@@ -42,8 +42,9 @@ from the offline suite. CI retains its coverage, diagnostics and exact verified
 delivery candidate; publication cannot proceed without that successful run.
 
 Current measured kernel size is 1,423 counted lines against 1,500. The latest
-coverage-suite performance checks measured 160,792,576 bytes against 512,000,000
-and 1,753.37 ms against 2,000. No assertion was removed or threshold raised in
+coverage-suite performance checks measured 157,421,568 bytes against 512,000,000
+and 1,616.71 ms against 2,000. Snapshot worker I/O now avoids redundant thread-pool
+round trips while retaining exact copy and artifact verification. No assertion was removed or threshold raised in
 this remediation.
 
 ## Operational boundaries
