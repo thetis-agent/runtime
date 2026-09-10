@@ -10,6 +10,8 @@
     "evaluator": "1.0.0",
     "gateway-login": "1.0.0",
     "gateway-web": "1.0.0",
+    "inspector-context": "1.0.0",
+    "inspector-tools": "1.0.0",
     "metrics": "1.0.0",
     "provider-mock": "1.0.0",
     "provider-openai-compatible": "1.0.0",
