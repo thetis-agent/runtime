@@ -54,6 +54,7 @@ successor repository as `docs/adr/` on day one.
 | [0045](0045-recapture-dynamic-work-provisions.md) | Recapture dynamic provisions for work edits | Accepted |
 | [0046](0046-retire-generation-resources.md) | Retire generation resources when their authority ends | Accepted |
 | [0047](0047-root-relative-module-imports.md) | Resolve root-relative imports in every execution mode | Accepted |
+| [0051](0051-exclude-imports-and-whitespace-from-kernel-size.md) | Exclude imports and whitespace from kernel size | Accepted |
 
 ## Decisions in the register that still need a record
 

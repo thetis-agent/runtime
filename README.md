@@ -96,8 +96,8 @@ use injected clocks; performance assertions measure actual elapsed time.
 `"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/bench.ts` asserts edit-to-serve at most two seconds (ADR 0042) and
 aggregate kernel-plus-idle-environment RSS at most 512,000,000 bytes (ADR 0041)
 through the same sandbox launcher. `"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/size.ts` counts
-non-test kernel TypeScript lines excluding comment-only lines against 1,300
-(ADR 0039), while reporting physical and excluded counts. The kernel-size gate
+non-test kernel TypeScript lines excluding imports, blank lines and comment-only
+lines against 1,300 (ADRs 0039 and 0051), while reporting each exclusion separately. The kernel-size gate
 remains over budget; current benchmark results are in [implementation status](docs/implementation-status.md).
 
 `"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/release.ts` exports the exact default profile and offline
@@ -307,7 +307,7 @@ Some rules worth knowing before your first edit:
 - [TODO.md](TODO.md) — what remains, ordered by what blocks what
 - [docs/implementation-status.md](docs/implementation-status.md) — the detailed
   record of what is implemented and exercised
-- [docs/adr/](docs/adr/) — 47 records, including the approved 512 MB memory and two-second edit ceilings in ADRs 0041–0042; all listed in the index
+- [docs/adr/](docs/adr/) — 48 records, including the approved 512 MB memory and two-second edit ceilings in ADRs 0041–0042; all listed in the index
 - [docs/decisions-taken.md](docs/decisions-taken.md) — every implementation choice
   taken where the design was silent
 - [docs/compatibility.md](docs/compatibility.md) — the two-direction socket matrix

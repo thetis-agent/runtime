@@ -8,6 +8,28 @@ under ADR 0042. The operator has since lifted that UI deferral and explicitly
 approved ADR 0038; work on the web surface is starting in this continuation
 and is not yet implemented or measured.
 
+## Root imports and current size policy · 2026-09-10
+
+ADR 0047 maps `@/` to the runtime repository root in TypeScript, source launches
+and verified-artifact launches. Relocated revisions and workers resolve their
+own dependencies. The isolated runtime/package pair, including the upstream
+forwarded-prefix redirect correction, passes **457/457 tests** with no failures,
+skips or cancellations in **368.87 seconds**. Strict checking, generated-output
+freshness and artifact freshness pass. Idle RSS is **159,186,944 bytes** and
+watched edit latency is **1,781.55 ms**, within the approved limits.
+
+The subsequent counter-only change in ADR 0051 passes four focused sandboxed
+counter tests and strict checking. Its current inventory is **1,361 counted
+lines**: **1,700 physical**, excluding **185 import-only**, **134 blank** and
+**20 comment-only** lines. The kernel remains **61 lines above** the unchanged
+1,300-line ceiling. Older measurements below use their recorded counting policy.
+
+The refactor was validated in an isolated checkout to preserve concurrent
+installer/update work in the shared workspace; that unrelated work is not part
+of these commits. Logs: `/tmp/thetis-alias-publish-test.log`,
+`/tmp/thetis-alias-publish-check.log`, `/tmp/thetis-counter-test.log`,
+`/tmp/thetis-counter-check.log` and `/tmp/thetis-counter-size.json`.
+
 ## This continuation
 
 - The operator authorizes all seven P1/P2 runtime review fixes and accepts a
@@ -148,8 +170,9 @@ execution-artifact freshness all pass. Both repositories pass `git diff --check`
 The conformance-name inventory covers **106/106 ids**, with none missing or
 skipped; it remains a named-coverage inventory, not a clause-level acceptance audit.
 
-The kernel-size gate still fails: **1,680 counted lines**, or **1,700 physical
-lines minus 20 comment-only lines**, against the unchanged **1,300-line** limit.
+At the review-remediation checkpoint, ADR 0039 reported **1,680 counted lines**,
+or **1,700 physical lines minus 20 comment-only lines**, against **1,300**.
+ADR 0051's current measurement appears above.
 The review fixes therefore do not complete Milestone A. No commits or vendor calls
 were made during remediation.
 

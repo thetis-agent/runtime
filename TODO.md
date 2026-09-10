@@ -18,8 +18,9 @@ candidate generations, ordinary accounts and private scorer observations.
 
 The seven P1/P2 runtime review findings are fixed under ADRs 0043–0046, with
 regressions for accounting, generation failure recovery, resource retirement and
-dynamic provider edits. The final full suite passes **455/455 tests**, with no
-failures, cancellations or skips. Strict checking and both freshness gates pass.
+dynamic provider edits. The import refactor passes the full **457/457-test** suite, with no
+failures, cancellations or skips. The subsequent counter-only change passes all
+four focused counter tests. Strict checking and both freshness gates pass.
 Validation results are recorded in `docs/implementation-status.md`.
 
 The headless two-account integration exercises a real watched `work/` edit and
@@ -65,9 +66,10 @@ Do not commit until both `check` and the full `test` command pass.
 
 ## 2. Kernel budget
 
-The latest inventory has **1,700 physical non-test TypeScript lines**, excluding
-**20 comment-only lines** under operator-approved ADR 0039. The **1,680 counted
-lines** remain above the 1,300-line budget and 1,500-line review threshold.
+The latest inventory has **1,700 physical non-test TypeScript lines**. Under
+operator-approved ADRs 0039 and 0051, it excludes **185 import-only lines**,
+**134 blank lines** and **20 comment-only lines**. The **1,361 counted lines**
+remain **61 lines above** the unchanged 1,300-line budget.
 ADR 0040 moves byte-store mechanics behind `contract/storage`, with the default
 file backend shared by `storage-files` and the kernel. This extraction removes
 15 kernel lines at introduction; the current total includes the review's new
