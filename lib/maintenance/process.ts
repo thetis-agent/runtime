@@ -7,7 +7,7 @@ import type { Clock } from '@/lib/events/index.ts';
 import { failure } from '@/lib/schema/index.ts';
 import type { Result, Schemas } from '@/lib/schema/index.ts';
 import schema from './schema.json' with { type: 'json' };
-import type { Command, Ready, Reply, Status } from './types.ts';
+import type { Command, Principal, Ready, Reply, Status } from './types.ts';
 import { sourceFlags } from '@/lib/artifacts/index.ts';
 
 export const processLimits = { outputBytes: 65536, frameBytes: 65536, messages: 256, freezePolls: 128, deadlineMs: 10000 };
@@ -43,12 +43,12 @@ export class KernelProcess {
       return { ok: true, value: kernel };
     } finally { timer.abort(); }
   }
-  async call(method: Command['method']): Promise<Result<unknown>> {
+  async call(method: Command['method'], session?: string): Promise<Result<unknown>> {
     if (this.#closed) return failure('io', 'The trusted kernel process is stopped.');
     if (this.#pending.size) return failure('budget', 'The trusted kernel control pool is full.');
     const id = randomUUID(); const timer = new AbortController();
     const reply = new Promise<Result<unknown>>(resolve => { this.#pending.set(id, resolve); });
-    this.process.send({ id, method }, error => { if (error) this.#pending.get(id)?.(failure('io', 'The trusted kernel command could not be sent.')); });
+    this.process.send({ id, method, ...session === undefined ? {} : { session } }, error => { if (error) this.#pending.get(id)?.(failure('io', 'The trusted kernel command could not be sent.')); });
     try { return await Promise.race([reply, this.#clock.wait(processLimits.deadlineMs, timer.signal).then(() => failure('deadline', 'The trusted kernel command exceeded its deadline.'))]); }
     finally { timer.abort(); this.#pending.delete(id); }
   }
@@ -56,6 +56,11 @@ export class KernelProcess {
     const reply = await this.call('status'); if (!reply.ok) return reply;
     return this.#schemas.compile<Status>({ ...schema, $id: 'thetis://internal/maintenance/status', $ref: '#/$defs/status' })(reply.value)
       ? { ok: true, value: reply.value.clients } : failure('invalid-args', 'The kernel returned an invalid client-major set.');
+  }
+  async whois(session: string): Promise<Result<Principal>> {
+    const reply = await this.call('whois', session); if (!reply.ok) return reply;
+    return this.#schemas.compile<Principal>({ ...schema, $id: 'thetis://internal/maintenance/principal', $ref: '#/$defs/principal' })(reply.value)
+      ? { ok: true, value: reply.value } : failure('invalid-args', 'The kernel returned an invalid maintenance principal.');
   }
   async freeze(frozen: boolean): Promise<Result<void>> {
     if (!this.process.pid || !this.process.kill(frozen ? 'SIGSTOP' : 'SIGCONT')) return failure('io', 'The trusted kernel could not be frozen or resumed.');

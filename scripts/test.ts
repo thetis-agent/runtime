@@ -1,6 +1,6 @@
 /** Keep even development tests inside the mandatory namespace boundary; ADR 0012 §8. */
 import { spawn } from 'node:child_process';
-import { readdir, realpath } from 'node:fs/promises';
+import { mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
 import { delegate } from '@/lib/sandbox-runner/cgroup.ts';
@@ -31,6 +31,13 @@ if (!process.argv.includes('--delegated')) {
   else await run(control.value);
 }
 
+// OpenSSH tools fatal on getpwuid before doing any work, so release-signature tests need one synthetic account inside the sealed namespace (ADR 0048).
+async function accounts(): Promise<string> {
+  const directory = await mkdtemp('/tmp/thetis-accounts-'); const path = join(directory, 'passwd');
+  await writeFile(path, `thetis:x:${String(process.getuid?.() ?? 0)}:${String(process.getgid?.() ?? 0)}::/tmp:/bin/sh\n`);
+  return path;
+}
+
 async function run(control: string): Promise<void> {
   const root = await realpath(new URL('..', import.meta.url));
   const runtime = dirname(dirname(process.execPath));
@@ -40,12 +47,13 @@ async function run(control: string): Promise<void> {
     ...(registry === join(root, 'packages') ? [] : (await files(registry)).map(path => join(workspace, 'packages', relative(registry, path))))]
     .filter(path => !requested.length || requested.some(prefix => relative(workspace, path).startsWith(prefix))).sort();
   if (!tests.length) throw new Error('No tests match the requested workspace paths.');
+  const passwd = await accounts();
   const args = [...namespace(runtime, 67108864), '--size', '67108864', '--tmpfs', '/packages', '--size', '536870912', '--tmpfs', '/assembly',
-    '--dev-bind', '/dev/net/tun', '/dev/net/tun', '--dir', '/etc', '--dir', '/run', ...await sourceMounts(root), '--bind', control, '/cgroup', '--chdir', workspace,
+    '--dev-bind', '/dev/net/tun', '/dev/net/tun', '--dir', '/etc', '--dir', '/run', '--ro-bind', passwd, '/etc/passwd', ...await sourceMounts(root), '--bind', control, '/cgroup', '--chdir', workspace,
     ...seal,
     '--', '/runtime/bin/node', '--import', `${workspace}/lib/artifacts/source.mjs`, '--test', '--test-concurrency=1', ...tests
   ];
   const child = spawn('bwrap', args, { stdio: 'inherit', env: { PATH: '/usr/bin:/bin' } });
   child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
-  child.once('exit', code => { process.exitCode = code ?? 1; });
+  child.once('exit', code => { process.exitCode = code ?? 1; void rm(dirname(passwd), { recursive: true, force: true }); });
 }

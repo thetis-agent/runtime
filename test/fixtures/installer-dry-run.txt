@@ -1,0 +1,16 @@
+useradd --system --home-dir /var/lib/z --shell /usr/sbin/nologin zero
+fallocate -l 4294967296 /var/lib/z.img
+mkfs.ext4 -q -m 0 -L zero-state /var/lib/z.img
+install -d -m 0700 /var/lib/z
+systemctl enable --now var-lib-z.mount
+install -d -o root -g zero -m 0750 /opt/zero
+install -d -o root -g root -m 0700 /etc/zero
+head -c 32 /dev/urandom > /etc/zero/master.key
+chmod 0400 /etc/zero/master.key
+write accounts.json (1 account)
+write /etc/systemd/system/zero.service
+write /etc/systemd/system/zero-update.service
+write /etc/systemd/system/zero-update.timer
+systemctl daemon-reload
+systemctl enable --now zero.service
+systemctl enable --now zero-update.timer

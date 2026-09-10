@@ -55,7 +55,7 @@ Do not commit until both `check` and the full `test` command pass.
 | Requirement | Status |
 | --- | --- |
 | Two accounts chat in separate sandboxes | Exercised headlessly through registry assembly and person-scoped CLI sockets |
-| Chat through the lifted UI | In progress: ADR 0038 implemented in code; 2026-09-10 acceptance attempt blocked before reaching the browser — see `docs/implementation-status.md` "Web surface acceptance · 2026-09-10" |
+| Chat through the lifted UI | Exercised on the mock provider: two accounts signed in through a real browser (Playwright) via a throwaway proxy, chatted, and stayed isolated (ADR 0038) at both the HTTP and UI layers; a real trailing-slash redirect bug was found and reported (not fixed). Not a claim that Milestone A is complete — see `docs/implementation-status.md` "Web surface acceptance · 2026-09-10" for the full account, RSS figures, and the bug's exact file:line |
 | Chat on OpenRouter | Four live answer turns pass across two sandboxed accounts, with a combined USD 0.04 configured ceiling; kept separate from offline tests |
 | Turn two at least 99% cache hit | Passes in the deterministic mock model only |
 | Every conformance id passes | 106/106 ids have named tests, none missing or skipped; inventory is not complete clause-level acceptance |
@@ -69,7 +69,10 @@ Do not commit until both `check` and the full `test` command pass.
 The latest inventory has **1,700 physical non-test TypeScript lines**. Under
 operator-approved ADRs 0039 and 0051, it excludes **185 import-only lines**,
 **134 blank lines** and **20 comment-only lines**. The **1,361 counted lines**
-remain **61 lines above** the unchanged 1,300-line budget.
+remain **61 lines above** the unchanged 1,300-line budget. The installer and
+update work adds exactly one kernel file, `kernel/supervisor-main.ts`, the
+production entry ADR 0048 requires, at **2 counted and 6 physical lines**;
+everything else it adds is in `lib/`.
 ADR 0040 moves byte-store mechanics behind `contract/storage`, with the default
 file backend shared by `storage-files` and the kernel. This extraction removes
 15 kernel lines at introduction; the current total includes the review's new
@@ -86,8 +89,14 @@ Record any further architectural extraction before implementation.
   The example recipe and package bundle alone are not a provisioned deployment.
 - A passing `scripts/size.ts` result; kernel size remains above its limit.
   Performance acceptance uses ADRs 0041–0042's approved memory and latency ceilings.
-- A reproducible installation path to `/opt/zero`. Separate source checkouts
-  and development mounts are not a finished installer or release distribution.
+- A reproducible installation path to `/opt/zero`. `install.sh`, the systemd
+  units, the supervised kernel entry and `zero update`/`zero undo` are built and
+  tested offline against a signed local `file://` release under ADR 0048; the
+  privileged first install on a real host has **not** been run. The
+  copy-pasteable procedure and what to observe are in
+  [docs/install.md](docs/install.md) under "First install on this host"; the
+  operator runs it and records the measurements. Idle RSS must be re-measured
+  because a supervised deployment adds a second Node process.
 - `docs/milestone-a.md` remains deliberately absent until acceptance passes.
 
 ## 4. Follow-up integration and testing
@@ -106,6 +115,20 @@ Record any further architectural extraction before implementation.
 - Compatibility tests use the local green transport baseline
   `d8aa0d1200c7c24a0fa7f671c41eece204b377fe`, not a previously deployed release.
   Preserve/fetch that revision in CI; tests do not fetch from the network.
+- Pending: `install.sh` does not download the release's own Node tarball and
+  check it against `provenance.node.sha256`; it refuses a Node whose version
+  differs from `provenance.node.version` and copies the matching host Node into
+  the prefix, printing that it did so. Closing this needs an offline-testable
+  download path.
+- Pending: a `Deployment.endpoints` root so a target's public socket path stops
+  moving with the kernel's generation. ADR 0050 records why the supervised
+  layout needs it, why the workaround (a short per-generation store root) was
+  taken instead, and that the operator's TLS endpoint must be repointed after
+  every kernel update until it exists. It needs kernel lines the installer work
+  did not have.
+- Pending: retention for maintenance generation stores under `<state>/g`.
+  ADR 0046 retires target run workspaces; nothing retires a superseded kernel
+  generation's store, and `zero prune-releases` deliberately does not touch it.
 - Pending: the browser acceptance for ADR 0038 — sign in at `GET /login`
   through the operator's proxy, `POST /login`, redirect to `/<person>/`, and
   complete a turn over `/ws` for each of two sandboxed people, then record the
@@ -123,6 +146,54 @@ Completed items from the previous handoff are described in
 registration activation, isolated network egress, default/recovery integration,
 oversized-frame handling, metrics, evaluator and mutator properties are no longer
 listed here as wholly unimplemented.
+
+## 4a. Installer and update findings to investigate and confirm
+
+Three findings from the ADR 0048 installer and update work. Each is handled for
+now; each needs a person to confirm the handling is the one we want.
+
+1. **A supervised kernel's public socket paths move with the generation.**
+   `lib/maintenance/prepare.ts` gives every generation its own private store, so
+   under the supervisor the live kernel's root — and therefore every target's
+   `targets/<digest>/runs/public/current.sock` — changes on each update. Nesting
+   that store under `runs/<n>-<uuid>/state` also pushed the path past the
+   107-byte `sockaddr_un` limit `lib/socket/endpoint.ts` enforces, so a
+   supervised deployment with any public-socket target could not have started,
+   let alone updated. ADR 0050 records the workaround (an optional short
+   `stateRoot`, off by default; `<state>/g` bounded to 18 bytes) and the residual
+   cost: **the operator's TLS endpoint must be repointed after every kernel
+   update.** To confirm: whether a `Deployment.endpoints` root is the right fix,
+   what it costs in kernel lines, and whether the socket path formula in
+   `docs/headless-startup.md` should change with it. Until then, verify on a real
+   host that `zero status` prints a root the proxy can be pointed at, and that
+   nothing else in the product assumes a stable target socket path.
+
+2. **A refusal could kill the serving kernel.** `lib/maintenance/schema.json`'s
+   reply enum does not contain identity's codes, and the supervisor SIGKILLs a
+   child whose reply fails validation — so `whois` on an unknown session killed
+   the kernel instead of refusing the caller. `host.ts` now maps an identity
+   refusal to `forbidden` and normalises every outgoing code to the wire enum,
+   with unknown codes becoming `io`. To confirm: whether normalising is right or
+   whether the enum should be widened so a refusal keeps its own code; and
+   whether any other `Application.execute` branch can still produce a code the
+   supervisor cannot parse (`maintenancePause`/`maintenanceResume` return
+   `switching` and `not-found`, both outside the enum, and both now silently
+   become `io`). A test that drives each branch to a refusal is missing.
+
+3. **Two sandbox facts that silently disable tooling.** OpenSSH calls
+   `getpwuid(getuid())` before doing any work and fatals without an
+   `/etc/passwd` entry, so no `ssh-keygen` invocation could run inside the
+   mandatory namespace; `scripts/test.ts` now mounts a one-line synthetic
+   `/etc/passwd`, and `lib/sandbox-runner/namespace.ts` is deliberately
+   unchanged so no deployment or package sandbox gains account data. Separately,
+   Debian's `/usr/bin/awk` is a symlink into `/etc/alternatives`, which the
+   sandbox's bare `--dir /etc` does not provide, so every `awk` call inside a
+   sandbox fails with "not found" — `install.sh` uses `cut` and `sed` instead.
+   To confirm: whether the test namespace should carry the passwd entry at all
+   or whether release verification should move entirely outside every sandbox;
+   and whether any other tool in the boundary inventory depends on `/etc`
+   (a sweep of `/etc/alternatives` symlinks among the recorded tools has not
+   been done).
 
 ## 5. Repository workflow
 

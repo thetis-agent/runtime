@@ -15,3 +15,28 @@ or kernel hash verification.
 
 - `slirp4netns` 1.2.0 (libslirp 4.7.0), `/usr/bin/slirp4netns`, SHA-256 `22b1e7d763a4382b3fe5bf58f1d9ee95b7f8241e9b0f022236eaea2b25bd0533`: configures unprivileged outbound traffic for the mandatory private network namespace (ADR 0029). Node's standard library cannot configure a TAP network or provide the required userspace network stack. This is the installed deployment tool; no package installation or lifecycle script was run.
 - `unshare` (util-linux) 2.38.1, `/usr/bin/unshare`, SHA-256 `9fb85770a4a0b5cb2bff8e64c2934dd1b0674eaaae18fd550dea2520c69a45d9`: creates a private network namespace before bubblewrap's final user namespace disables further namespace creation. Package code still starts only after bubblewrap. Node has no namespace-creation API.
+
+## Installation and release-verification tools (ADR 0048)
+
+These are used by `install.sh` and by `zero update`, never by package code and
+never inside a sandbox. They are already installed; none was added by a package
+installation or a lifecycle script, and none is a new npm dependency.
+
+- `ssh-keygen` (OpenSSH_9.2p1 Debian-2+deb12u7, OpenSSL 3.0.17), `/usr/bin/ssh-keygen`, SHA-256 `7c8c19876367ac5ffeda31e3caf20241a96a44afc0bbe65dc55eae2bdf20c139`: verifies a release's `SHA256SUMS.sig` against the embedded `allowed_signers` file with `-Y verify -n zero-release`, and signs it at release time with `-Y sign`. Node's `crypto` can verify an ed25519 signature but not the OpenSSH signature container or its namespace and allowed-signers semantics, and re-implementing that container would be the trust root of the installer. Every host with OpenSSH already has this tool.
+- `sha256sum` (GNU coreutils 9.1), `/usr/bin/sha256sum`, SHA-256 `6cd7c6bfc81d645ba13b927e31651a1466092a28ed0bd2632e82f8b27882b25e`: checks the signed `SHA256SUMS` manifest with `--check --strict`, so the manifest a person can read is the manifest the installer enforces.
+- `dash` 0.5.12-2 as `/bin/sh`, SHA-256 `f5adb8bf0100ed0f8c7782ca5f92814e9229525a4b4e0d401cf3bea09ac960a6`: runs `install.sh`. The script is POSIX `sh` with no `pipefail`, so every pipe writes to a file and checks its status. `lib/sandbox-runner/index.ts` already requires this shell.
+- `git` 2.39.5, `/usr/bin/git`, SHA-256 `00c84136d8294294580daa32f25b3e83ddb8341e9b5b70722e4c9a973ba5f749`: already required by `lib/registry/git.ts`; the installer additionally runs `init --bare`, `bundle verify`, `bundle unbundle` and `update-ref` to reconstruct the deployment's registry from the release's offline bundle.
+- `systemd` 252 (252.39-1~deb12u1) with `systemd-creds`, `/usr/bin/systemd-creds`, SHA-256 `79c716b88d2ffcc618e64de66e84b8a3a887708ee8b445368530f1d8d28bab0d`: systemd 252 is the floor because `LoadCredential=` delivers the master key as a descriptor the service opens; `systemd-creds encrypt --with-key=tpm2` is used only for `--key-store tpm2`, and only when `systemd-creds has-tpm2` succeeds.
+- `fallocate` (util-linux 2.38.1), `/usr/bin/fallocate`, SHA-256 `35888f0737e3a10c4cca703d094acc71e636f324b26ddc140c9a05f4bc47bc65`, and `mkfs.ext4` (mke2fs 1.47.0), `/usr/sbin/mkfs.ext4`, SHA-256 `86706a8f295ffc70ff52d2510decc49c15e91144622b17d02916e50d37187c7c`: provision the one bounded state volume so its enforced capacity equals every declared `maximumBytes`, which is what `lib/sandbox-runner/index.ts` compares against `statfs`. `--no-mount` skips both and checks an existing mountpoint's capacity instead. Both run once, as root, and are printed by `--dry-run` before they run.
+- `tar` and `gzip` (versions above) are reused by the installer to extract the release archive; `flock` and `cat` (above) are reused unchanged by the supervisor's deployment lock.
+
+OpenSSH tools call `getpwuid(getuid())` unconditionally near the start of
+`main()` and fatal with "No user exists for uid <uid>" if that lookup fails, so
+any bubblewrap namespace that unshares the user namespace and provides no
+`/etc/passwd` entry for the mapped uid — the bare `--dir /etc` in
+`lib/sandbox-runner/namespace.ts` — cannot run `ssh-keygen` in any mode
+(`-t`, `-Y sign`, `-Y verify`), whatever flags it is given. `scripts/test.ts`
+therefore mounts a one-line synthetic passwd file read-only at `/etc/passwd`
+inside the **test** namespace only. Deployment and package sandboxes keep an
+empty `/etc` and gain no account data; release verification runs on the host,
+outside every sandbox.

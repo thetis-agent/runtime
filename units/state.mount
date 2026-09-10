@@ -1,0 +1,13 @@
+# ADR 0048 D7: the state volume's enforced capacity is the deployment's declared quota, which is
+# what lib/sandbox-runner/index.ts compares against statfs.
+[Unit]
+Description=Zero state volume
+
+[Mount]
+What=@STATE@.img
+Where=@STATE@
+Type=ext4
+Options=loop,nosuid,nodev,noexec
+
+[Install]
+WantedBy=multi-user.target

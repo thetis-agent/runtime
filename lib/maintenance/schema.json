@@ -20,8 +20,94 @@
             "pause",
             "resume",
             "stop",
-            "status"
+            "status",
+            "whois"
           ]
+        },
+        "session": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "principal": {
+      "type": "object",
+      "required": [
+        "person",
+        "role"
+      ],
+      "properties": {
+        "person": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "reviewer",
+            "user"
+          ]
+        }
+      }
+    },
+    "control": {
+      "type": "object",
+      "required": [
+        "id",
+        "method"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "method": {
+          "enum": [
+            "status",
+            "update",
+            "undo",
+            "stop"
+          ]
+        },
+        "session": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "release": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "baseline": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "pins": {
+      "type": "object",
+      "required": [
+        "entry",
+        "pins"
+      ],
+      "properties": {
+        "entry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "pins": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 64,
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
         }
       }
     },

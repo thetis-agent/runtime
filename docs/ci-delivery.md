@@ -48,8 +48,10 @@ are excluded. Public CI results do not become production evaluator evidence
 Logs and source provenance are retained on failures. Any failed check blocks
 candidate upload and publishing; tests, size and performance are never allowed
 to fail silently. Existing kernel-size, memory or latency failures must be fixed
-in the product before a release can pass. The complete suite already runs the
-acceptance measurements, so CI does not run `bench` a second time.
+in the product before a release can pass. As of this revision the kernel measures
+1,387 counted lines against the 1,300-line budget at the time of writing, so no release can be published
+until that gate is green. The complete suite already runs the acceptance
+measurements, so CI does not run `bench` a second time.
 
 ## Repository configuration
 
@@ -73,6 +75,10 @@ acceptance measurements, so CI does not run `bench` a second time.
 5. Allow the publishing job's `contents: write` permission. Checkout/build jobs
    have read-only tokens and never persist git credentials. The publishing job
    downloads the same run's verified artifact and executes no candidate code.
+6. `RELEASE_SIGNING_KEY` is an operator-held secret naming the private key that
+   signs `SHA256SUMS` (ADR 0048); rotating it ships a new line in the installed
+   `allowed_signers` file in a release signed with the key being retired, never
+   by rewriting history.
 
 Actions are pinned by full upstream commit hashes. Dependabot proposes weekly
 GitHub Actions updates in both repositories; review and test those updates.
@@ -101,8 +107,17 @@ Each GitHub Release contains:
   and operating documentation, in the installed directory layout.
 - `registry.bundle`, `registry.json`, `profile.lock.json`, `package.json`: the
   matching offline registry and profile, kept together.
-- `provenance.json`, `platform.txt`, `SHA256SUMS`: exact source revisions, Node and
-  generator identity, workflow/run link, boundary-tool inventory and checksums.
+- `allowed_signers`: the release key's public line, published for convenience and installed
+  as `etc/allowed_signers`. It is deliberately **outside** `SHA256SUMS`: the installer's
+  trust root is its own embedded copy of this line, never a file the release supplies.
+- `provenance.json`, `platform.txt`, `SHA256SUMS`, `SHA256SUMS.sig`: exact source
+  revisions, Node identity (version and per-platform release-tarball checksums),
+  generator identity, workflow/run link, boundary-tool inventory, checksums and
+  the checksum file's `ssh-keygen -Y sign` signature (ADR 0048).
+- `kernel-pins.json`: the tree hash of each kernel code pin directory (`kernel`,
+  `lib`, `contracts`, the vendored production dependency closure and `packages`),
+  checked against the extracted archive before the supervised kernel service
+  applies an update (ADR 0048).
 
 The archive normalizes ordering, timestamps and owner metadata. Node and Linux
 boundary tools are platform prerequisites; the archive includes the production
@@ -112,10 +127,13 @@ versions, the allowlisted registry, or kernel installation hash checks.
 
 ## Installation and production activation
 
-Download assets from the reviewed release, verify `SHA256SUMS`, and compare
-`provenance.json` with the reviewed source pair. Extract the archive into a new
-inactive directory. Keep profile, registry metadata and bundle from that same
-delivery. Use Node 24.18.0: execution metadata rejects another runtime version.
+Download assets from the reviewed release, verify `SHA256SUMS.sig` against the
+installed `allowed_signers` file (`ssh-keygen -Y verify -n zero-release`), check
+`SHA256SUMS` itself, and compare `provenance.json` with the reviewed source pair
+and the tag it names (ADR 0048). Extract the archive into a new inactive
+directory and check `kernel-pins.json`'s tree hashes against it before treating
+the kernel code as trusted. Keep profile, registry metadata and bundle from that
+same delivery. Use Node 24.18.0: execution metadata rejects another runtime version.
 The archive contains operational code and production dependencies; development
 checks run from the separate source checkouts and their locked development tools.
 
@@ -147,4 +165,8 @@ over runtime's `.github/scripts/*.sh`. Use the Node 24.18 binary to run
 `scripts/build.ts`, `scripts/check.ts` and `scripts/test.ts` with the sibling
 package checkout present. `scripts/distribution.ts /absolute/output` assembles
 an archive inside a bounded offline namespace; only the full CI pipeline marks
-that archive eligible for publication.
+that archive eligible for publication. Develop and test the release-verification
+path itself against a local, offline, signed release fixture assembled directly
+from `scripts/release.ts` and `scripts/distribution.ts` output, signed with a
+throwaway key generated inside the test rather than a real `RELEASE_SIGNING_KEY`
+(`test/release-fixture.ts`, ADR 0048).

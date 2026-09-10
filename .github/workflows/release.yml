@@ -112,6 +112,8 @@ jobs:
         run: |
           set -euo pipefail
           cd delivery
+          # ADR 0048: the signature is checked again in the job that holds the write token.
+          ssh-keygen -Y verify -f allowed_signers -I release@thetis-agent -n zero-release -s SHA256SUMS.sig < SHA256SUMS
           sha256sum --check --strict SHA256SUMS
           jq -e --arg release "$RELEASE_COMMIT" --arg peer "$PEER_COMMIT" \
             '.runtime.commit == $release and .packages.commit == $peer' provenance.json
@@ -128,12 +130,13 @@ jobs:
             printf '::error::Release already exists; publish a new version.\n'
             exit 1
           fi
-          jq -r '"Runtime: " + .runtime.commit, "Packages: " + .packages.commit, "Node: " + .node, "Checks: " + .run' provenance.json > "$RUNNER_TEMP/release-notes.md"
+          jq -r '"Runtime: " + .runtime.commit, "Packages: " + .packages.commit, "Node: " + .node.version, "Checks: " + .run' provenance.json > "$RUNNER_TEMP/release-notes.md"
           printf '\nVerified offline delivery. Production activation requires the deployment evaluator and the kernel confirmation transaction (ADR 0014, ADR 0018).\n' >> "$RUNNER_TEMP/release-notes.md"
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --draft --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" \
             thetis-distribution.tar.gz package.json profile.lock.json registry.json \
-            registry.bundle provenance.json platform.txt SHA256SUMS
+            registry.bundle provenance.json platform.txt kernel-pins.json \
+            SHA256SUMS SHA256SUMS.sig allowed_signers
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
           url=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
           printf 'url=%s\n' "$url" >> "$GITHUB_OUTPUT"

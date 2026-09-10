@@ -11,11 +11,15 @@ import { prepare } from './prepare.ts';
 import type { Revision, Prepared, Capture } from './prepare.ts';
 import { KernelProcess } from './process.ts';
 import { probe } from './probe.ts';
+import type { Principal } from './types.ts';
 export type { Revision, Capture } from './prepare.ts';
+export type { Principal } from './types.ts';
 export const maintenanceLimits = { attempts: 128 };
 export interface Configuration {
   root: string; schemas: Schemas; clock: Clock; administrator: string; currentMajor: string;
   capture: Capture;
+  /** A short root for each generation's private store; nesting it under the run workspace exceeds the unix socket path limit for target endpoints (ADR 0050). */
+  stateRoot?: string;
   machine(initial: Generation): Generations;
   descriptors?(): Promise<Result<readonly number[]>>;
 }
@@ -23,13 +27,15 @@ interface Live { prepared: Prepared; process: KernelProcess; revision: Revision 
 export class Maintenance {
   readonly machine: Generations;
   readonly #config: Configuration; readonly #endpoint: Endpoint;
-  #live: Live; #next: Live | undefined; #busy = false; #stopped = false; #attempt: string | undefined; #captured: string | undefined; #attempts = 0;
+  #live: Live; #next: Live | undefined; #busy = false; #stopped = false; #attempt: string | undefined; #captured: string | undefined; #store: string | undefined; #attempts = 0;
   private constructor(config: Configuration, endpoint: Endpoint, machine: Generations, live: Live) { this.#config = config; this.#endpoint = endpoint; this.machine = machine; this.#live = live; }
   get endpoint(): string { return this.#endpoint.path; }
+  /** The live kernel's root, so an operator tool can name the public socket paths that move with each generation (ADR 0050). */
+  get state(): string { return this.#live.prepared.state; }
   static async start(config: Configuration, revision: Revision, state: string): Promise<Result<Maintenance>> {
     await mkdir(config.root, { recursive: true, mode: 0o700 });
     const endpoint = await Endpoint.open(join(config.root, 'runs')); if (!endpoint.ok) return endpoint;
-    const prepared = await prepare(join(config.root, 'runs/1'), state, revision, config.capture); if (!prepared.ok) return prepared;
+    const prepared = await prepare(join(config.root, 'runs/1'), state, revision, config.capture, store(config, 1)); if (!prepared.ok) return prepared;
     const launched = await launch(config, prepared.value, 'serve'); if (!launched.ok) return launched;
     const checked = await probe(prepared.value.endpoint, config.currentMajor, config.schemas, config.clock);
     const pointed = checked.ok ? await endpoint.value.repoint(prepared.value.endpoint) : checked;
@@ -54,9 +60,10 @@ export class Maintenance {
     const frozen = await this.#live.process.freeze(true); if (!frozen.ok) return this.#rollback(frozen.error.message);
     const drained = await this.#move({ event: 'drained', active: 0, reason: 'kernel admissions drained and writers stopped' }); if (!drained.ok) return this.#rollback(drained.error.message);
     const n = this.machine.view.current.n + 1; const attempt = `${String(n)}-${randomUUID()}`; this.#attempt = join(this.#config.root, 'runs', attempt); this.#captured = join(this.#config.root, `snapshot-${attempt}`);
+    this.#store = store(this.#config, n);
     const captured = await this.#config.capture(this.#live.prepared.state, this.#captured); if (!captured.ok) return this.#rollback(captured.error.message);
     const saved = await this.#move({ event: 'snapshot', snapshot: captured.value, snapshotVerified: true, reason: 'stopped kernel store exported' }); if (!saved.ok) return this.#rollback(saved.error.message);
-    const prepared = await prepare(this.#attempt, this.#captured, revision, this.#config.capture); if (!prepared.ok) return this.#rollback(prepared.error.message);
+    const prepared = await prepare(this.#attempt, this.#captured, revision, this.#config.capture, this.#store); if (!prepared.ok) return this.#rollback(prepared.error.message);
     const applied = await this.#move({ event: 'applied', pinsVerified: true, migrationsPassed: true, formatValid: true, reason: 'kernel pins and private store verified' }); if (!applied.ok) return this.#rollback(applied.error.message);
     const launched = await launch(this.#config, prepared.value, 'probe'); if (!launched.ok) return this.#rollback(launched.error.message);
     this.#next = { prepared: prepared.value, process: launched.value, revision: pinned(revision, prepared.value) };
@@ -75,7 +82,7 @@ export class Maintenance {
     if (this.#next) { const stopped = await this.#next.process.stop(); if (!stopped.ok) return this.#failed(stopped.error.message); this.#next = undefined; }
     if (this.#stopped) {
       if (!this.#captured) return this.#failed('The stopped kernel recovery snapshot is absent.');
-      const prepared = await prepare(join(this.#config.root, 'runs', `recovery-${randomUUID()}`), this.#captured, this.#live.revision, this.#config.capture); if (!prepared.ok) return this.#failed(prepared.error.message);
+      const prepared = await prepare(join(this.#config.root, 'runs', `recovery-${randomUUID()}`), this.#captured, this.#live.revision, this.#config.capture, store(this.#config, this.machine.view.current.n, 'r')); if (!prepared.ok) return this.#failed(prepared.error.message);
       const restored = await launch(this.#config, prepared.value, 'serve'); if (!restored.ok) return this.#failed(restored.error.message);
       this.#live = { ...this.#live, prepared: prepared.value, process: restored.value }; const pointed = await this.#endpoint.repoint(this.#live.prepared.endpoint); if (!pointed.ok) return this.#failed(pointed.error.message);
     } else {
@@ -85,13 +92,21 @@ export class Maintenance {
     const healthy = await probe(this.endpoint, this.#config.currentMajor, this.#config.schemas, this.#config.clock); if (!healthy.ok) return this.#failed(healthy.error.message);
     if (this.#attempt) await rm(this.#attempt, { recursive: true, force: true });
     if (this.#captured) await rm(this.#captured, { recursive: true, force: true });
-    this.#attempt = undefined; this.#captured = undefined;
+    if (this.#store) await rm(this.#store, { recursive: true, force: true });
+    this.#attempt = undefined; this.#captured = undefined; this.#store = undefined;
     const restored = await this.#move({ event: 'restored', restored: true, probed: true, reason: 'old kernel keeps serving' }); this.#stopped = false;
     return restored.ok ? failure('unsupported', reason) : restored;
   }
   async #failed(reason: string): Promise<Result<void>> { const failed = await this.#move({ event: 'failed', reason }); return failed.ok ? failure('io', reason) : failed; }
   async #move(input: Input): Promise<Result<void>> { const moved = await this.machine.transition(input); return moved.ok ? { ok: true, value: undefined } : moved; }
+  /** Only the running kernel resolves a session; the supervisor reads its answer (ADR 0048, AGENTS.md identity rule). */
+  whois(session: string): Promise<Result<Principal>> { return this.#live.process.whois(session); }
   close(): Promise<Result<void>> { return this.#live.process.stop(); }
+}
+
+/** Names stay short so a copied kernel root still leaves room for its targets' 107-byte endpoint paths (ADR 0050). */
+function store(config: Configuration, n: number, kind = 'g'): string | undefined {
+  return config.stateRoot === undefined ? undefined : join(config.stateRoot, `${kind}${String(n)}-${randomUUID().slice(0, 8)}`);
 }
 
 function hashes(revision: Revision): Record<string, string> { return Object.fromEntries(Object.entries(revision.pins).map(([name, pin]) => [name, pin.hash])); }

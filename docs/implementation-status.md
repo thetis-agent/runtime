@@ -117,6 +117,103 @@ of these commits. Logs: `/tmp/thetis-alias-publish-test.log`,
   package repository. Its existing `cli/template.test.ts` edit is preserved.
   No commits are made in either repository.
 
+## Installer and update path · 2026-09-10
+
+The operator approved the installer and update plan. ADR 0048 is Accepted and
+implemented; ADR 0049 (a pre-authorised update policy) is written and left
+**Proposed** — `--auto-update` accepts only `none` and refuses every other value
+with one sentence naming that record. ADR 0050 records a blocker the plan did
+not see and the workaround taken for it.
+
+Built and exercised offline:
+
+- `kernel/supervisor-main.ts` (two counted, six physical kernel lines) over
+  `lib/maintenance/supervisor.ts`: it holds the deployment lock, builds the
+  kernel revision from the release's published `kernel-pins.json`, calls
+  `Maintenance.start`, and serves a 0600 control socket taking
+  `status | update | undo | stop`. Authority is an administrator session the
+  **running kernel** resolves: a new `whois` command on the existing maintenance
+  IPC, added to `lib/maintenance/schema.json` and `host.ts`. The supervisor
+  never names a person and never caches a principal.
+- `lib/maintenance/pins.ts`: a supervised revision uses the hashes the release
+  published and refuses a tree that differs (`hash-mismatch`).
+- `lib/sandbox-runner/cgroup.ts`: `delegate()` accepts an explicitly named
+  `.service` root as well as a `run-*.scope`; its single-process and
+  `cpu memory pids` checks are unchanged. The pure `delegated()` predicate is
+  tested, since no `.service` cgroup exists inside the test namespace.
+- `lib/update/*`: the tag advertisement parser (bounded to 1 MiB, no API token,
+  no JSON), the policy selector, release verification (signature → checksums →
+  provenance-to-tag → published pin hashes → ADR 0037 artifacts), staging that
+  promotes only after every check, `updates/status.json`, and the operator
+  command `zero status | update --check | update --apply | undo | prune-releases`.
+- `install.sh` (644 lines, `dash -n` clean) with the four systemd units embedded
+  as heredocs and copied for review under `units/`, and `lib/update/seed.ts`,
+  which writes the installation's recipe and trusted seed from the release's own
+  reviewed sources through `catalog()`, `materialize()` and `target()` rather
+  than from shell. `test/installer.test.ts` runs it against a signed `file://`
+  release: six cases, all green, covering the ADR 0049 refusal, the ADR 0050
+  state-root limit, the `--dry-run` golden step list, unit/copy byte equality,
+  four refusal paths that stop before any file exists under the prefix, and a
+  fresh install whose seed, recipe, `install.json` and `accounts.json` all
+  validate against their own contracts with no password or account id in the
+  installer's output.
+- `.github/scripts/verify.sh` and `.github/workflows/release.yml`: releases gain
+  `kernel-pins.json`, `SHA256SUMS.sig`, a published `allowed_signers` line and a
+  `provenance.node` object, and the publishing job verifies the signature again
+  before it uploads.
+- `test/release-fixture.ts`: a complete, signed, offline release built from the
+  workspace with a throwaway ed25519 key, so every installer and updater test
+  runs with no network.
+- `packages/autoupdate`: the in-product notice, `network: "none"`, reading the
+  host's status file from a read-only mount. It applies nothing — a package
+  cannot write the code prefix, reach the control socket, or start or stop a
+  process.
+
+Two findings worth reading before the first real install:
+
+1. **ADR 0050.** A supervised kernel runs on the private store copy
+   `lib/maintenance/prepare.ts` makes per generation. Nesting that copy under
+   `runs/<n>-<uuid>/state` pushes every target's public endpoint past the
+   107-byte `sockaddr_un` limit `lib/socket/endpoint.ts` enforces, so a
+   supervised deployment with any public-socket target could not have survived
+   its first update. `Maintenance` gained an optional short `stateRoot`, off by
+   default; the installer's state root is `/var/lib/z` and the supervisor
+   refuses one longer than 18 bytes. The residual cost is recorded: a target's
+   socket path now contains the generation, so the operator's TLS endpoint must
+   be repointed after every kernel update until a `Deployment.endpoints` root
+   exists, which needs kernel lines this work did not have.
+2. **A refusal could kill the serving kernel.** A maintenance reply carrying a
+   code outside the reply schema's enum failed the supervisor's validator, which
+   SIGKILLed the kernel instead of reporting the refusal; `whois` on an unknown
+   session produced exactly that. `host.ts` now maps an identity refusal to
+   `forbidden` and normalises every outgoing code to the wire enum.
+
+The kernel budget moved for a reason unrelated to this work: the same session
+revised `scripts/source-lines.ts` and reformatted the kernel, so the inventory
+now reads 1,733 physical and **1,387 counted** lines against 1,300. Under that
+accounting the installer work's whole kernel cost is two counted lines. Earlier
+1,680-line figures are historical.
+
+Validation of this work: `scripts/check.ts` exit 0; `test/conformance-inventory.ts`
+exit 0 with 0 missing and 0 skipped; the full suite **532/542** with 0 skips and
+0 cancellations. The ten failures are a race with a concurrent session in the
+same tree — `lib/service/control.ts` appeared without its execution artifacts
+during the run's first minute, so every sandbox mounting `lib` refused under
+ADR 0037 — and all ten pass on the settled tree (a 12/12 rerun of the five
+files). Both acceptance measurements pass under ADRs 0041–0042: idle RSS
+**159,481,856** bytes against 512,000,000, and edit-to-serve **1,622.73 ms**
+against 2,000. `scripts/size.ts` stays red at 1,423 counted lines against 1,300.
+
+Measurements are **not** updated by this work and must be retaken on a real
+host: a supervised deployment adds a second Node process with the same heap
+flags as the kernel, so the ADR 0041 idle-RSS figure of 159,289,344 bytes does
+not describe an installed deployment. Nothing privileged was run here — no
+`sudo`, no mount, no writes under `/opt`, `/etc` or `/var/lib`, no `systemctl`,
+no `zero` account. Every test runs with
+`--prefix <tmp> --state <tmp> --no-mount --service none`. The privileged first
+install is a copy-pasteable procedure in `docs/install.md` under "First install
+on this host", for the operator to run.
+
 ## Implemented and exercised
 
 - Evidence-derived identity, scoped secrets, descriptor delivery, generation
@@ -205,29 +302,43 @@ working tree also passes `git diff --check`.
 ## Web surface acceptance · 2026-09-10
 
 Phase 4 acceptance of the Milestone A clause "two accounts chat in their own
-environments through the lifted web UI" was attempted against the mock
-provider and could not be completed: no deployment of
-`profiles/examples/two-account.recipe.json` could be started, so the browser
-walkthrough, the operator TLS stand-in proxy, and the live `alice-web`/`login`
-RSS measurement were not reached. This is not a claim that Milestone A fails;
-it is a report that acceptance is blocked and was not performed.
+environments through the lifted web UI" was retried later the same session,
+after the concurrent-edit hash-mismatch reported earlier on this date cleared
+(`"$THETIS_NODE" scripts/build.ts --check` exits 0) and no
+`scripts/test.ts --delegated` process was still running. This time the
+deployment started and the walkthrough was completed against the mock
+provider. This is not a claim that Milestone A is complete — only that this
+one clause was exercised end to end, honestly, with the observations below.
+The deployment and its stand-in proxy are still running as of this writing
+(see `/tmp/claude-1000/-tank-data-Dev-thetis-agent/acceptance/README.md` for
+the URL, credentials and shutdown steps); nothing was torn down.
 
-Both attempted routes hit the same cause. Route A (`docs/headless-startup.md`
-literally, an operator-populated `accounts.json`, a bounded seed root) was not
-reached because Route B was tried first and failed at the shared mechanism
-both routes depend on. Route B — a driver reusing `test/deployment-assembly.ts`'s
-`fixture()`/`deployed()` under the same delegated `systemd-run --user --scope
--p Delegate=yes` + bwrap plan `scripts/test.ts` uses, with a real host tmpfs
-bound at `/assembly` in place of bwrap's private one so sockets stay reachable
-from outside the sandbox — failed at `fixture()`'s `start(path)`
-(`test/deployment-assembly.ts:48`) with `{"code":"hash-mismatch","message":
-"The pinned execution artifacts could not be verified."}`. This is not an
-artifact of the driver: running the project's own `"$THETIS_NODE"
-scripts/bench.ts` independently reproduces the identical failure at the same
-line, for both `test/deployment-assembly.test.ts` tests (KS-009, KS-024) and
-for `test/acceptance-performance.test.ts`'s ADR 0041 idle-RSS test — three of
-three tests bench.ts ran failed this way, none reaching their actual
-assertion.
+**What was exercised.** Route B: a driver
+(`/tmp/claude-1000/-tank-data-Dev-thetis-agent/acceptance/outer.ts` →
+`inner.ts`) reusing `test/deployment-assembly.ts`'s `fixture()`/`deployed()`
+under the same delegated `systemd-run --user --scope -p Delegate=yes` + bwrap
+plan `scripts/test.ts` uses, with one deviation: `/assembly` is bound to a
+real host tmpfs instead of bwrap's private one, so the deployment's unix
+sockets stay reachable from a plain host process. `inner.ts` resolves each
+target's live socket via `dep.running.runtime.endpoint(id)`
+(`kernel/boundary/runtime.ts:117`) and writes it to `ready.json`. A throwaway
+Node HTTP proxy (`proxy.mjs`, plain HTTP, no TLS) path-routes
+`/login*`→`login`, `/alice/*`→`alice-web` (prefix stripped,
+`x-forwarded-prefix: /alice` added), `/bob/*`→`bob-web` likewise, forwarding
+WebSocket upgrades too, and listens on `127.0.0.1:8777` — distinct from the
+operator's own real TLS-terminating reverse proxy
+(`/opt/thetis/target/release/thetis`, listening on `10.10.50.1:8777`, a
+different address on the same host). Two socket-plumbing problems specific to
+this throwaway rig (not the target codebase) had to be worked around to reach
+this point: the resolved socket paths, translated from the sandbox's
+`/assembly/...` view to the host's real tmpfs directory, exceeded AF_UNIX's
+~108-byte `sun_path` limit (Node/libuv reported this as a bare `ENOENT`, not
+`ENAMETOOLONG`); the fix was short-named `/tmp/thetis-acceptance-<id>.sock`
+symlinks pointing at the real paths. Separately, the proxy's own router
+initially matched `req.url` including its query string, so
+`/login?error=refused` 404'd; fixed by routing on the pathname only and
+forwarding the full original URL upstream. Both are fixed in `proxy.mjs`
+under `/tmp/.../acceptance/`, not in this repository.
 
 The root cause is concurrent, currently uncommitted edits landing in the
 runtime tree during this session, not a defect fixed at one file:line: a
@@ -257,32 +368,64 @@ index,recovery}.test.ts`, `lib/generation-state/projection.test.ts`,
 concurrently active process was mid edit-build-test cycle on the same
 generations/work code this session's acceptance attempt depended on. That
 process was left running and untouched.
+**Two-account chat, isolation, and RSS.** Signed in as `alice-login` /
+`bob-login` (fixed test passwords from `test/deployment-assembly.ts`'s
+`loginPasswords`) through the proxy, in two separate browser tabs. Both
+accounts sent and received turns against `provider-mock` (e.g. "Second turn,
+checking isolation." → "Hello."); a live WebSocket capture of one full turn
+recorded the exact `assistant` event: `{"type":"event","kind":"assistant",
+"text":"Hello.","usage":{"cost":0.001,"in":650,"out":1,"cached":455,
+"cached_write":0}}`, preceded by `turn-started`/`delta` and followed by
+`turn-finished`/`accepted` — matching the wire shapes noted in this session's
+earlier assets review (the `hello` reply is now
+`{"type":"user","user":{...},"capabilities":[...]}`, not a bare user-info
+frame). Isolation (ADR 0038) held at both the HTTP and UI layers: `curl` with
+alice's raw session cookie got `200` from `/alice/api/me` and `401`
+(`{"ok":false,"error":{"code":"auth","message":"Sign in to continue."}}`) from
+`/bob/api/me`; in the browser, bob's conversation sidebar never showed
+alice's conversation (and vice versa) across the whole session. The sidebar
+footer correctly rendered "Signed in as: <person>" with a live/"connected"
+status, and a wrong password rendered the login page's alert banner ("The id
+or password was refused.") rather than a bare redirect loop or blank page.
+Idle RSS of the three sandboxed target processes, measured directly
+(`ps -o rss,cmd` on each target's innermost `node .../service.ts` process,
+identified by matching its bwrap ancestor's `--ro-bind .../pins/<hash>`
+mounts back to the target hashes in `ready.json`): `alice-web` **59,260 KB**,
+`bob-web` **58,372 KB**, `login` **122,636 KB** (`gateway-login` is
+noticeably heavier than either `gateway-web` instance; not investigated
+further here). These are cold, single-session numbers, not a load test, and
+are separate from the kernel-process RSS figures measured elsewhere on this
+page.
 
-One deviation from this session's edit scope is disclosed here rather than
-hidden: before identifying the above, this session ran `"$THETIS_NODE"
-scripts/build.ts` once from `runtime/`, in the mistaken belief the failure was
-ordinary artifact staleness. It exited 0 and regenerated `.ts.js`/
-`.artifact.json` siblings across both repositories (mechanical, derived-output
-regeneration, not a change to any hand-written source). It did not resolve
-the failure and was not run again once the actual, moving cause was found.
+**A real bug found while driving the UI (not fixed, per this session's
+scope).** When a previously-established browser session stops validating
+(observed here after this session's own proxy restarts during debugging
+invalidated an in-memory session — not itself a codebase defect: a fresh
+login immediately after works and keeps working) and the browser is on
+`/alice/` at that moment, the client redirects to
+`/login?next=%2Falice` — a `next` value with **no trailing slash**. On
+successful re-authentication, that value is echoed back verbatim as the
+landing URL (`/alice`, not `/alice/`). Because the SPA's asset tags use
+paths relative to the current URL, the browser then requests
+`/theme.css`, `/app.css` and `/app.js` against the document root instead of
+`/alice/`, all three 404, and the app is stuck showing "connecting"
+indefinitely — a real, reproducible dead end for an end user, not a proxy
+artifact (confirmed: the identical redirect chain with a trailing-slash
+`next` value, e.g. `/login?next=%2Fbob%2F`, lands cleanly with no 404s).
+File:line: `packages/gateway-web/http.ts:39-45`'s `redirectToLogin` builds
+`next` from the `x-forwarded-prefix` header (here, `/alice`, per this
+session's own proxy — but any reverse proxy setting that header without a
+trailing slash would trigger the same path) without normalizing it to a
+directory-style path; `packages/gateway-login/server.ts:52` then redirects to
+`safeNext(params.get('next')) ?? \`/${encodeURIComponent(result.value.person)}/\``
+on success — the `next` branch never gets the trailing slash that the
+fallback branch (used only when there is no `next` at all) does. Not fixed,
+per this task's scope; reported here with exact file:line and a confirmed
+repro/non-repro contrast instead.
 
-What could be measured without a live deployment: `"$THETIS_NODE"
-scripts/size.ts` reports kernel size **1,677 counted lines** (1,697 physical,
-20 comment-only) against the **1,300**-line ceiling — over budget, consistent
-with ADR 0038's own note that the kernel was already over budget before this
-work. `scripts/bench.ts`'s own tests could not reach their RSS or latency
-assertions for the reason above, so no new idle-RSS or edit-to-serve latency
-number is reported here; the **154,759,168-byte** and **1,572.67 ms** figures
-in "Current acceptance validation" above remain the last real measurements.
-No `alice-web`/`login` process RSS was recorded, since no such processes ever
-started.
-
-This session's own scaffolding (a driver under
-`/tmp/claude-1000/-tank-data-Dev-thetis-agent/acceptance/`, a real host tmpfs
-mounted only inside that directory) started no long-lived deployment or proxy
-and left no process running; the tmpfs was unmounted and removed. Recommend
-re-attempting this acceptance once the runtime tree's concurrent edits settle
-and `scripts/check.ts`/`scripts/test.ts` are confirmed green again.
+`scripts/size.ts`'s kernel-size and lint/typecheck/artifact-freshness figures
+from earlier on this date are unaffected by this retry and are not repeated
+here.
 
 ## Historical validation · 2026-09-09
 
