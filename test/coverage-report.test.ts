@@ -5,11 +5,30 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Readable } from 'node:stream';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { sourceFlags } from '@/lib/artifacts/index.ts';
 import { Coverage, coverageFlags, coverageLimits, prepareCoverage, writeCoverage } from '@/scripts/coverage.ts';
 
 const record = (source: string): string => `TN:\nSF:${source}\nFN:1,example\nFNDA:1,example\nFNF:2\nFNH:1\nBRDA:1,0,0,1\nBRF:4\nBRH:1\nDA:1,1\nDA:2,0\nLF:2\nLH:1\nend_of_record\n`;
+
+await test('shard coverage distinguishes same-name methods and preserves anonymous identities when lazy functions appear', async () => {
+  const script = `import reporter from '/workspace/scripts/coverage-reporter.mjs';
+import { Readable } from 'node:stream';
+const added = process.argv[1] === 'extra' ? [{ line: 2, name: 'lazy', count: 1 }] : [];
+const functions = [...added, { line: 4, name: 'close', count: 0 }, { line: 8, name: 'close', count: 3 }, { line: 10, name: '', count: 1 }];
+const file = { path: '/workspace/lib/example.ts', functions, totalFunctionCount: functions.length, coveredFunctionCount: functions.length - 1,
+  lines: [{line: 4, count: 0}, {line: 8, count: 3}], totalLineCount: 2, coveredLineCount: 1,
+  branches: [{line: 8, count: 3}], totalBranchCount: 1, coveredBranchCount: 1 };
+for await (const chunk of reporter(Readable.from([{ type: 'test:coverage', data: { summary: { workingDirectory: '/workspace', files: [file] } } }]))) process.stdout.write(chunk);`;
+  for (const mode of ['base', 'extra']) {
+    const { stdout } = await promisify(execFile)(process.execPath, ['--input-type=module', '-e', script, mode], { timeout: 10000, maxBuffer: 65536 });
+    assert.match(stdout, /^FNDA:0,close@4#0$/mu); assert.match(stdout, /^FNDA:3,close@8#0$/mu);
+    assert.match(stdout, /^FNDA:1,\(anonymous\)@10#0$/mu); assert.match(stdout, /^BRDA:8,0,0,3$/mu);
+    const coverage = new Coverage(); for (const line of stdout.split('\n')) coverage.line(line);
+    assert.equal(coverage.finish().combined.functions.found, mode === 'base' ? 3 : 4);
+  }
+});
 
 await test('coverage streams split records into portable runtime/package paths and weighted summaries', async () => {
   assert.equal(tmpdir(), '/tmp', 'Coverage must not enlarge the ordinary test temporary filesystem.');
@@ -38,6 +57,19 @@ await test('coverage refuses empty, truncated, escaping, repeated and impossible
     assert.throws(() => { for (const line of input.split('\n')) coverage.line(line); coverage.finish(); }, /Coverage|coverage/u, input);
   }
   assert.throws(() => new Coverage().line('x'.repeat(coverageLimits.lineBytes + 1)), /byte limit/u);
+});
+
+await test('merged coverage accepts portable paths and strips only the exact aggregate workspace root', async () => {
+  const directory = await mkdtemp('/tmp/coverage-merged-');
+  try {
+    const result = await writeCoverage(Readable.from([record('/build/runtime/lib/code.ts') + record('/build/packages/core/index.ts')]), directory, '/build');
+    assert.equal(result.runtime.files, 1); assert.equal(result.packages.files, 1);
+    const output = await readFile(join(directory, 'lcov.info'), 'utf8');
+    assert.match(output, /^SF:runtime\/lib\/code.ts$/mu); assert.match(output, /^SF:packages\/core\/index.ts$/mu);
+    for (const source of ['/build-other/runtime/lib/code.ts', '/elsewhere/lib/code.ts', 'runtime/../lib/code.ts', 'runtime/packages/core/index.ts']) {
+      const coverage = new Coverage(); assert.throws(() => { for (const line of record(source).split('\n')) coverage.line(line); coverage.finish(); });
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 await test('a failed coverage stream emits no summary and a fresh run removes stale report files', async () => {
