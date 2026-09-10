@@ -8,6 +8,16 @@ import type { Item, Send } from './batch.ts';
 import type { Subscribed } from './types.ts';
 
 export const settings = { conversations: 32, subscribers: 64, historyBytes: 1048576 };
+/** The stream admits exactly the envelope types ./schema.json names, so the schema a subscriber
+ * validates its batches against and the filter that feeds it cannot drift apart; events.test.ts
+ * compares the two and refuses either being wider. A narrower filter silently strips frames the
+ * wire has already agreed to carry, which is how tool calls, notices, reasoning and per-turn
+ * usage never reached a surface at all (contract/turn-events 1, ADR 0019). The list is a plain
+ * string set because observe() is fed across a process boundary and must refuse an unnamed type
+ * at run time, not only in the type checker. */
+export const observed: readonly string[] =
+  ['input', 'retrieve', 'context', 'offer', 'model.begin', 'model.event', 'model.end', 'call', 'token', 'output', 'end', 'notice'];
+export function admits(type: string): boolean { return observed.includes(type); }
 type History = { cursor: number; bytes: number; rows: Item[]; subscribers: Set<Batches> };
 
 export class SessionEvents {
@@ -17,7 +27,7 @@ export class SessionEvents {
   constructor(clock: Clock) { this.#clock = clock; }
 
   observe(event: Envelope): void {
-    if (!['token', 'output', 'end'].includes(event.type)) return;
+    if (!admits(event.type)) return;
     const history = this.#histories.get(event.conversation); if (!history) return;
     const bytes = Buffer.byteLength(JSON.stringify(event));
     const item = { cursor: ++history.cursor, event, bytes };
