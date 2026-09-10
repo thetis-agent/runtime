@@ -11,7 +11,7 @@ export const coverageLimits = { rawBytes: 536870912, reportBytes: 67108864, line
 export const coverageFiles = ['lcov.info', 'summary.json', 'summary.md'];
 export function coverageFlags(): string[] {
   return ['--import', '/workspace/scripts/coverage-context.mjs', '--experimental-test-coverage', '--test-reporter=spec', '--test-reporter-destination=stderr',
-    '--test-reporter=lcov', '--test-reporter-destination=stdout',
+    '--test-reporter=/workspace/scripts/coverage-reporter.mjs', '--test-reporter-destination=stdout',
     ...['kernel', 'lib', 'contracts', 'packages'].map(directory => `--test-coverage-include=/workspace/${directory}/**/*.ts`),
     '--test-coverage-exclude=**/*.test.ts', '--test-coverage-exclude=**/node_modules/**'];
 }
@@ -43,7 +43,7 @@ export class Coverage {
   }
   #source(source: string): string {
     if (this.#current) throw new Error('Coverage has an unterminated source record.');
-    const relative = source.replace(/^\/workspace\//u, '');
+    const relative = source.replace(/^\/workspace\//u, '').replace(/^runtime\/(?=(?:kernel|lib|contracts)\/)/u, '');
     if (!/^(?:kernel|lib|contracts|packages)\//u.test(relative) || relative.split('/').some(part => part === '..' || part === '.' || part === '') || !relative.endsWith('.ts') || relative.endsWith('.test.ts')) {
       throw new Error('Coverage names a source outside the runtime/packages trees.');
     }
@@ -87,21 +87,22 @@ export async function prepareCoverage(directory: string): Promise<void> {
   for (const name of coverageFiles) await rm(join(directory, name), { force: true });
 }
 
-export async function writeCoverage(source: Readable, directory: string): Promise<Summary> {
+export async function writeCoverage(source: Readable, directory: string, sourceRoot?: string): Promise<Summary> {
   const coverage = new Coverage(); const decoder = new StringDecoder('utf8'); let pending = ''; let bytes = 0;
+  const line = (value: string): string => coverage.line(sourceRoot && value.startsWith(`SF:${sourceRoot}/`) ? `SF:${value.slice(sourceRoot.length + 4)}` : value);
   const transform = new Transform({
     transform(chunk: Buffer, _encoding, callback) {
       try {
         bytes += chunk.length; if (bytes > coverageLimits.reportBytes) throw new Error('Coverage exceeds its report byte limit.');
         const lines = `${pending}${decoder.write(chunk)}`.split('\n'); pending = lines.pop() ?? '';
         if (Buffer.byteLength(pending) > coverageLimits.lineBytes) throw new Error('A coverage line exceeds its byte limit.');
-        callback(null, lines.length ? `${lines.map(line => coverage.line(line)).join('\n')}\n` : '');
+        callback(null, lines.length ? `${lines.map(line).join('\n')}\n` : '');
       } catch (error) { callback(error instanceof Error ? error : new Error('Coverage could not be decoded.')); }
     },
     flush(callback) {
       try {
         pending += decoder.end();
-        if (pending) this.push(`${coverage.line(pending)}\n`);
+        if (pending) this.push(`${line(pending)}\n`);
         coverage.finish(); callback();
       } catch (error) { callback(error instanceof Error ? error : new Error('Coverage could not be completed.')); }
     },
