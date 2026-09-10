@@ -70,7 +70,7 @@ node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage /tmp/thetis-
 
 # Kernel-size and boundary checks
 node --import ./lib/artifacts/source.mjs scripts/size.ts
-bash .github/scripts/kernel-boundary.sh
+THETIS_PACKAGES="${THETIS_PACKAGES:-../packages}" bash .github/scripts/kernel-boundary.sh
 
 # Assemble and verify the actual release archive
 node --import ./lib/artifacts/source.mjs scripts/distribution.ts /tmp/thetis-delivery

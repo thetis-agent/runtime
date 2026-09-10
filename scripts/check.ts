@@ -5,7 +5,7 @@ import { sourceFlags } from '@/lib/artifacts/index.ts';
 
 /** The installer is the one shell deliverable, so it is parsed by the shell that runs it and linted when the linter exists; ADR 0048. */
 async function shell(): Promise<number> {
-  const scripts = ['install.sh', '.github/scripts/verify.sh', '.github/scripts/kernel-boundary.sh', '.github/scripts/prepare-runner.sh'];
+  const scripts = ['install.sh', '.github/scripts/verify.sh', '.github/scripts/kernel-boundary.sh', '.github/scripts/prepare-runner.sh', '.github/scripts/install-smoke.sh'];
   const parsed = await execute('/bin/sh', ['-n', 'install.sh']);
   const generated = await execute(process.execPath, [...sourceFlags(), 'scripts/installer.ts', '--check']);
   const available = await execute('/bin/sh', ['-c', 'command -v shellcheck >/dev/null 2>&1']);

@@ -49,7 +49,7 @@ async function publish(at: Places, tag: string): Promise<void> {
   assert.ok((await git(at.remote, ['update-ref', `refs/tags/${tag}`, annotated.value.toString('utf8').trim()])).ok);
 }
 
-async function browserChat(at: Places): Promise<void> {
+async function browserChat(at: Places, retained?: string): Promise<string> {
   const web = publicSocket(join(at.state, 'live'), 'op-web');
   const signedOut = await httpGet(web, '/', { accept: 'text/html', prefix: '/op' });
   assert.equal(signedOut.headers.location, '/login?next=%2Fop%2F');
@@ -58,8 +58,13 @@ async function browserChat(at: Places): Promise<void> {
   for (const path of ['/', '/app.js', '/app.css', '/theme.css']) assert.equal((await httpGet(web, path, { cookie })).status, 200, path);
   const client = await webClient(web, { cookie });
   try {
-    await client.send({ type: 'new' }); const opened = await client.next();
-    assert.equal(opened.type, 'opened'); assert.equal(typeof opened.session, 'string');
+    await client.send(retained ? { type: 'open', id: retained } : { type: 'new' }); const opened = await client.next();
+    assert.equal(opened.type, 'opened'); assert.ok(typeof opened.session === 'string');
+    if (retained) {
+      assert.equal(opened.session, retained);
+      assert.match(JSON.stringify(opened.history), /Hello from the installed browser/u);
+      assert.match(JSON.stringify(opened.history), /Hello\./u);
+    }
     await client.send({ type: 'send', id: opened.session, text: 'Hello from the installed browser' });
     let text = ''; let finished = false; let accepted = false;
     for (let count = 0; count < 128 && (!finished || !accepted); count++) {
@@ -69,6 +74,7 @@ async function browserChat(at: Places): Promise<void> {
       accepted ||= frame.type === 'accepted';
     }
     assert.ok(finished && accepted && text.length > 0, 'The installed browser did not receive a completed answer.');
+    return opened.session;
   } finally { client.close(); }
 }
 
@@ -80,7 +86,7 @@ await test('GN-007 the installed thetis command checks, applies and undoes signe
     running = supervisor(at); await ready(at, running);
     const initial = await thetis('status'); assert.equal(initial.status, 0, initial.stderr);
     assert.match(initial.stdout, /state LIVE generation 1/u); assert.match(initial.stdout, /\/live\/targets\//u);
-    await browserChat(at);
+    const conversation = await browserChat(at);
     const chat = await thetis('chat', '--message', 'Hello from the installed CLI');
     assert.equal(chat.status, 0, chat.stderr); assert.match(chat.stdout, /Hello\./u); assert.match(chat.stdout, /Conversation:/u);
     await publish(at, 'v0.1.1');
@@ -94,7 +100,7 @@ await test('GN-007 the installed thetis command checks, applies and undoes signe
     await stop(at, running); running = undefined;
     running = supervisor(at); await ready(at, running);
     const restored = await thetis('status'); assert.equal(restored.status, 0, restored.stderr); assert.match(restored.stdout, /state LIVE generation 4/u);
-    await browserChat(at);
+    await browserChat(at, conversation);
     const pruned = await thetis('prune-releases'); assert.equal(pruned.status, 0, pruned.stderr);
     const rows = await readFile(join(at.state, 'supervisor/observed.jsonl'), 'utf8');
     assert.match(rows, /"event":"undo"/u); assert.doesNotMatch(rows, new RegExp(password, 'u'));
