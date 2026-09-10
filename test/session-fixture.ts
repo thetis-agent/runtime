@@ -11,11 +11,13 @@ import type { Envelope } from '@/contracts/turn-events/types.ts';
 import type { Vendor } from '@/lib/provider/engine.ts';
 import { ProviderEngine } from '@/lib/provider/engine.ts';
 
-export async function sessionFixture(vendor?: Vendor) {
+/** `now` is the injected epoch clock for stored conversation stamps (core/session-store.ts); a test that
+ * asserts on `createdMs`/`updatedMs` passes a counter so it never depends on a real wall clock. */
+export async function sessionFixture(vendor?: Vendor, now?: () => number) {
   const root = await mkdtemp('/tmp/sessions-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
   const provider = providerFixture(); const events: Envelope[] = [];
   const options = { model: 'scripted', provider: 'instance', token: provider.token, space: root, system: [{ role: 'system', source: 'core', content: [{ type: 'text', text: 'Stored head. '.repeat(4096) }] }], roots: [{ path: root, mode: 'rw', space: 'person' }], mode: { readOnly: false, deny: [] }, refresh: ['ignored extension'] } satisfies Runtime['options'] & { refresh: string[] };
-  const runtime: Runtime = { options, schemas, clock, provider: vendor ? new ProviderEngine(vendor, provider.authority, provider.budgets) : provider.provider, stages: [{ source: 'faux-gateway', gateway: true, observe: event => { events.push(event); } }] };
+  const runtime: Runtime = { options, schemas, clock, ...(now === undefined ? {} : { now }), provider: vendor ? new ProviderEngine(vendor, provider.authority, provider.budgets) : provider.provider, stages: [{ source: 'faux-gateway', gateway: true, observe: event => { events.push(event); } }] };
   const state = join(root, 'conversations'); await mkdir(state);
   const opened = await Sessions.open(state, runtime); assert.ok(opened.ok);
   return { root, state, runtime, sessions: opened.value, events, provider, async close() { await opened.value.pause(); await rm(root, { recursive: true, force: true }); } };
