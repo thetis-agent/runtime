@@ -8,6 +8,7 @@ import { packagesRoot } from '@/lib/profile/packages-root.ts';
 import { sourceMounts, workspace } from '@/scripts/workspace.ts';
 import { sourceFlags } from '@/lib/artifacts/index.ts';
 import { coverageFlags, coverageLimits, prepareCoverage, writeCoverage } from '@/scripts/coverage.ts';
+import { shardTests, testOptions } from '@/scripts/test-options.ts';
 // Eight persistent sandboxed targets (the two-account recipe with its web surface) exhaust 128 tasks as the seventh starts.
 const supervisor = { memoryMiB: 2048, tasks: 256, cpuPercent: 100 };
 
@@ -43,18 +44,15 @@ async function run(control: string): Promise<void> {
   const root = await realpath(new URL('..', import.meta.url));
   const runtime = dirname(dirname(process.execPath));
   const registry = await realpath(packagesRoot(root));
-  const requested = process.argv.slice(2).filter(argument => argument !== '--delegated');
-  const at = requested.indexOf('--coverage'); let coverage: string | undefined;
-  if (at !== -1) {
-    const path = requested[at + 1]; if (!path || path.startsWith('--')) throw new Error('--coverage requires an output directory.');
-    coverage = resolve(path); requested.splice(at, 2);
-    if (requested.includes('--coverage')) throw new Error('--coverage may be supplied only once.');
-    await prepareCoverage(coverage);
-  }
-  const tests = [...(await files(root)).map(path => join(workspace, relative(root, path))),
+  const options = testOptions(process.argv.slice(2));
+  const coverage = options.coverage ? resolve(options.coverage) : undefined;
+  const discovered = [...(await files(root)).map(path => join(workspace, relative(root, path))),
     ...(registry === join(root, 'packages') ? [] : (await files(registry)).map(path => join(workspace, 'packages', relative(registry, path))))]
-    .filter(path => !requested.length || requested.some(prefix => relative(workspace, path).startsWith(prefix))).sort();
+    .filter(path => !options.prefixes.length || options.prefixes.some(prefix => relative(workspace, path).startsWith(prefix)));
+  const tests = shardTests(discovered, options.shard);
   if (!tests.length) throw new Error('No tests match the requested workspace paths.');
+  if (coverage) await prepareCoverage(coverage);
+  process.stderr.write(`Running ${String(tests.length)}/${String(discovered.length)} test files${options.shard ? ` in shard ${String(options.shard.index)}/${String(options.shard.count)}` : ''}.\n`);
   const passwd = await accounts();
   const args = [...namespace(runtime, 67108864), '--size', '67108864', '--tmpfs', '/packages', '--size', '536870912', '--tmpfs', '/assembly',
     '--size', '536870912', '--tmpfs', '/installation', '--size', '1073741824', '--tmpfs', '/d',
