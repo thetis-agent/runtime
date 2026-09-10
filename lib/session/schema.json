@@ -86,10 +86,54 @@
               "type": "object",
               "properties": {
                 "type": {
+                  "const": "model.begin"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/modelBegin"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
                   "const": "model.event"
                 },
                 "payload": {
                   "$ref": "thetis://contract/turn-events/1#/$defs/modelEvent"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "model.end"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/modelEnd"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "context"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/context"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "offer"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/offer"
                 }
               }
             },
