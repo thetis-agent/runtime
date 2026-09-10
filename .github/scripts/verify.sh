@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# ADR 0002, ADR 0006, ADR 0037: every acceptance failure blocks delivery.
+# ADR 0002, ADR 0037, ADR 0055: CI verifies; release mode assembles previously reviewed sources.
 set -euo pipefail
+mode=${1:-verify}
+case "$mode" in verify|assemble) ;; *) printf 'Unknown delivery mode: %s\n' "$mode" >&2; exit 2 ;; esac
 workspace=$(pwd -P)
 export THETIS_PACKAGES="$workspace/packages"
 mkdir -p reports delivery
@@ -20,8 +22,9 @@ jq -n --arg runtime "$runtime_commit" --arg packages "$packages_commit" \
   --arg runtime_repository "$runtime_repository" --arg packages_repository "$packages_repository" \
   --arg node_version "$node_version" --arg node_x64 "$node_x64" --arg node_arm64 "$node_arm64" \
   --arg workflow "$GITHUB_WORKFLOW_REF" \
+  --arg mode "$mode" --arg tooling "${THETIS_TOOLING_COMMIT:-$runtime_commit}" \
   --arg run "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-  '{version: 1, runtime: {repository: $runtime_repository, commit: $runtime}, packages: {repository: $packages_repository, commit: $packages}, node: {version: $node_version, sha256: {"linux-x64": $node_x64, "linux-arm64": $node_arm64}}, generator: "node:stripTypeScriptTypes:strip", workflow: $workflow, run: $run}' > reports/provenance.json
+  '{version: 1, runtime: {repository: $runtime_repository, commit: $runtime}, packages: {repository: $packages_repository, commit: $packages}, node: {version: $node_version, sha256: {"linux-x64": $node_x64, "linux-arm64": $node_arm64}}, generator: "node:stripTypeScriptTypes:strip", workflow: $workflow, run: $run, delivery: {mode: $mode, toolingRuntime: $tooling}}' > reports/provenance.json
 printf 'Runtime commit: %s\n\nPackages commit: %s\n' "$runtime_commit" "$packages_commit" >> "$GITHUB_STEP_SUMMARY"
 cd runtime
 failures=0
@@ -38,18 +41,24 @@ gate() {
 # Execution artifacts are deliberately untracked; committed schemas and validators
 # are checked for freshness by check.ts, never regenerated to make CI pass.
 node --import ./lib/artifacts/source.mjs scripts/build.ts 2>&1 | tee "$workspace/reports/build.log"
-gate check node --import ./lib/artifacts/source.mjs scripts/check.ts
-gate kernel-size node --import ./lib/artifacts/source.mjs scripts/size.ts
-gate kernel-boundary bash .github/scripts/kernel-boundary.sh
+if [[ "$mode" == verify ]]; then
+  gate check node --import ./lib/artifacts/source.mjs scripts/check.ts
+  gate kernel-size node --import ./lib/artifacts/source.mjs scripts/size.ts
+  gate kernel-boundary bash .github/scripts/kernel-boundary.sh
+fi
 # GN-002 must read this job's bundle, rather than the previously committed seed.
 node --import ./lib/artifacts/source.mjs scripts/release.ts 2>&1 | tee "$workspace/reports/registry.log"
 # Includes conformance inventory, providers and dependants, recovery, deployment
 # smoke tests, evaluator isolation and the actual latency/RSS acceptance limits.
-gate test node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage "$workspace/reports/coverage"
-if [[ -f "$workspace/reports/coverage/summary.md" ]]; then
-  cat "$workspace/reports/coverage/summary.md" >> "$GITHUB_STEP_SUMMARY"
+if [[ "$mode" == verify ]]; then
+  gate test node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage "$workspace/reports/coverage"
+  if [[ -f "$workspace/reports/coverage/summary.md" ]]; then
+    cat "$workspace/reports/coverage/summary.md" >> "$GITHUB_STEP_SUMMARY"
+  else
+    printf '\nCoverage report unavailable; inspect the test gate log.\n' >> "$GITHUB_STEP_SUMMARY"
+  fi
 else
-  printf '\nCoverage report unavailable; inspect the test gate log.\n' >> "$GITHUB_STEP_SUMMARY"
+  printf '\nRelease assembly uses reviewed main history; CI acceptance and coverage are not rerun (ADR 0055).\n' >> "$GITHUB_STEP_SUMMARY"
 fi
 if (( failures != 0 )); then
   printf '::error::%s acceptance gate(s) failed; delivery is blocked.\n' "$failures"

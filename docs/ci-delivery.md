@@ -19,7 +19,7 @@ The report records the resolved commits of both checkouts, including a PR's
 tested merge commit. A rerun against a moving peer branch may resolve new bytes;
 release builds always require the peer's complete commit hash.
 
-The pipeline performs these blocking checks:
+CI performs these blocking checks:
 
 | Check | Requirement |
 | --- | --- |
@@ -54,7 +54,7 @@ measurements, so CI does not run `bench` a second time.
 
 ## Coverage reports
 
-Both repositories' CI and release validation collect coverage in the complete
+Both repositories' CI workflows collect coverage in the complete
 sandboxed test run. [Node 24's native coverage reporters](https://nodejs.org/download/release/v24.18.0/docs/api/test.html#coverage-reporters)
 provide the LCOV data; no coverage service token or additional dependency is
 required. Test failures retain their nonzero status, and coverage does not impose
@@ -64,10 +64,9 @@ The child preload stops V8 coverage before `acceptance-performance.test.ts` and
 their executions do not contribute coverage. This keeps profiling overhead out
 of the quantities those tests measure.
 
-Each workflow uploads a separate `runtime-ci-coverage-*`,
-`packages-ci-coverage-*`, `runtime-release-coverage-*` or
-`packages-release-coverage-*` artifact, including after a failed test gate.
-CI retains these for 14 days and release validation for 30 days. Each artifact
+CI uploads a separate `runtime-ci-coverage-*` or `packages-ci-coverage-*`
+artifact, including after a failed test gate, retained for 14 days. Release
+assembly does not run tests or generate new coverage (ADR 0055). Each artifact
 contains `lcov.info`, `summary.json` and `summary.md`; the workflow summary shows
 line, branch and function coverage for runtime, packages and their combined total.
 LCOV source paths start with `runtime/` or `packages/` to match the two checkouts.
@@ -115,8 +114,9 @@ Existing test-path prefixes may follow the coverage directory for a focused run.
 5. Allow the publishing job's `contents: write` permission. Checkout/build jobs
    have read-only tokens and never persist git credentials. The publishing job
    downloads the same run's verified artifact and executes no candidate code.
-6. Store the private signing key contents as `RELEASE_SIGNING_KEY` in the protected
-   runtime `release` environment. Only the publication job reads it; CI and
+6. Store the complete unencrypted OpenSSH private key, or base64 of that whole
+   file, as `RELEASE_SIGNING_KEY` in the publishing repository's protected
+   `release` environment. Only the publication job reads it; CI and
    candidate execution receive no signing key (ADR 0052). It signs `SHA256SUMS`
    after the installer receives the reviewed tag and public trust root; rotating it ships a new line in the installed
    `allowed_signers` file in a release signed with the key being retired, never
@@ -135,7 +135,19 @@ workflow **from main**, supplying that existing tag and the peer's full
 `main` history. A coordinated release needs only one delivery publication; both
 repositories can deliver the full pair.
 
-The build reruns every gate on that exact pair and retains the files for review.
+The **Assemble release** job builds execution artifacts, regenerates the bundle
+and packages that source pair without rerunning strict checks, kernel gates,
+tests or coverage. Those remain in CI. Main-history membership is the operator's
+assurance of prior verification; release does not query CI results (ADR 0055).
+
+Release orchestration comes from tracked runtime tooling on main, separately
+from the selected source checkouts. Runtime dispatch uses its workflow commit;
+package dispatch records the fetched runtime main commit. Provenance records
+`delivery.mode` and `delivery.toolingRuntime`. Existing tags can therefore use
+repaired tooling without moving the tag. After workflow changes, start a **new
+Run workflow from main** with the same inputs; rerunning an old failed job uses
+its old workflow definition.
+
 The `release` environment then controls the publishing job. It rechecks all
 checksums and tag identity, uploads all assets to a draft, and publishes only
 after upload succeeds. A partial failure leaves a draft for a maintainer to
@@ -222,3 +234,12 @@ requires the same annotated version tag in runtime at the reviewed peer commit;
 its build refuses a missing or mismatched runtime tag. Both workflows require
 annotated release tags. The ordinary CI verification job never receives a release
 signing key; only the protected publication job signs the verified delivery.
+
+## Signing-key formatting
+
+For `Load key ...: error in libcrypto`, replace `RELEASE_SIGNING_KEY` with the
+complete unencrypted key file or the output of `base64 -w0 /path/to/release_ed25519`.
+Paste only the key text or encoded value, without Markdown fences. The loader
+normalizes CRLF, escaped newlines and base64 wrapping, validates the key without
+printing secret data, and removes its temporary file on success or failure.
+A public key or fingerprint cannot substitute for the private key.
