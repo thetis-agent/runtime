@@ -26,7 +26,7 @@ The pipeline performs these blocking checks:
 | Locked `npm ci --ignore-scripts` bootstrap | Exact reviewed dependency closure, no lifecycle scripts |
 | Bounded offline artifact build | ADR 0037: sources remain editable; generated JavaScript records source/output hashes and Node version |
 | `scripts/check.ts` | Committed contract types, schema validators and loader freshness; strict TypeScript; zero-warning lint; artifact freshness |
-| `scripts/size.ts` and kernel name scan | 1,300-line kernel budget excluding comments, whitespace and static imports (ADR 0051), with physical/excluded totals; package ignorance |
+| `scripts/size.ts` and kernel name scan | 1,500-line kernel budget excluding comments, whitespace and static imports (ADRs 0051, 0054), with physical/excluded totals; package ignorance |
 | Fresh `scripts/release.ts` output | Real immutable registry objects, matching profile pins and bundle checksum |
 | Complete `scripts/test.ts` | All runtime/package tests, conformance inventory, dependants, socket compatibility, evaluator isolation, generation recovery, deployment smoke, latency and RSS limits |
 
@@ -47,11 +47,51 @@ are excluded. Public CI results do not become production evaluator evidence
 
 Logs and source provenance are retained on failures. Any failed check blocks
 candidate upload and publishing; tests, size and performance are never allowed
-to fail silently. Existing kernel-size, memory or latency failures must be fixed
-in the product before a release can pass. As of this revision the kernel measures
-1,423 counted lines against the 1,300-line budget at the time of writing, so no release can be published
-until that gate is green. The complete suite already runs the acceptance
+to fail silently. Kernel-size, memory or latency failures must be fixed before a release can pass.
+The kernel currently counts 1,423 lines against the operator-approved 1,500-line
+ceiling (ADR 0054), so its size gate passes. The complete suite already runs the acceptance
 measurements, so CI does not run `bench` a second time.
+
+## Coverage reports
+
+Both repositories' CI and release validation collect coverage in the complete
+sandboxed test run. [Node 24's native coverage reporters](https://nodejs.org/download/release/v24.18.0/docs/api/test.html#coverage-reporters)
+provide the LCOV data; no coverage service token or additional dependency is
+required. Test failures retain their nonzero status, and coverage does not impose
+a new percentage threshold or waive performance/conformance assertions.
+The child preload stops V8 coverage before `acceptance-performance.test.ts` and
+`deployment-assembly.test.ts` run. Both tests still execute and enforce their original RSS/latency limits;
+their executions do not contribute coverage. This keeps profiling overhead out
+of the quantities those tests measure.
+
+Each workflow uploads a separate `runtime-ci-coverage-*`,
+`packages-ci-coverage-*`, `runtime-release-coverage-*` or
+`packages-release-coverage-*` artifact, including after a failed test gate.
+CI retains these for 14 days and release validation for 30 days. Each artifact
+contains `lcov.info`, `summary.json` and `summary.md`; the workflow summary shows
+line, branch and function coverage for runtime, packages and their combined total.
+LCOV source paths start with `runtime/` or `packages/` to match the two checkouts.
+
+The report includes loaded TypeScript source modules under `kernel`, `lib`,
+`contracts` and `packages`. It excludes test files, third-party dependencies,
+compiled sidecars and tooling. Coverage inheritance is removed before each test
+file runs, preserving explicitly restricted child environments. Separately spawned payloads and modules
+that no test process loads are outside the native report; these percentages are
+not a count of all repository files or a replacement for conformance coverage.
+Raw V8 data stays on a bounded 512 MiB temporary mount. Only the reporting
+parent uses that temporary directory; the child preload restores ordinary test
+temporaries to their existing 64 MiB `/tmp`. The LCOV report streams
+through stdout to a host-owned writer capped at 64 MiB; tests receive no writable
+host report mount. An empty, malformed, oversized or incomplete report fails the
+test command, while valid reports remain available when assertions fail.
+
+Reproduce locally from runtime (the destination is outside the source checkout):
+
+```sh
+node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage /tmp/thetis-coverage
+```
+
+Existing test-path prefixes may follow the coverage directory for a focused run.
 
 ## Repository configuration
 

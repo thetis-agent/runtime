@@ -590,3 +590,40 @@ scan finds no kernel matches. The installed lifecycle takes 207.25 seconds in
 that run. The final split-volume boot-order adjustment also receives focused
 service-rendering validation. These results do not waive the kernel-size gate
 or replace privileged host acceptance.
+
+## CI coverage and kernel ceiling · 2026-09-10
+
+The operator-approved ADR 0054 raises the kernel ceiling to **1,500 counted
+lines**. The current **1,423 lines** pass with **77 lines remaining**, superseding
+the size blockage recorded above. ADR 0051's counting rules still apply.
+
+Both repositories' CI and release workflows retain native Node coverage as LCOV,
+JSON and Markdown, including after failed tests, and display the repository
+totals in their job summaries. The complete local coverage run passes
+**558/558 tests** in **710.61 seconds**, with no skipped or cancelled tests.
+The installed update/undo/restart lifecycle passes in **218.79 seconds**.
+Kernel plus one idle environment measures **160,223,232 bytes** against
+512,000,000; edit-to-serve measures **1,629.81 ms** against 2,000.
+
+| Repository | Loaded files | Lines | Branches | Functions |
+| --- | ---: | ---: | ---: | ---: |
+| runtime | 165 | 94.36% | 74.84% | 90.81% |
+| packages | 41 | 95.93% | 74.73% | 93.38% |
+| combined | 206 | 94.70% | 74.81% | 91.32% |
+
+These percentages cover loaded TypeScript modules in the Node test processes.
+Separately spawned payloads and unloaded modules are outside the report. The
+two performance test processes execute with profiling stopped so their original
+assertions measure ordinary execution. The unchanged TE-024 child-environment
+assertion passes; the preload prevents Node's coverage variable from propagating
+into ordinary children. Focused regression tests also verify that a deliberately
+failing test retains both its nonzero exit status and valid coverage output.
+
+The reported GitHub bootstrap failure is reproduced in a fresh manifest-only
+checkout: `npm ci` refuses the missing `@thetis/lib-update@1.0.0` workspace.
+Regenerating the lockfile adds only its workspace record and link, with no
+dependency-version changes. The same `npm ci --ignore-scripts --no-audit --no-fund`
+command then succeeds from that clean directory under Node 24.18.0/npm 11.16.0.
+The actual runtime checkout also passes that clean install, followed by strict
+checking and **50/50 focused update, coverage and descriptor-isolation tests**.
+Shell lint, workflow syntax, the kernel package-name scan and the size gate pass.

@@ -1,9 +1,9 @@
-/** Enforce the trusted source budget while reporting excluded documentation, imports and whitespace; ADR 0039, ADR 0051, proposal §10. */
+/** Enforce the trusted source budget while reporting excluded documentation, imports and whitespace; ADR 0039, ADR 0051, ADR 0054, proposal §10. */
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceLines } from '@/scripts/source-lines.ts';
-const limits = { kernelLines: 1300, entries: 10000, sourceBytes: 16777216 };
+const limits = { kernelLines: 1500, entries: 10000, sourceBytes: 16777216 };
 const files: (ReturnType<typeof sourceLines> & { path: string; bytes: number })[] = [];
 let entries = 0; let bytes = 0;
 async function inspect(root: string): Promise<void> {

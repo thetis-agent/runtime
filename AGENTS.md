@@ -7,7 +7,7 @@
 - Record deviations after ADR 0020 using ADR 0001's format before implementation.
 - Leave guarantee-removing deviations Proposed and stop for a person's decision.
 - Keep the kernel ignorant of packages, vendors and counters other than cost.
-- Keep identity, boundary, secrets and generations in the kernel; budget 1,300 lines.
+- Keep identity, boundary, secrets and generations in the kernel; budget 1,500 lines (ADR 0054).
 - Require bubblewrap and user namespaces for environments, gateways, services and tests.
 - Pass sockets and run tokens only through inherited close-on-exec descriptors.
 - Prevent implicit child inheritance; fence deliberate delegation as the same run (ADR 0021).

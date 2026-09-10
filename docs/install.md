@@ -6,9 +6,9 @@ release's exact Node runtime; Node and npm are not installation prerequisites.
 The host still needs the Linux boundary tools listed below.
 
 **The public installation path requires a published, signed runtime release.**
-The kernel size gate is still above its 1,300-line budget. Local signed fixtures
-exercise installation and updates without publishing a release or bypassing that
-gate. The commands below describe the published asset once that gate is green
+The kernel passes the operator-approved 1,500-line size gate (ADR 0054). Local
+signed fixtures exercise installation and updates without publishing a release.
+The commands below describe the published asset once all release checks pass
 and the protected release environment has its signing key configured.
 
 ## Install

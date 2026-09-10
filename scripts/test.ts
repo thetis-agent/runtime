@@ -1,12 +1,13 @@
 /** Keep even development tests inside the mandatory namespace boundary; ADR 0012 §8. */
 import { spawn } from 'node:child_process';
 import { mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
 import { delegate } from '@/lib/sandbox-runner/cgroup.ts';
 import { packagesRoot } from '@/lib/profile/packages-root.ts';
 import { sourceMounts, workspace } from '@/scripts/workspace.ts';
 import { sourceFlags } from '@/lib/artifacts/index.ts';
+import { coverageFlags, coverageLimits, prepareCoverage, writeCoverage } from '@/scripts/coverage.ts';
 // Eight persistent sandboxed targets (the two-account recipe with its web surface) exhaust 128 tasks as the seventh starts.
 const supervisor = { memoryMiB: 2048, tasks: 256, cpuPercent: 100 };
 
@@ -43,6 +44,13 @@ async function run(control: string): Promise<void> {
   const runtime = dirname(dirname(process.execPath));
   const registry = await realpath(packagesRoot(root));
   const requested = process.argv.slice(2).filter(argument => argument !== '--delegated');
+  const at = requested.indexOf('--coverage'); let coverage: string | undefined;
+  if (at !== -1) {
+    const path = requested[at + 1]; if (!path || path.startsWith('--')) throw new Error('--coverage requires an output directory.');
+    coverage = resolve(path); requested.splice(at, 2);
+    if (requested.includes('--coverage')) throw new Error('--coverage may be supplied only once.');
+    await prepareCoverage(coverage);
+  }
   const tests = [...(await files(root)).map(path => join(workspace, relative(root, path))),
     ...(registry === join(root, 'packages') ? [] : (await files(registry)).map(path => join(workspace, 'packages', relative(registry, path))))]
     .filter(path => !requested.length || requested.some(prefix => relative(workspace, path).startsWith(prefix))).sort();
@@ -50,11 +58,16 @@ async function run(control: string): Promise<void> {
   const passwd = await accounts();
   const args = [...namespace(runtime, 67108864), '--size', '67108864', '--tmpfs', '/packages', '--size', '536870912', '--tmpfs', '/assembly',
     '--size', '536870912', '--tmpfs', '/installation', '--size', '1073741824', '--tmpfs', '/d',
+    ...coverage ? ['--size', String(coverageLimits.rawBytes), '--tmpfs', '/coverage', '--setenv', 'TMPDIR', '/coverage'] : [],
     '--dev-bind', '/dev/net/tun', '/dev/net/tun', '--dir', '/etc', '--dir', '/run', '--ro-bind', passwd, '/etc/passwd', ...await sourceMounts(root), '--bind', control, '/cgroup', '--chdir', workspace,
     ...seal,
-    '--', '/runtime/bin/node', '--import', `${workspace}/lib/artifacts/source.mjs`, '--test', '--test-concurrency=1', ...tests
+    '--', '/runtime/bin/node', '--import', `${workspace}/lib/artifacts/source.mjs`, '--test', '--test-concurrency=1', ...coverage ? coverageFlags() : [], ...tests
   ];
-  const child = spawn('bwrap', args, { stdio: 'inherit', env: { PATH: '/usr/bin:/bin' } });
-  child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
-  child.once('exit', code => { process.exitCode = code ?? 1; void rm(dirname(passwd), { recursive: true, force: true }); });
+  const child = spawn('bwrap', args, { stdio: ['inherit', coverage ? 'pipe' : 'inherit', 'inherit'], env: { PATH: '/usr/bin:/bin' } });
+  const closed = new Promise<number>(resolve => { child.once('error', error => { process.stderr.write(`${error.message}\n`); resolve(1); }); child.once('close', code => { resolve(code ?? 1); }); });
+  let reportStatus = 0;
+  try {
+    if (coverage && child.stdout) await writeCoverage(child.stdout, coverage);
+  } catch (error) { process.stderr.write(`${String(error)}\n`); reportStatus = 1; child.kill('SIGKILL'); }
+  finally { process.exitCode = Math.max(await closed, reportStatus); await rm(dirname(passwd), { recursive: true, force: true }); }
 }
