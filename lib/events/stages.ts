@@ -10,7 +10,7 @@ export interface Stage {
   observe?: (event: Envelope) => unknown;
   context?: (append: (message: Message) => void, context: Context) => unknown;
   offer?: (request: OfferRequest) => Promise<unknown>;
-  call?: (request: CallRequest, sink: SpillSink) => Promise<unknown>;
+  call?: (request: CallRequest, sink: SpillSink, signal?: AbortSignal) => Promise<unknown>;
   retrieve?: (request: RetrieveRequest) => Promise<unknown>;
   init?: (emit: (notice: Omit<Notice, 'source'>) => void) => Promise<void>;
   shutdown?: () => Promise<void>;
