@@ -46,6 +46,8 @@ The accepted aggregate idle RSS ceiling is 512,000,000 bytes for the real kernel
 
 The accepted watched-edit limit is 2,000 milliseconds, measured from the source write through artifact generation and successful serving. The test verifies the changed behavior.
 
+Snapshot copying and bounded chunk hashing run directly in the existing resource-limited worker, avoiding per-file filesystem thread-pool round trips. Hashing refuses the request thread. Source and copied digests still match the established byte/path/mode format; descriptor and path metadata are checked for concurrent changes. No verification step or generation transition is skipped to meet the limit.
+
 ## 0043 · Crash recovery
 
 Observe process exits exactly once and revoke their authority. Unexpected serving exits enter FAILED through the generation table. Checkpoint failures recover through the same machine. Snapshot validated migrated state before publishing a healthy generation; reset uses that generation's own format.

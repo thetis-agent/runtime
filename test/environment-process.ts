@@ -18,6 +18,8 @@ import type { Method } from '@/contracts/kernel-socket/types.ts';
 import type { serviceFixture } from '@/test/provider-service.ts';
 
 export async function environmentProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, person: string, publicEndpoint = false) {
+  // The inherited handshake precedes socket publication; wait for real provider health before mounting it (GN-003).
+  const ready = await shared.process.probe(); assert.ok(ready.ok, JSON.stringify(ready));
   const root = await mkdtemp('/tmp/person-environment-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
   await mkdir(join(root, 'state')); await mkdir(join(root, 'space')); if (publicEndpoint) await mkdir(join(root, 'endpoint'));
   const journal = await Journal.open(join(root, 'observed.jsonl'), () => clock.now()); assert.ok(journal.ok);
