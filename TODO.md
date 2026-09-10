@@ -25,6 +25,14 @@ design input, not as an installation guide.
   data to deployment sandboxes.
 - Profile complete generation switches without reusing the read-only probe as a
   serving writer. Preserve ADR 0026's fresh serving process and all current limits.
+- Carry conversation archiving to the wire. `archived` is stored and validated
+  (`packages/core/schema.json`, covered by `packages/core/session-store.test.ts`)
+  and `Sessions.archive` writes it, but nothing can set it from outside the
+  environment: it needs a `session.archive` method in the kernel-socket contract
+  and its capability list, a handler in `packages/core/control.ts`, a command in
+  `packages/gateway-web/wire.ts`, and the archived section the sidebar already
+  filters for (`assets/lib/activity.js`'s `archivedSessions`). Left unbuilt
+  rather than half-built, because the capability negotiation is the substance.
 
 ## Workflow
 
