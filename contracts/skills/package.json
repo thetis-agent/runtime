@@ -1,9 +1,9 @@
 {
   "name": "@thetis/contract-skills",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "provides": {
-    "contract/skills": "1.0.0"
+    "contract/skills": "1.1.0"
   },
   "exports": "./types.ts"
 }

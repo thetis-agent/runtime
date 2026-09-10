@@ -61,7 +61,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "provider-mock"
       ]
@@ -110,7 +110,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "core",
         "tools-files"
@@ -149,7 +149,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "cli"
       ],
@@ -204,7 +204,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "core",
         "tools-files"
@@ -243,7 +243,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "cli"
       ],
@@ -272,7 +272,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "gateway-web"
       ],
@@ -301,7 +301,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "gateway-web"
       ],
@@ -330,7 +330,7 @@
         "lib/semver-match", "lib/service", "lib/session", "lib/skills",
         "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-        "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+        "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "gateway-login"
       ]
@@ -353,7 +353,7 @@
       "lib/semver-match", "lib/service", "lib/session", "lib/skills",
       "lib/snapshots", "lib/socket", "lib/spill", "lib/websocket",
       "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
-      "contract/registry", "contract/skills", "contract/turn-events", "ajv",
+      "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
       "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
       "semver", "ws", "yaml", "core",
       "tools-files", "provider-mock", "cli", "gateway-web", "gateway-login"
