@@ -8,7 +8,42 @@ under ADR 0042. The operator has since lifted that UI deferral and explicitly
 approved ADR 0038; work on the web surface is starting in this continuation
 and is not yet implemented or measured.
 
-## Root imports and current size policy · 2026-09-10
+## DI/IoC integration · 2026-09-10
+
+The remaining DI/IoC changes are integrated with the installer and update work
+and ADR 0047's root imports. All twelve changed or added files from the preserved
+DI/IoC checkout match the integrated sources after adapting their import paths.
+The package repository has no additional pending DI/IoC changes.
+
+Kernel startup composes evaluation extensions through explicit accessors, and
+runtime dispatch delegates to named methods that retain identity, prune and
+reported-note authority. Shared services and providers now use `lib/service/control.ts`
+with their own health projections and note policies. The earlier integration
+already included the lazy evaluation bootstrap, driver context access, shared
+control implementation and regression tests.
+
+The integrated kernel has **1,423 counted lines** from **1,774 physical lines**,
+excluding **190 import-only**, **140 blank** and **21 comment-only** lines under
+ADRs 0039 and 0051. It remains **123 lines above** the unchanged 1,300-line ceiling.
+
+The offline default profile is regenerated from the integrated sources, with
+**58 exact pins**, including `lib/update` and `autoupdate`. Its registry bundle
+SHA-256 is `64f9d78c2275f176c918c0a4a1be97af20ee637e44322a5707ce369e0b463e59`.
+
+Validation against package commit `016d6a1`: strict checking, lint, generated
+output and execution-artifact freshness pass. All **542/542 tests** pass inside
+the mandatory sandbox in **436.88 seconds**, with no failures, cancellations or
+skips. The kernel package-name boundary check passes, and the conformance inventory
+covers **106/106 IDs** with none missing or skipped. Aggregate kernel-plus-idle-
+environment RSS is **159,924,224 bytes** against 512,000,000; watched edit-to-serve
+latency is **1,653.93 ms** against 2,000. The separate kernel-size gate remains red
+at the count above. Shell parsing passes; shellcheck is unavailable on this host.
+
+Logs: `/tmp/thetis-ioc-integrated-build.log`, `/tmp/thetis-ioc-integrated-check.log`,
+`/tmp/thetis-ioc-integrated-test.log`, `/tmp/thetis-ioc-integrated-release.log`,
+`/tmp/thetis-ioc-integrated-conformance.json` and `/tmp/thetis-ioc-integrated-size.json`.
+
+## Root import validation before integration · 2026-09-10
 
 ADR 0047 maps `@/` to the runtime repository root in TypeScript, source launches
 and verified-artifact launches. Relocated revisions and workers resolve their
@@ -19,9 +54,9 @@ freshness and artifact freshness pass. Idle RSS is **159,186,944 bytes** and
 watched edit latency is **1,781.55 ms**, within the approved limits.
 
 The subsequent counter-only change in ADR 0051 passes four focused sandboxed
-counter tests and strict checking. Its current inventory is **1,361 counted
+counter tests and strict checking. Its inventory at that checkpoint was **1,361 counted
 lines**: **1,700 physical**, excluding **185 import-only**, **134 blank** and
-**20 comment-only** lines. The kernel remains **61 lines above** the unchanged
+**20 comment-only** lines. The kernel remained **61 lines above** the unchanged
 1,300-line ceiling. Older measurements below use their recorded counting policy.
 
 The refactor was validated in an isolated checkout to preserve concurrent

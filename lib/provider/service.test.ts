@@ -5,7 +5,6 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { serviceFixture } from '@/test/provider-service.ts';
 import { collect, stream, request } from '@/test/provider-fixture.ts';
-import { isObject } from '@/lib/schema/index.ts';
 
 await test('PR-011 a real sandboxed shared service attributes both callers and durably enforces their individual budgets', async () => {
   const f = await serviceFixture();
@@ -32,9 +31,11 @@ await test('GN-004 a shared service quiesces and resumes after an announced roll
     assert.ok((await f.process.probe()).ok); const alice = f.client('alice'); const pid = f.process.running.process.pid;
     const drained = await f.process.drain(30000); assert.ok(drained.ok); assert.equal(drained.value.killed, false);
     assert.ok(!(await alice.provider.describe()).ok);
-    assert.ok((await f.process.probe()).ok);
+    const paused = await f.process.control.call('health.probe', {});
+    assert.deepEqual(paused, { ok: true, value: { ready: true, connections: 0, draining: true } });
     assert.ok((await f.process.control.notify({ note: 'env.updated', params: { resume: true } })).ok);
-    const status = await f.process.control.call('health.probe', {}); assert.ok(status.ok && isObject(status.value)); assert.equal(status.value['draining'], false);
+    const status = await f.process.control.call('health.probe', {});
+    assert.deepEqual(status, { ok: true, value: { ready: true, connections: 0, draining: false } });
     assert.ok((await alice.provider.describe()).ok); assert.equal(f.process.running.process.pid, pid);
   } finally { await f.close(); }
 });

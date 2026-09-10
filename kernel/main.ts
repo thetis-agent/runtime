@@ -8,6 +8,7 @@ import type { Result } from '@/lib/schema/index.ts';
 import { clock } from '@/lib/events/index.ts';
 import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
 import { Runtime } from '@/kernel/boundary/runtime.ts';
+import type { RuntimeContext } from '@/kernel/boundary/runtime.ts';
 import { Identity } from '@/kernel/identity/index.ts';
 import { Journal } from '@/kernel/log/index.ts';
 import { descriptor } from '@/lib/files/descriptor.ts';
@@ -21,6 +22,7 @@ import { listen } from '@/lib/http/listen.ts';
 import { defaultRecovery } from '@/lib/deployment/default-recover.ts';
 import { exclusive, retireOrigin } from '@/lib/deployment/exclusive.ts';
 import { evaluationBootstrap } from '@/lib/deployment/evaluation-bootstrap.ts';
+import type { Evaluation } from '@/lib/deployment/evaluation-bootstrap.ts';
 import { bootstrap } from '@/lib/deployment/bootstrap.ts';
 import { watchAll } from '@/lib/deployment/work.ts';
 
@@ -28,23 +30,31 @@ export async function start(path: string): Promise<Result<{ runtime: Runtime; id
   const schemas = new Schemas(); await schemas.load();
   const config = await configuration(path, schemas); if (!config.ok) return config;
   await mkdir(config.value.root, { recursive: true, mode: 0o700 });
-  const journal = await Journal.open(join(config.value.root, 'observed.jsonl'), () => Date.now()); if (!journal.ok) return journal;
+  const recoveryJournal = join(config.value.root, 'observed.jsonl');
+  const journal = await Journal.open(recoveryJournal, () => Date.now()); if (!journal.ok) return journal;
   const identity = new Identity(config.value.identity, () => Date.now());
-  let evaluations: Extract<Awaited<ReturnType<typeof evaluationBootstrap>>, { ok: true }>['value'] | undefined;
+  let evaluations: Evaluation | undefined;
   const trusted = config.value.trusted; let act: Act | undefined; let restored: (() => Promise<Result<void>>) | undefined;
   const defaultRoot = join(config.value.root, 'default'); await mkdir(defaultRoot, { recursive: true, mode: 0o700 });
-  const replay = trusted ? await defaultRecovery(defaultRoot, join(config.value.root, 'observed.jsonl'), schemas) : undefined;
+  const replay = trusted ? await defaultRecovery(defaultRoot, recoveryJournal, schemas) : undefined;
   if (replay && !replay.ok) { await journal.value.close(); return replay; }
   const key = trusted ? await descriptor(trusted.keyFd, 32) : undefined;
   if (key && !key.ok) { await journal.value.close(); return key; }
   const sealed = key?.ok ? await Secrets.open(join(config.value.root, 'sealed'), key.value) : undefined;
   if (key?.ok) key.value.fill(0);
   if (sealed && !sealed.ok) { await journal.value.close(); return sealed; }
-  const runtime = new Runtime({ root: join(config.value.root, 'targets'), recoveryJournal: join(config.value.root, 'observed.jsonl'), schemas, clock, identity, journal: journal.value, runner: new SandboxRunner(config.value.cgroup), ...(sealed?.ok ? { secrets: sealed.value } : {}), extension: target => ({ capabilities: evaluations?.extension(target.id).capabilities ?? [], methods: new Map<Method, Operation>([...(evaluations?.extension(target.id).methods ?? []), ['results.submit', (run, params) => act ? act.submit(run, params) : Promise.resolve(failure('unsupported', 'No default evaluation authority is configured.'))]]) }) });
+  const runtime = new Runtime({
+    root: join(config.value.root, 'targets'),
+    recoveryJournal,
+    schemas, clock, identity, journal: journal.value,
+    runner: new SandboxRunner(config.value.cgroup),
+    ...(sealed?.ok ? { secrets: sealed.value } : {}),
+    extension: evaluationExtension(() => evaluations, () => act)
+  });
   let endpoint: Awaited<ReturnType<typeof listen>> | undefined; const watcher: { current?: Awaited<ReturnType<typeof watchAll>> } = {};
   const close = async (): Promise<Result<void>> => { const watched = watcher.current?.ok ? await watcher.current.value.close() : undefined; const stopped = endpoint?.ok ? await endpoint.value.close() : undefined; const closed = await runtime.close(); const evaluated = await evaluations?.close(); await journal.value.close(); return watched && !watched.ok ? watched : stopped && !stopped.ok ? stopped : evaluated && !evaluated.ok ? evaluated : closed; };
   if (trusted) {
-    const prepared = await evaluationBootstrap({ root: join(config.value.root, 'execution'), journal: join(config.value.root, 'observed.jsonl'), schemas, clock, runner: new SandboxRunner(config.value.cgroup),
+    const prepared = await evaluationBootstrap({ root: join(config.value.root, 'execution'), journal: recoveryJournal, schemas, clock, runner: new SandboxRunner(config.value.cgroup),
       start: (account, services, ...args) => runtime.transient(account, services, ...args), endpoint: id => runtime.endpointDirectory(id), authority: () => runtime.emptyAuthority(), observe: (kind, data) => journal.value.observed('execution', kind, data) }, trusted);
     if (!prepared.ok) { await close(); return prepared; } evaluations = prepared.value;
     const administrator = identity.principal(trusted.administrator);
@@ -74,6 +84,23 @@ export async function start(path: string): Promise<Result<{ runtime: Runtime; id
   watcher.current = work;
   if (!work.ok) { await close(); return work; }
   return { ok: true, value: { runtime, identity, close } };
+}
+
+function evaluationExtension(
+  getEvaluation: () => Evaluation | undefined,
+  getAct: () => Act | undefined
+): NonNullable<RuntimeContext['extension']> {
+  const submit: Operation = async (run, params) => {
+    const act = getAct();
+    return act ? act.submit(run, params)
+      : failure('unsupported', 'No default evaluation authority is configured.');
+  };
+  return target => {
+    const evaluation = getEvaluation()?.extension(target.id);
+    const methods = new Map<Method, Operation>(evaluation?.methods);
+    methods.set('results.submit', submit);
+    return { capabilities: evaluation?.capabilities ?? [], methods };
+  };
 }
 
 async function boot(path: string): ReturnType<typeof start> {

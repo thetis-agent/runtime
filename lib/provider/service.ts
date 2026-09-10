@@ -2,8 +2,6 @@
 import { readFile } from 'node:fs/promises';
 import { authority } from '@/lib/sandbox-runner/authority.ts';
 import { Peer } from '@/lib/socket/index.ts';
-import type { Handler } from '@/lib/socket/index.ts';
-import type { Method, Note } from '@/contracts/kernel-socket/types.ts';
 import { Schemas, failure, isObject } from '@/lib/schema/index.ts';
 import type { Result } from '@/lib/schema/index.ts';
 import { clock } from '@/lib/events/index.ts';
@@ -13,40 +11,11 @@ import type { Provider, Authority } from './index.ts';
 import { BudgetCheckpoint } from './checkpoint.ts';
 import { KernelAuthority } from './authority.ts';
 import { listen } from './server.ts';
-import type { Service } from './lifecycle.ts';
 import type { Startup } from './types.ts';
+import { Control } from '@/lib/service/control.ts';
 
 type Factory = (settings: Record<string, unknown>, authority: Authority, budgets: Budgets, schemas: Schemas, clock: Clock, scope: 'person' | 'deployment') => Result<Provider> | Promise<Result<Provider>>;
 const paths = { socket: '/endpoint/service.sock', checkpoint: '/state/budget.json' };
-
-class Control {
-  service: Service | undefined;
-  readonly #started = Promise.withResolvers<Result<void>>();
-  #stopRequested = false;
-  #drained: Promise<Result<void>> | undefined;
-  readonly handlers = new Map<Method, Handler>([['health.probe', async () => {
-    const started = await this.#started.promise; if (!started.ok) return started;
-    const drained = await this.#drained; if (drained && !drained.ok) return drained;
-    return { ok: true, value: { ready: this.service?.ready ?? false, connections: this.service?.connections ?? 0, draining: this.service?.paused ?? false } };
-  }]]);
-
-  started(result: Result<void>): void { this.#started.resolve(result); }
-  attach(service: Service): void {
-    this.service = service;
-    if (this.#stopRequested) this.#drained = service.pause();
-    this.started({ ok: true, value: undefined });
-  }
-
-  async note(note: Note): Promise<Result<void>> {
-    if (note.note === 'run.stop') { this.#stopRequested = true; this.#drained ??= this.service?.pause(); }
-    if (note.note === 'env.updated' && note.params['resume'] === true && this.service) {
-      const resumed = await this.service.resume(); if (!resumed.ok) return resumed;
-      this.#drained = undefined;
-      this.#stopRequested = false;
-    }
-    return { ok: true, value: undefined };
-  }
-}
 
 async function policy(peer: Peer, schemas: Schemas): Promise<Result<Startup>> {
   const supplied = await peer.call('profile.get', {}); if (!supplied.ok) return supplied;
@@ -58,7 +27,15 @@ async function policy(peer: Peer, schemas: Schemas): Promise<Result<Startup>> {
 
 export async function serve(factory: Factory, observe: (result: Result<void>) => void): Promise<Result<void>> {
   const inherited = await authority(); if (!inherited.ok) return inherited;
-  const schemas = new Schemas(); await schemas.load(); const control = new Control();
+  const schemas = new Schemas(); await schemas.load();
+  const control = new Control(
+    service => ({
+      ready: service?.ready ?? false,
+      connections: service?.connections ?? 0,
+      draining: service?.paused ?? false
+    }),
+    { ok: true, value: undefined }
+  );
   const peer = new Peer(inherited.value.socket, schemas, clock, ['health.probe', 'profile.get', 'token.whois', 'usage.report', 'run.stop', 'env.updated'], { handlers: control.handlers, note: note => control.note(note) });
   try {
     const connected = await peer.connect(); if (!connected.ok) return connected;
@@ -67,10 +44,10 @@ export async function serve(factory: Factory, observe: (result: Result<void>) =>
     const budgets = new Budgets(config.value.rule, Date.now, config.value.peopleLimit, checkpoint.value);
     const adapter = await factory(config.value.settings, new KernelAuthority(peer), budgets, schemas, clock, connected.value.scope); if (!adapter.ok) return adapter;
     const opened = await listen(paths.socket, adapter.value, schemas, observe); if (!opened.ok) return opened;
-    control.attach(opened.value);
+    control.ready({ ok: true, value: undefined }, opened.value);
     return await peer.finished();
   } finally {
-    control.started(failure('io', 'The service did not finish initialization.'));
+    control.ready(failure('io', 'The service did not finish initialization.'));
     const stopped = await control.service?.stop(); if (stopped && !stopped.ok) observe(stopped);
     peer.close(); await peer.finished();
   }

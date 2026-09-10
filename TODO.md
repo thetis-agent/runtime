@@ -66,13 +66,15 @@ Do not commit until both `check` and the full `test` command pass.
 
 ## 2. Kernel budget
 
-The latest inventory has **1,700 physical non-test TypeScript lines**. Under
-operator-approved ADRs 0039 and 0051, it excludes **185 import-only lines**,
-**134 blank lines** and **20 comment-only lines**. The **1,361 counted lines**
-remain **61 lines above** the unchanged 1,300-line budget. The installer and
+The integrated DI/IoC inventory has **1,774 physical non-test TypeScript lines**.
+Under operator-approved ADRs 0039 and 0051, it excludes **190 import-only lines**,
+**140 blank lines** and **21 comment-only lines**. The **1,423 counted lines**
+remain **123 lines above** the unchanged 1,300-line budget. The installer and
 update work adds exactly one kernel file, `kernel/supervisor-main.ts`, the
 production entry ADR 0048 requires, at **2 counted and 6 physical lines**;
-everything else it adds is in `lib/`.
+everything else it adds is in `lib/`. The DI/IoC refactor keeps named dispatch
+handlers and evaluation authority composition in the kernel; it does not move
+authority to reduce the count.
 ADR 0040 moves byte-store mechanics behind `contract/storage`, with the default
 file backend shared by `storage-files` and the kernel. This extraction removes
 15 kernel lines at introduction; the current total includes the review's new
@@ -84,7 +86,7 @@ Record any further architectural extraction before implementation.
 ## 3. Missing deliverables
 
 - Operator review of the generated `profiles/default/` and its corresponding
-  installation seed. The profile now has 56 exact pins and a matching offline
+  installation seed. The profile now has 58 exact pins and a matching offline
   git bundle; its reconstruction test verifies every commit and tree hash.
   The example recipe and package bundle alone are not a provisioned deployment.
 - A passing `scripts/size.ts` result; kernel size remains above its limit.
