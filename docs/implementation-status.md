@@ -627,3 +627,21 @@ command then succeeds from that clean directory under Node 24.18.0/npm 11.16.0.
 The actual runtime checkout also passes that clean install, followed by strict
 checking and **50/50 focused update, coverage and descriptor-isolation tests**.
 Shell lint, workflow syntax, the kernel package-name scan and the size gate pass.
+
+## Release assembly and signing input · 2026-09-10
+
+ADR 0055 implements the operator's request to remove duplicate release
+verification. CI retains its full acceptance and coverage run. Release only
+assembles selected main-history sources and signs their delivery; it records
+the separately loaded runtime-main tooling revision in provenance. Existing
+tags can use these workflow fixes on a new dispatch from main.
+
+A clean checkout of runtime tag `v0.1.0` at `a9ed5b0` with packages `bde762d`
+passes locked dependency installation and real assembly. All nine delivery
+checksums pass, with no test, strict-check, kernel-gate or coverage outputs.
+Actionlint 1.7.12, ShellCheck 0.9.0, strict checking, the kernel package-name scan
+and six focused tests pass. Signing tests execute the exact workflow step with
+throwaway keys: raw, CRLF, escaped-newline, flattened and base64 forms sign and
+verify successfully; invalid and encrypted keys fail without disclosure or a
+retained temporary key. The originally generated operator key independently
+validates; the exact private secret stored in GitHub is not readable here.

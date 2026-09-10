@@ -1,6 +1,10 @@
 # ADR 0035: both repositories use the runtime's installed-layout gate.
-name: Verify Thetis
-description: Build, check, test with coverage and assemble the exact runtime/packages checkout pair
+name: Prepare Thetis delivery
+description: Verify in CI or assemble a release from the selected runtime/packages checkout pair
+inputs:
+  mode:
+    description: verify runs CI acceptance and coverage; assemble only builds delivery files (ADR 0055)
+    default: verify
 runs:
   using: composite
   steps:
@@ -10,11 +14,16 @@ runs:
         package-manager-cache: false
     - name: Prepare the mandatory Linux boundary
       shell: bash
-      run: bash runtime/.github/scripts/prepare-runner.sh
+      env:
+        ACTION_ROOT: ${{ github.action_path }}
+      run: bash "$ACTION_ROOT/../../scripts/prepare-runner.sh"
     - name: Install the locked development toolchain without lifecycle scripts
       shell: bash
       working-directory: runtime
       run: npm ci --ignore-scripts --no-audit --no-fund
-    - name: Run all release gates and assemble delivery files
+    - name: Prepare delivery files
       shell: bash
-      run: bash runtime/.github/scripts/verify.sh
+      env:
+        ACTION_ROOT: ${{ github.action_path }}
+        DELIVERY_MODE: ${{ inputs.mode }}
+      run: bash "$ACTION_ROOT/../../scripts/verify.sh" "$DELIVERY_MODE"

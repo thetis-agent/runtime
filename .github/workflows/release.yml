@@ -18,9 +18,9 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    name: Verify release
+    name: Assemble release
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 20
     outputs:
       commit: ${{ steps.revision.outputs.commit }}
     steps:
@@ -70,15 +70,20 @@ jobs:
         run: |
           [[ "$(git rev-parse HEAD)" == "$PEER_COMMIT" ]]
           git merge-base --is-ancestor HEAD refs/remotes/origin/main
-      - uses: ./runtime/.github/actions/verify
-      - name: Retain coverage, including failed tests
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - name: Load runtime release tooling from main
+        env:
+          TOOLING_COMMIT: ${{ github.sha }}
+        run: |
+          tooling="$TOOLING_COMMIT"
+          git -C runtime merge-base --is-ancestor "$tooling" refs/remotes/origin/main
+          mkdir release-tools
+          git -C runtime archive "$tooling" .github | tar -x -C release-tools --strip-components=1
+          printf 'THETIS_TOOLING_COMMIT=%s\n' "$tooling" >> "$GITHUB_ENV"
+          printf 'Release tooling runtime: %s\n' "$tooling" >> "$GITHUB_STEP_SUMMARY"
+      - name: Assemble selected sources
+        uses: ./release-tools/actions/verify
         with:
-          name: runtime-release-coverage-${{ github.run_id }}-${{ github.run_attempt }}
-          path: reports/coverage/
-          if-no-files-found: warn
-          retention-days: 30
+          mode: assemble
       - name: Retain diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -87,7 +92,7 @@ jobs:
           path: reports/
           if-no-files-found: warn
           retention-days: 30
-      - name: Hand verified bytes to publication
+      - name: Hand assembled bytes to publication
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-delivery-${{ github.run_id }}-${{ github.run_attempt }}
@@ -106,15 +111,61 @@ jobs:
       contents: write
     steps:
       # No checkout or candidate execution in the job holding a write token.
+      - name: Load release signing key
+        id: signing_key
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          release_key="$RUNNER_TEMP/zero-release-key"
+          trap 'rm -f "$release_key"' ERR
+          python3 - <<'PYKEY'
+          import base64, binascii, os, re, textwrap
+          from pathlib import Path
+
+          def normalize(value):
+              return value.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\r", "").strip()
+
+          try:
+              secret = os.environ.get("RELEASE_SIGNING_KEY", "")
+              if not secret or len(secret) > 65536:
+                  raise ValueError("missing or oversized key")
+              secret = normalize(secret)
+              if not secret.startswith("-----BEGIN OPENSSH PRIVATE KEY-----"):
+                  secret = normalize(base64.b64decode("".join(secret.split()), validate=True).decode("ascii"))
+              match = re.fullmatch(r"-----BEGIN OPENSSH PRIVATE KEY-----\s*(.*?)\s*-----END OPENSSH PRIVATE KEY-----", secret, re.S)
+              if not match:
+                  raise ValueError("missing OpenSSH envelope")
+              body = "".join(match.group(1).split())
+              decoded = base64.b64decode(body, validate=True)
+              if not decoded.startswith(b"openssh-key-v1\x00"):
+                  raise ValueError("invalid OpenSSH payload")
+              canonical = "-----BEGIN OPENSSH PRIVATE KEY-----\n" + "\n".join(textwrap.wrap(body, 70)) + "\n-----END OPENSSH PRIVATE KEY-----\n"
+              path = Path(os.environ["RUNNER_TEMP"]) / "zero-release-key"
+              with path.open("x", encoding="ascii") as output:
+                  output.write(canonical)
+          except (ValueError, binascii.Error, UnicodeError, OSError):
+              raise SystemExit("::error::RELEASE_SIGNING_KEY must be the complete unencrypted OpenSSH private key or base64 of that file; copy it without Markdown fences.")
+          PYKEY
+          unset RELEASE_SIGNING_KEY
+          if ! public_key=$(ssh-keygen -y -P '' -f "$release_key" 2>/dev/null); then
+            rm -f "$release_key"
+            printf '::error::RELEASE_SIGNING_KEY is damaged or passphrase-protected; replace it with the complete unencrypted key file or its base64 encoding.\n' >&2
+            exit 1
+          fi
+          read -r key_type key_data _ <<< "$public_key"
+          printf 'public_key=%s %s\n' "$key_type" "$key_data" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: release-delivery-${{ github.run_id }}-${{ github.run_attempt }}
           path: delivery
-      - name: Verify and publish without replacing a release
+      - name: Sign and publish without replacing a release
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          RELEASE_PUBLIC_KEY: ${{ steps.signing_key.outputs.public_key }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
           PEER_COMMIT: ${{ inputs.peer_commit }}
@@ -139,16 +190,13 @@ jobs:
             printf '::error::Release already exists; publish a new version.\n'
             exit 1
           fi
-          jq -r '"Runtime: " + .runtime.commit, "Packages: " + .packages.commit, "Node: " + .node.version, "Checks: " + .run' provenance.json > "$RUNNER_TEMP/release-notes.md"
-          printf '\nVerified offline delivery. Production activation requires the deployment evaluator and the kernel confirmation transaction (ADR 0014, ADR 0018).\n' >> "$RUNNER_TEMP/release-notes.md"
+          jq -r '"Runtime: " + .runtime.commit, "Packages: " + .packages.commit, "Node: " + .node.version, "Assembly: " + .run' provenance.json > "$RUNNER_TEMP/release-notes.md"
+          printf '\nOffline delivery assembled from reviewed main history (ADR 0055). Production activation requires the deployment evaluator and the kernel confirmation transaction (ADR 0014, ADR 0018).\n' >> "$RUNNER_TEMP/release-notes.md"
           # ADR 0052: no candidate execution has access to the release signing key.
-          : "${RELEASE_SIGNING_KEY:?Configure RELEASE_SIGNING_KEY in the protected release environment.}"
           umask 077
           release_key="$RUNNER_TEMP/zero-release-key"
           trap 'rm -f "$release_key"' EXIT
-          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$release_key"
-          public_key=$(ssh-keygen -y -f "$release_key")
-          allowed="release@thetis-agent namespaces=\"zero-release\" $public_key"
+          allowed="release@thetis-agent namespaces=\"zero-release\" $RELEASE_PUBLIC_KEY"
           printf '%s\n' "$allowed" > allowed_signers
           # These are the only delivery bytes changed after verification: the installer's public trust root, tag and asset URL.
           sed -i "s|^ZERO_ALLOWED_SIGNERS=.*|ZERO_ALLOWED_SIGNERS='$allowed'|; s|^ZERO_TAG=.*|ZERO_TAG='$RELEASE_TAG'|; s|^ZERO_RELEASE_URL=.*|ZERO_RELEASE_URL='https://github.com/$GITHUB_REPOSITORY/releases/download'|" install.sh
@@ -165,3 +213,7 @@ jobs:
           url=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
           printf 'url=%s\n' "$url" >> "$GITHUB_OUTPUT"
           printf 'Published [%s](%s).\n' "$RELEASE_TAG" "$url" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary signing key
+        if: ${{ always() }}
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/zero-release-key"
