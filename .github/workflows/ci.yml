@@ -36,11 +36,29 @@ jobs:
           persist-credentials: false
           submodules: false
           lfs: false
+      - name: Select peer revision
+        id: peer
+        env:
+          INPUT_PEER_REF: ${{ inputs.peer_ref }}
+          DEFAULT_PEER_REF: ${{ vars.THETIS_PACKAGES_REF || 'main' }}
+        run: |
+          ref=$(jq -er --arg input "$INPUT_PEER_REF" --arg fallback "$DEFAULT_PEER_REF" '
+            if $input != "" then $input
+            elif .pull_request then
+              [.pull_request.body // "" | split("\n")[] | rtrimstr("\r") | select(startswith("Thetis peer commit:"))] as $pins
+              | if ($pins | length) == 0 then $fallback
+                elif ($pins | length) == 1 and ($pins[0] | test("^Thetis peer commit: [0-9a-f]{40}$"))
+                then $pins[0] | ltrimstr("Thetis peer commit: ")
+                else error("Use one full Thetis peer commit in the pull request body.") end
+            else $fallback end
+            | if test("^[^\r\n]+$") then . else error("The peer reference must be one line.") end
+          ' "$GITHUB_EVENT_PATH")
+          printf 'ref=%s\n' "$ref" >> "$GITHUB_OUTPUT"
       - name: Check out packages
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: thetis-agent/packages
-          ref: ${{ inputs.peer_ref || vars.THETIS_PACKAGES_REF || 'main' }}
+          ref: ${{ steps.peer.outputs.ref }}
           token: ${{ secrets.THETIS_SOURCE_TOKEN || github.token }}
           fetch-depth: 1
           path: packages

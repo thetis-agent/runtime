@@ -15,6 +15,20 @@ filters: contract and dependency changes need the same combined suite as package
 changes. The peer defaults to `main`; repository variables `THETIS_PACKAGES_REF`
 (runtime) and `THETIS_RUNTIME_REF` (packages) may pin a supported peer commit.
 Manual CI's `peer_ref` allows testing coordinated changes before either is merged.
+For a coordinated pull request, add one line to its body:
+
+```text
+Thetis peer commit: <full 40-character lowercase commit hash>
+```
+
+PR CI checks out that exact commit from the fixed peer repository. A malformed
+or duplicate line fails the job. The body is read as data from the event file;
+it is never evaluated as shell code. The pin applies only to that pull request.
+Set the line before pushing the branch. Use manual CI to select a different peer
+without a new push; rerunning an old PR job retains its original event data.
+Push, merge queue and scheduled runs retain the configured peer default. This
+selection changes no checks or release requirements.
+
 The report records the resolved commits of both checkouts, including a PR's
 tested merge commit. A rerun against a moving peer branch may resolve new bytes;
 release builds always require the peer's complete commit hash.
