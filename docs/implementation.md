@@ -89,3 +89,9 @@ The accepted kernel ceiling is 1,500 counted lines under note 0051. Keep authori
 ## 0055 · Release delivery
 
 Release tooling must not repeat the full CI suite. Runtime publication reuses the exact successful CI delivery, whose pins were computed from and checked against the assembled archive. Release signatures and tag identity remain mandatory; signing is isolated from candidate execution. See [CI delivery](ci-delivery.md) for the current workflow.
+
+## Paid API tools
+
+Tool stages can use an authenticated service connection supplied at initialization.
+The registered process owns API access and cost admission. See
+[tool services](tool-services.md) and [the wire contract](contracts/tool-service.md).

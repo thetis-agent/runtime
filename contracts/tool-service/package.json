@@ -1,0 +1,7 @@
+{
+  "name": "contract/tool-service",
+  "version": "1.0.0",
+  "type": "module",
+  "requires": { "contract/turn-events": "^1.1" },
+  "provides": { "contract/tool-service": "1.0.0" }
+}

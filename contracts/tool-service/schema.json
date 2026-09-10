@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/tool-service/1",
+  "$defs": {
+    "request": {
+      "type": "object",
+      "required": ["v", "runToken", "call"],
+      "properties": {
+        "v": { "const": "1" },
+        "runToken": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "call": { "$ref": "thetis://contract/turn-events/1#/$defs/callRequest" }
+      }
+    },
+    "response": { "$ref": "thetis://contract/turn-events/1#/$defs/callAnswer" }
+  },
+  "$ref": "#/$defs/request"
+}
