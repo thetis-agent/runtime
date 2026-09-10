@@ -1,7 +1,7 @@
 /** Separate trusted observations from submitted claims in a bounded append-only journal; ADR 0014, KS-020. */
-import { storage } from '../../lib/storage/index.ts';
-import type { AppendLog } from '../../contracts/storage/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
+import { storage } from '@/lib/storage/index.ts';
+import type { AppendLog } from '@/contracts/storage/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export type Provenance = 'kernel-observed' | 'candidate-reported' | 'reviewed-reported';
 export interface Observed { provenance: 'kernel-observed'; at: number; target: string; kind: string; data: Readonly<Record<string, unknown>> }

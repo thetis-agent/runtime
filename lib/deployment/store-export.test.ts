@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { exportDeployment } from './store-export.ts';
-import { runtimeFixture, people } from '../../test/runtime-fixture.ts';
-import { Runtime } from '../../kernel/boundary/runtime.ts';
-import { Journal } from '../../kernel/log/index.ts';
-import { Identity } from '../../kernel/identity/index.ts';
-import { SandboxRunner } from '../sandbox-runner/index.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
+import { Runtime } from '@/kernel/boundary/runtime.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
 
 await test('GN-007 exported stopped store replays verified pins after host-root relocation', async () => {
   const f = await runtimeFixture(); const destination = await mkdtemp('/tmp/ke-');

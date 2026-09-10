@@ -2,10 +2,11 @@
 import { spawn } from 'node:child_process';
 import { readdir, realpath } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
-import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
-import { delegate } from '../lib/sandbox-runner/cgroup.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { sourceMounts, workspace } from './workspace.ts';
+import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
+import { delegate } from '@/lib/sandbox-runner/cgroup.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { sourceMounts, workspace } from '@/scripts/workspace.ts';
+import { sourceFlags } from '@/lib/artifacts/index.ts';
 // Eight persistent sandboxed targets (the two-account recipe with its web surface) exhaust 128 tasks as the seventh starts.
 const supervisor = { memoryMiB: 2048, tasks: 256, cpuPercent: 100 };
 
@@ -21,7 +22,7 @@ async function files(directory: string): Promise<string[]> {
 }
 
 if (!process.argv.includes('--delegated')) {
-  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', `MemoryMax=${String(supervisor.memoryMiB)}M`, '-p', `TasksMax=${String(supervisor.tasks)}`, '-p', `CPUQuota=${String(supervisor.cpuPercent)}%`, process.execPath, new URL(import.meta.url).pathname, '--delegated', ...process.argv.slice(2)], { stdio: 'inherit' });
+  const child = spawn('systemd-run', ['--user', '--scope', '--quiet', '-p', 'Delegate=yes', '-p', `MemoryMax=${String(supervisor.memoryMiB)}M`, '-p', `TasksMax=${String(supervisor.tasks)}`, '-p', `CPUQuota=${String(supervisor.cpuPercent)}%`, process.execPath, ...sourceFlags(), new URL(import.meta.url).pathname, '--delegated', ...process.argv.slice(2)], { stdio: 'inherit' });
   child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
   child.once('exit', code => { process.exitCode = code ?? 1; });
 } else {
@@ -42,7 +43,7 @@ async function run(control: string): Promise<void> {
   const args = [...namespace(runtime, 67108864), '--size', '67108864', '--tmpfs', '/packages', '--size', '536870912', '--tmpfs', '/assembly',
     '--dev-bind', '/dev/net/tun', '/dev/net/tun', '--dir', '/etc', '--dir', '/run', ...await sourceMounts(root), '--bind', control, '/cgroup', '--chdir', workspace,
     ...seal,
-    '--', '/runtime/bin/node', '--test', '--test-concurrency=1', ...tests
+    '--', '/runtime/bin/node', '--import', `${workspace}/lib/artifacts/source.mjs`, '--test', '--test-concurrency=1', ...tests
   ];
   const child = spawn('bwrap', args, { stdio: 'inherit', env: { PATH: '/usr/bin:/bin' } });
   child.once('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });

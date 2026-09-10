@@ -13,14 +13,14 @@
     "test"
   ],
   "scripts": {
-    "check": "node scripts/check.ts",
-    "build": "node scripts/build.ts",
-    "test": "node scripts/test.ts",
-    "bench": "node scripts/bench.ts",
-    "size": "node scripts/size.ts",
-    "release": "node scripts/release.ts",
-    "live": "node scripts/live.ts",
-    "generate": "node lib/schema/generate.ts"
+    "check": "node --import ./lib/artifacts/source.mjs scripts/check.ts",
+    "build": "node --import ./lib/artifacts/source.mjs scripts/build.ts",
+    "test": "node --import ./lib/artifacts/source.mjs scripts/test.ts",
+    "bench": "node --import ./lib/artifacts/source.mjs scripts/bench.ts",
+    "size": "node --import ./lib/artifacts/source.mjs scripts/size.ts",
+    "release": "node --import ./lib/artifacts/source.mjs scripts/release.ts",
+    "live": "node --import ./lib/artifacts/source.mjs scripts/live.ts",
+    "generate": "node --import ./lib/artifacts/source.mjs lib/schema/generate.ts"
   },
   "dependencies": {
     "ajv": "8.17.1",

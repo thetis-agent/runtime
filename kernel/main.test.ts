@@ -3,8 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { start } from './main.ts';
-import { revision } from '../test/runtime-fixture.ts';
+import { start } from '@/kernel/main.ts';
+import { revision } from '@/test/runtime-fixture.ts';
 
 await test('KS-010 configured kernel starts only a hash-verified sandbox target and refuses forged pins', async () => {
   const root = await mkdtemp('/tmp/boot-'); const state = join(root, 'state'); await mkdir(state);

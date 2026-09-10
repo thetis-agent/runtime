@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Usage, limits } from './usage.ts';
-import { Identity } from '../identity/index.ts';
-import { Journal } from '../log/index.ts';
+import { Usage, limits } from '@/kernel/boundary/usage.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
 
 async function fixture() {
   const root = await mkdtemp('/tmp/usage-'); const journal = await Journal.open(join(root, 'log.jsonl'), () => 0); assert.ok(journal.ok);

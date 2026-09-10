@@ -2,11 +2,11 @@
 import { Worker } from 'node:worker_threads';
 import type { Plan, Submission } from './types.ts';
 import type { Gate } from './metrics.ts';
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
-import { Schemas } from '../schema/index.ts';
-import { encode } from '../ndjson/index.ts';
-import schema from '../../contracts/evaluator/schema.json' with { type: 'json' };
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { encode } from '@/lib/ndjson/index.ts';
+import schema from '@/contracts/evaluator/schema.json' with { type: 'json' };
 
 export const calculationLimits = { workers: 2, inputBytes: 1048576 };
 let workers = 0;

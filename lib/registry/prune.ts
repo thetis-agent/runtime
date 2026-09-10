@@ -1,7 +1,7 @@
 /** Delete only an exact lease-cleared release while retaining its immutable tombstone; KS-011. */
 import { git, reference } from './git.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 import type { Registry, Pin } from './index.ts';
 
 export async function prune(registry: Registry, pin: Pin): Promise<Result<{ pruned: string }>> {

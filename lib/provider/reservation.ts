@@ -1,8 +1,8 @@
 /** Apply an ordinary run's trusted cost ceiling before vendor access; ADR 0020, PR-010. */
 import { createHash } from 'node:crypto';
 import type { Budgets, Caller } from './index.ts';
-import type { Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 
 export function reserve(budgets: Budgets, caller: Caller, token: string, estimate: number, scope: 'person' | 'deployment'): Result<(actual: number) => void, 'budget'> {
   const reservations: ((actual: number) => void)[] = [];

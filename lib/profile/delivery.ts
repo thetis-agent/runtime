@@ -3,11 +3,11 @@ import { mkdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { materialize } from './index.ts';
-import { snapshot } from '../snapshots/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import type { Registry } from '../registry/index.ts';
-import type { Selection } from '../../contracts/registry/types.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import type { Registry } from '@/lib/registry/index.ts';
+import type { Selection } from '@/contracts/registry/types.ts';
 import type { Install, Layer } from './types.ts';
 export async function assemble(registry: Registry, cache: string, selections: readonly Selection[], schemas: Schemas): Promise<Result<Install>> {
   const layers: Layer[] = [];

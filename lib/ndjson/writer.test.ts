@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FrameWriter } from './writer.ts';
 import { socketFrames } from './socket.ts';
-import { socketPair } from '../../test/socket-pair.ts';
+import { socketPair } from '@/test/socket-pair.ts';
 
 await test('KS-018 a control frame precedes ten MiB of queued bulk on the socket', async () => {
   const pair = await socketPair(); const writer = new FrameWriter(pair.client); const frames = socketFrames(pair.peer);

@@ -1,16 +1,16 @@
 /** Verify pins and migrate only an isolated state copy before probing; GN-002, GN-006. */
 import { mkdir, rm } from 'node:fs/promises';
 import { join, resolve, isAbsolute, dirname } from 'node:path';
-import { verify } from '../../lib/snapshots/index.ts';
-import { retainPin } from '../../lib/snapshots/pins.ts';
-import { activeRuns } from '../../lib/snapshots/retention.ts';
-import type { SnapshotStore } from '../../lib/snapshots/store.ts';
-import { formats } from '../../lib/files/formats.ts';
-import { command } from '../../lib/sandbox-runner/command.ts';
-import type { Plan, Mount } from '../../lib/sandbox-runner/index.ts';
-import type { Context } from '../boundary/process.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
+import { verify } from '@/lib/snapshots/index.ts';
+import { retainPin } from '@/lib/snapshots/pins.ts';
+import { activeRuns } from '@/lib/snapshots/retention.ts';
+import type { SnapshotStore } from '@/lib/snapshots/store.ts';
+import { formats } from '@/lib/files/formats.ts';
+import { command } from '@/lib/sandbox-runner/command.ts';
+import type { Plan, Mount } from '@/lib/sandbox-runner/index.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export interface Revision {
   plan: Omit<Plan, 'socket' | 'token' | 'mounts'>;

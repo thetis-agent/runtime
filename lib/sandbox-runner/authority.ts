@@ -1,8 +1,8 @@
 /** Consume the inherited credential without giving ordinary children an environment token; ADR 0021, KS-001. */
 import { createReadStream } from 'node:fs';
 import { Socket } from 'node:net';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export async function authority(): Promise<Result<{ socket: Socket; token: string }, 'auth'>> {
   const chunks: Uint8Array[] = []; let bytes = 0;

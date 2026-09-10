@@ -1,9 +1,9 @@
 /** Preserve final attribution even when a vendor or consumer ends early; PR-011, ADR 0020. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MockProvider } from '../../packages/provider-mock/index.ts';
-import { failure } from '../schema/index.ts';
-import { providerFixture, collect, request, stream } from '../../test/provider-fixture.ts';
+import { MockProvider } from '@/packages/provider-mock/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import { providerFixture, collect, request, stream } from '@/test/provider-fixture.ts';
 
 await test('PR-011 early vendor errors report the conservative reservation exactly once', async () => {
   const f = providerFixture([[{ type: 'error', code: 'auth', message: 'Rejected.' }]]);

@@ -2,15 +2,15 @@
 import assert from 'node:assert/strict';
 import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { start } from '../kernel/main.ts';
-import { configuration } from '../lib/deployment/index.ts';
-import { writeDeployment } from '../lib/profile/orchestrate.ts';
-import { catalog } from '../lib/profile/catalog.ts';
-import { packagesRoot } from '../lib/profile/packages-root.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import type { ConfiguredTarget, Configuration } from '../lib/deployment/index.ts';
-import type { Entry, Registration } from '../lib/package-loader/types.ts';
+import { start } from '@/kernel/main.ts';
+import { configuration } from '@/lib/deployment/index.ts';
+import { writeDeployment } from '@/lib/profile/orchestrate.ts';
+import { catalog } from '@/lib/profile/catalog.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import type { ConfiguredTarget, Configuration } from '@/lib/deployment/index.ts';
+import type { Entry, Registration } from '@/lib/package-loader/types.ts';
 
 export const provision: Registration = { requires: {}, provides: { 'service/dynamic': '1.0.0' } };
 export const producerCode = `export const stages = {};

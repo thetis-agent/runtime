@@ -1,6 +1,6 @@
 /** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
-import type * as Provider from '../provider/types.ts';
-import type * as Skills from '../skills/types.ts';
+import type * as Provider from '@/contracts/provider/types.ts';
+import type * as Skills from '@/contracts/skills/types.ts';
 export type Content = Provider.Content;
 export type Message = { "role": "system" | "user" | "assistant" | "tool"; "content": (Content)[]; "protected"?: boolean; "source": string; "toolCallId"?: string; [key: string]: unknown; };
 export type Envelope = { "type": "input" | "retrieve" | "context" | "offer" | "model.begin" | "model.event" | "model.end" | "call" | "token" | "output" | "end" | "notice"; "conversation": string; "turn": number; "iteration": number; "seq": number; "payload": { [key: string]: unknown; }; [key: string]: unknown; };

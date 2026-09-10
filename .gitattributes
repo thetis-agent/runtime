@@ -1,1 +1,3 @@
 *.bundle binary
+# Type erasure preserves source columns on otherwise empty generated lines.
+lib/artifacts/*.mjs whitespace=-blank-at-eol

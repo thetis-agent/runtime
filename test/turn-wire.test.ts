@@ -2,15 +2,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { loopFixture } from './loop-fixture.ts';
-import { listen } from '../lib/provider/server.ts';
-import { ProviderClient } from '../lib/provider/client.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import type { Provider } from '../lib/provider/index.ts';
-import type { RequestEvent } from '../contracts/provider/types.ts';
-import type { Envelope } from '../contracts/turn-events/types.ts';
-import { Loop } from '../packages/core/index.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
+import { listen } from '@/lib/provider/server.ts';
+import { ProviderClient } from '@/lib/provider/client.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import type { Provider } from '@/lib/provider/index.ts';
+import type { RequestEvent } from '@/contracts/provider/types.ts';
+import type { Envelope } from '@/contracts/turn-events/types.ts';
+import { Loop } from '@/packages/core/index.ts';
 
 await test('TE-027 model.begin contains exactly the events received on the provider socket', async () => {
   const f = await loopFixture(); const schemas = new Schemas(); await schemas.load();

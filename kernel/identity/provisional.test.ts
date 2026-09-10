@@ -1,7 +1,7 @@
 /** Keep private probes possible without admitting candidate calls before a switch; GN-003–004. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Identity } from './index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
 
 function fixture() {
   const identity = new Identity({ people: [{ id: 'alice', role: 'user', projects: [], observeOthers: false }], authorities: {}, bindings: [] }, () => 0);

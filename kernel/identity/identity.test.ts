@@ -1,7 +1,7 @@
 /** Defend caller identity and generation fencing even under deliberate delegation; ADR 0021. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Identity } from './index.ts';
+import { Identity } from '@/kernel/identity/index.ts';
 
 function fixture(): Identity {
   return new Identity({ people: [

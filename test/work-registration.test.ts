@@ -3,9 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { watchWork } from '../lib/deployment/work.ts';
-import type { Result } from '../lib/schema/index.ts';
-import { workRegistrationFixture, producerCode } from './work-registration-fixture.ts';
+import { watchWork } from '@/lib/deployment/work.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { workRegistrationFixture, producerCode } from '@/test/work-registration-fixture.ts';
 
 await test('GN-001 comment-only work edits recapture dynamic provisions through the actual watcher', async () => {
   const fixture = await workRegistrationFixture(); let launches = 0;

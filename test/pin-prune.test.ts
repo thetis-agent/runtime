@@ -3,13 +3,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { runtimeFixture, people } from './runtime-fixture.ts';
-import { registryService } from './registry-service.ts';
-import { call } from '../lib/registry/client.ts';
-import { Pins } from '../lib/pins/index.ts';
-import { isObject } from '../lib/schema/index.ts';
-import schema from '../contracts/registry/schema.json' with { type: 'json' };
-import type { Pin } from '../contracts/registry/types.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
+import { registryService } from '@/test/registry-service.ts';
+import { call } from '@/lib/registry/client.ts';
+import { Pins } from '@/lib/pins/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import schema from '@/contracts/registry/schema.json' with { type: 'json' };
+import type { Pin } from '@/contracts/registry/types.ts';
 
 await test('KS-011 a hash-verified installed release cannot be pruned while named by a live conversation, including ledger recovery', async () => {
   const registry = await registryService(); const f = await runtimeFixture();

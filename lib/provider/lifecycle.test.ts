@@ -4,16 +4,16 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import type { Socket } from 'node:net';
 import { join } from 'node:path';
-import { ManualClock } from '../events/index.ts';
-import { Schemas } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import { connect, send } from '../ndjson/socket.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { connect, send } from '@/lib/ndjson/socket.ts';
 import { listen } from './server.ts';
 import { serviceLimits } from './lifecycle.ts';
 import { ProviderEngine } from './engine.ts';
 import type { Vendor } from './engine.ts';
 import { ProviderClient } from './client.ts';
-import { providerFixture, request, stream, collect } from '../../test/provider-fixture.ts';
+import { providerFixture, request, stream, collect } from '@/test/provider-fixture.ts';
 
 const closure = (socket: Socket): Promise<void> => new Promise(resolve => { socket.once('close', () => { resolve(); }); });
 

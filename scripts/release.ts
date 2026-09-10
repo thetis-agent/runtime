@@ -3,14 +3,14 @@ import { mkdir, realpath, mkdtemp, copyFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { namespace, seal } from '../lib/sandbox-runner/namespace.ts';
-import { sourceMounts, execute } from './workspace.ts';
-import { Registry } from '../lib/registry/index.ts';
-import { git } from '../lib/registry/git.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { bootstrap, writeProfile } from '../lib/profile/bootstrap.ts';
-import { atomicWrite } from '../lib/files/atomic.ts';
-import { fileChunks } from '../lib/ndjson/file.ts';
+import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
+import { sourceMounts, execute } from '@/scripts/workspace.ts';
+import { Registry } from '@/lib/registry/index.ts';
+import { git } from '@/lib/registry/git.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { bootstrap, writeProfile } from '@/lib/profile/bootstrap.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { fileChunks } from '@/lib/ndjson/file.ts';
 const limits = { temporaryBytes: 536870912, bundleBytes: 67108864 };
 
 async function release(): Promise<void> {
@@ -35,6 +35,6 @@ if (process.argv.includes('--workspace')) await release();
 else {
   const destination = resolve(process.argv[2] ?? 'profiles/default'); await mkdir(destination, { recursive: true });
   const args = [...namespace(dirname(dirname(process.execPath)), limits.temporaryBytes), ...await sourceMounts(fileURLToPath(new URL('..', import.meta.url))),
-    '--bind', await realpath(destination), '/release', '--chdir', '/workspace', ...seal, '--', '/runtime/bin/node', '/workspace/scripts/release.ts', '--workspace'];
+    '--bind', await realpath(destination), '/release', '--chdir', '/workspace', ...seal, '--', '/runtime/bin/node', '--import', '/workspace/lib/artifacts/source.mjs', '/workspace/scripts/release.ts', '--workspace'];
   process.exitCode = await execute('bwrap', args);
 }

@@ -1,9 +1,9 @@
 /** Attribute reports only through recorded caller grants and enforce the cost backstop; KS-012–013, ADR 0020. */
-import type { UsageReportParams } from '../../contracts/kernel-socket/types.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
-import type { Identity, Run } from '../identity/index.ts';
-import type { Journal } from '../log/index.ts';
+import type { UsageReportParams } from '@/contracts/kernel-socket/types.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Identity, Run } from '@/kernel/identity/index.ts';
+import type { Journal } from '@/kernel/log/index.ts';
 
 export const limits = { people: 4096, queuedReports: 256, counters: 256, identifierBytes: 256, cost: 100, windowMs: 86400000 };
 export class Usage {

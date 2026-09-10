@@ -1,14 +1,14 @@
 /** Exercise CLI commands through real fenced RPC and real sessions; KS-004–005. */
 import assert from 'node:assert/strict';
-import { sessionFixture } from './session-fixture.ts';
-import { socketPair } from '../lib/socket/pair.ts';
-import { Peer } from '../lib/socket/index.ts';
-import { accept } from '../kernel/socket/index.ts';
-import type { Operation, Operations } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import type { Input } from '../contracts/turn-events/types.ts';
-import { capabilities } from '../packages/cli/index.ts';
-import { failure } from '../lib/schema/index.ts';
+import { sessionFixture } from '@/test/session-fixture.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import { accept } from '@/kernel/socket/index.ts';
+import type { Operation, Operations } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import type { Input } from '@/contracts/turn-events/types.ts';
+import { capabilities } from '@/packages/cli/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 
 export function cliOperations(f: Awaited<ReturnType<typeof sessionFixture>>): Operations {
   const check = f.runtime.schemas.validator<Input>('turn-events', 'input');

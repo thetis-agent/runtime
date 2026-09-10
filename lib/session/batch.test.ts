@@ -1,10 +1,10 @@
 /** Assert timer/byte batching and bounded subscriber replay with an injected clock; ADR 0015 §9. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ManualClock } from '../events/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 import { SessionEvents } from './index.ts';
 import { Batches, limits } from './batch.ts';
-import type { Envelope } from '../../contracts/turn-events/types.ts';
+import type { Envelope } from '@/contracts/turn-events/types.ts';
 
 function event(type: 'token' | 'end', seq: number): Envelope {
   return { type, conversation: 'conversation', turn: 1, iteration: type === 'end' ? 0 : 1, seq, payload: type === 'token' ? { text: 'x' } : { reason: 'answer', iterations: 1, compactions: 0 } };

@@ -1,8 +1,8 @@
 /** Measure the seeded mock and cache model independently of a real vendor; PR-014. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { providerFixture, request, collect, stream } from './provider-fixture.ts';
-import { loopFixture } from './loop-fixture.ts';
+import { providerFixture, request, collect, stream } from '@/test/provider-fixture.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
 
 await test('Mock cache serves at least 99 percent of turn two on the long-prefix fixture', async () => {
   const { provider, token } = providerFixture();

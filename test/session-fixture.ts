@@ -2,14 +2,14 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Sessions } from '../packages/core/sessions.ts';
-import type { Runtime } from '../packages/core/sessions.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { providerFixture } from './provider-fixture.ts';
-import type { Envelope } from '../contracts/turn-events/types.ts';
-import type { Vendor } from '../lib/provider/engine.ts';
-import { ProviderEngine } from '../lib/provider/engine.ts';
+import { Sessions } from '@/packages/core/sessions.ts';
+import type { Runtime } from '@/packages/core/sessions.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { providerFixture } from '@/test/provider-fixture.ts';
+import type { Envelope } from '@/contracts/turn-events/types.ts';
+import type { Vendor } from '@/lib/provider/engine.ts';
+import { ProviderEngine } from '@/lib/provider/engine.ts';
 
 export async function sessionFixture(vendor?: Vendor) {
   const root = await mkdtemp('/tmp/sessions-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();

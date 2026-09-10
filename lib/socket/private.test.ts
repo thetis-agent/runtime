@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { privateEndpoint } from './private.ts';
-import { connect } from '../ndjson/socket.ts';
+import { connect } from '@/lib/ndjson/socket.ts';
 
 await test('KS-001 a private endpoint closes its listener after one peer and removes its directory', async () => {
   const opened = await privateEndpoint(); assert.ok(opened.ok);

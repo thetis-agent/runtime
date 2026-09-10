@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { administrator, reviewer, evidence } from './default-act.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import { connect, socketFrames, send } from '../lib/ndjson/socket.ts';
-import { isObject } from '../lib/schema/index.ts';
+import { administrator, reviewer, evidence } from '@/test/default-act.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { connect, socketFrames, send } from '@/lib/ndjson/socket.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
-import { releaseDigest } from '../lib/deployment/release.ts';
-import type { Target, Mount } from '../lib/deployment/types.ts';
+import { releaseDigest } from '@/lib/deployment/release.ts';
+import type { Target, Mount } from '@/lib/deployment/types.ts';
 export async function authority(path: string, method: string, params: Record<string, unknown>) {
   const socket = await connect(path); assert.ok(socket.ok);
   try {

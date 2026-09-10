@@ -1,7 +1,7 @@
 /** Enforce call-time budgets before vendor access; PR-010, ADR 0020. */
-import type { RequestEvent, ResponseEvent, DescribeResponse } from '../../contracts/provider/types.ts';
-import type { Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
+import type { RequestEvent, ResponseEvent, DescribeResponse } from '@/contracts/provider/types.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 import type { BudgetCheckpoint } from './checkpoint.ts';
 import { Balance } from './balance.ts';
 import { balance, money } from './money.ts';

@@ -1,17 +1,17 @@
 /** Launch and probe only credentialled sandbox processes, observing their actual exit; GN-003, KS-017. */
-import type { Method } from '../../contracts/kernel-socket/types.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
 import { randomUUID } from 'node:crypto';
-import type { Schemas, Result } from '../../lib/schema/index.ts';
-import { failure, isObject } from '../../lib/schema/index.ts';
-import type { Clock } from '../../lib/events/index.ts';
-import type { SandboxRunner, Plan, Running } from '../../lib/sandbox-runner/index.ts';
-import { socketPair } from '../../lib/socket/pair.ts';
-import type { Pair } from '../../lib/socket/pair.ts';
-import type { Peer } from '../../lib/socket/index.ts';
-import { accept } from '../socket/index.ts';
-import type { Operations } from '../socket/index.ts';
-import type { Identity } from '../identity/index.ts';
-import type { Journal } from '../log/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { SandboxRunner, Plan, Running } from '@/lib/sandbox-runner/index.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import type { Pair } from '@/lib/socket/pair.ts';
+import type { Peer } from '@/lib/socket/index.ts';
+import { accept } from '@/kernel/socket/index.ts';
+import type { Operations } from '@/kernel/socket/index.ts';
+import type { Identity } from '@/kernel/identity/index.ts';
+import type { Journal } from '@/kernel/log/index.ts';
 
 export const limits = { turnMs: 600000, pending: 128, probeMs: 10000, identifierBytes: 256 };
 export interface Context { target: string; identity: Identity; schemas: Schemas; clock: Clock; runner: SandboxRunner; journal: Journal; operations: Operations }

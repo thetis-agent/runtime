@@ -3,16 +3,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Process } from './process.ts';
-import type { Context } from './process.ts';
-import { Identity } from '../identity/index.ts';
-import { Journal, limits as logLimits } from '../log/index.ts';
-import { Schemas, isObject } from '../../lib/schema/index.ts';
-import { ManualClock } from '../../lib/events/index.ts';
-import { SandboxRunner } from '../../lib/sandbox-runner/index.ts';
-import type { Mount } from '../../lib/sandbox-runner/index.ts';
-import type { Method } from '../../contracts/kernel-socket/types.ts';
-import type { Operation } from '../socket/index.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Journal, limits as logLimits } from '@/kernel/log/index.ts';
+import { Schemas, isObject } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import type { Mount } from '@/lib/sandbox-runner/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
 
 async function fixture(mode = 'healthy', settings = logLimits) {
   const root = await mkdtemp('/tmp/process-control-'); const clock = new ManualClock(); const schemas = new Schemas(); await schemas.load();

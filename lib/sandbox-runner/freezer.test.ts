@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { socketPair } from '../../test/socket-pair.ts';
+import { socketPair } from '@/test/socket-pair.ts';
 import { SandboxRunner } from './index.ts';
 import type { Mount } from './index.ts';
-import { ManualClock } from '../events/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 
 await test('GN-002 the real freezer stops queued writes until state copying is complete', async () => {
   const root = await mkdtemp('/tmp/frozen-state-'); const pair = await socketPair();

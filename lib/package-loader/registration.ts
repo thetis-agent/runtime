@@ -1,8 +1,8 @@
 /** Apply the same envelope to exported and initialized spawns; ADR 0016 §3, KS-009. */
-import type { Validator as ValidateFunction } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
-import { envelope } from '../semver-match/index.ts';
+import type { Validator as ValidateFunction } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import { envelope } from '@/lib/semver-match/index.ts';
 import type { Entry, Registration } from './types.ts';
 
 type Registered = Result<Registration | undefined, 'envelope' | 'invalid-args'>;

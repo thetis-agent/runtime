@@ -1,13 +1,13 @@
 /** Keep secret entry and confirmation codes on the authenticated kernel origin; ADR 0018 §3–4, KS-015. */
 import { createServer } from 'node:http';
-import { body, reply } from '../../lib/http/index.ts';
+import { body, reply } from '@/lib/http/index.ts';
 import type { Server } from 'node:http';
-import type { Identity } from '../identity/index.ts';
-import type { Secrets } from '../secrets/index.ts';
-import type { Act } from '../generations/act.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Schemas } from '../../lib/schema/index.ts';
-import type { DefaultPrepareParams, DefaultSetParams, SecretSetParams } from '../../contracts/kernel-socket/types.ts';
+import type { Identity } from '@/kernel/identity/index.ts';
+import type { Secrets } from '@/kernel/secrets/index.ts';
+import type { Act } from '@/kernel/generations/act.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Schemas } from '@/lib/schema/index.ts';
+import type { DefaultPrepareParams, DefaultSetParams, SecretSetParams } from '@/contracts/kernel-socket/types.ts';
 
 export const originLimits = { bytes: 32768, headersBytes: 16384, connections: 64, deadlineMs: 10000 };
 export interface OriginContext { origin: string; identity: Identity; secrets: Secrets; act: Act; schemas: Schemas }

@@ -2,16 +2,16 @@
 import { mkdtemp, rm, writeFile, mkdir, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Registry } from '../registry/index.ts';
-import { normalize } from '../registry/tree.ts';
-import { snapshot } from '../snapshots/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import type { Registry } from '@/lib/registry/index.ts';
+import { normalize } from '@/lib/registry/tree.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import { catalog } from './catalog.ts';
 import type { Source } from './catalog.ts';
 import type { Layer, Profile } from './types.ts';
-import { atomicWrite } from '../files/atomic.ts';
-import { compact } from '../registry/compact.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { compact } from '@/lib/registry/compact.ts';
 
 function manifest(source: Source, original: string): Record<string, unknown> {
   const value = Object.fromEntries(Object.entries(source.manifest).filter(([key]) => !['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'].includes(key)));  const requires: Record<string, unknown> = isObject(value['requires']) ? { ...value['requires'] } : {};

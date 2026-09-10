@@ -2,13 +2,13 @@
 import { realpath } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { createHash } from 'node:crypto';
-import { validator } from '../package-loader/index.ts';
-import { Register } from '../package-loader/registration.ts';
-import type { Entry, Manifest, Registration, Spawn } from '../package-loader/types.ts';
-import { configured } from '../schema/settings.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import type { Target, Mount } from '../deployment/types.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import { Register } from '@/lib/package-loader/registration.ts';
+import type { Entry, Manifest, Registration, Spawn } from '@/lib/package-loader/types.ts';
+import { configured } from '@/lib/schema/settings.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import type { Target, Mount } from '@/lib/deployment/types.ts';
 import type { Install } from './types.ts';
 export interface Options {
   id: string; owner: string; scope: 'person' | 'deployment'; state: string;

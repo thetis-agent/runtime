@@ -1,9 +1,9 @@
 /** Relocate host references without rewriting immutable journal or snapshot identities; GN-007, ADR 0030. */
 import { lstat } from 'node:fs/promises';
 import { join, isAbsolute, resolve } from 'node:path';
-import { readBounded } from '../files/read-bounded.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 import type { Checkpoint } from './checkpoint.ts';
 
 export interface Relocation { from: string; to: string }

@@ -1,6 +1,6 @@
 /** Bound expensive tree work off the event loop; ADR 0012 §7, GN-002. */
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import { perform } from './pool.ts';
 
 export function snapshot(path: string, destination?: string): Promise<Result<string>> { return perform(path, destination, 'snapshot'); }

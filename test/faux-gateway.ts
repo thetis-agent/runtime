@@ -1,7 +1,7 @@
 /** Exercise the gateway boundary using identity evidence only; KS-006, EV-006. */
-import type { Envelope } from '../contracts/turn-events/types.ts';
-import type { Result } from '../lib/schema/index.ts';
-import { failure } from '../lib/schema/index.ts';
+import type { Envelope } from '@/contracts/turn-events/types.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 
 export interface Sessions {
   submit(conversation: string, input: { text: string; attachments: never[] }): Promise<Result<void>>;

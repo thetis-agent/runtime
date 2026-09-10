@@ -2,11 +2,11 @@
 import { mkdir, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { Endpoint } from '../socket/endpoint.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import type { Clock } from '../events/index.ts';
-import type { Generations, Generation, Input } from '../../kernel/generations/index.ts';
+import { Endpoint } from '@/lib/socket/endpoint.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Generations, Generation, Input } from '@/kernel/generations/index.ts';
 import { prepare } from './prepare.ts';
 import type { Revision, Prepared, Capture } from './prepare.ts';
 import { KernelProcess } from './process.ts';

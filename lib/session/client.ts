@@ -1,11 +1,11 @@
 /** Read schema-bound batches only from the scoped environment socket; KS-004, ADR 0019. */
 import type { Socket } from 'node:net';
 import { readFile } from 'node:fs/promises';
-import { Peer } from '../socket/index.ts';
-import { connect } from '../ndjson/socket.ts';
-import type { Schemas, Result, Validator } from '../schema/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Clock } from '../events/index.ts';
+import { Peer } from '@/lib/socket/index.ts';
+import { connect } from '@/lib/ndjson/socket.ts';
+import type { Schemas, Result, Validator } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 import type { Batch, Subscribed } from './types.ts';
 
 export const settings = { endpoint: '/services/environment/current.sock', turnMs: 600000 };

@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { createServer, createConnection } from 'node:net';
 import { readlink } from 'node:fs/promises';
 import { SandboxRunner } from './index.ts';
-import { socketPair } from '../socket/pair.ts';
-import { isObject } from '../schema/index.ts';
+import { socketPair } from '@/lib/socket/pair.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 async function probe(network: 'none' | 'egress', port: number): Promise<Record<string, unknown>> {
   const pair = await socketPair(); assert.ok(pair.ok);

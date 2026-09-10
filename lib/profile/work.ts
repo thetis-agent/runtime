@@ -3,12 +3,12 @@ import { mkdir, realpath, readdir, mkdtemp, rm } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import type { FSWatcher } from 'node:fs';
 import { join } from 'node:path';
-import { SnapshotStore } from '../snapshots/store.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import type { Clock } from '../events/index.ts';
+import { SnapshotStore } from '@/lib/snapshots/store.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
 import { limits } from './index.ts';
-import { compile } from '../artifacts/index.ts';
+import { compile } from '@/lib/artifacts/index.ts';
 export interface Work { name: string; source: string; hash: string }
 export interface Settings { debounceMs: number; pending: number; artifacts?: boolean; previous?(name: string): string | undefined }
 export class WorkQueue {

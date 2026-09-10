@@ -4,12 +4,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { fixture, deployed, principals } from './deployment-assembly.ts';
-import { edited } from './deployment-work.ts';
-import { connect, send, socketFrames } from '../lib/ndjson/socket.ts';
-import { isObject } from '../lib/schema/index.ts';
-import type { Target } from '../lib/deployment/types.ts';
-import type { Target as ProcessTarget } from '../kernel/boundary/runtime.ts';
+import { fixture, deployed, principals } from '@/test/deployment-assembly.ts';
+import { edited } from '@/test/deployment-work.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import type { Target } from '@/lib/deployment/types.ts';
+import type { Target as ProcessTarget } from '@/kernel/boundary/runtime.ts';
 
 /** Mirror the CLI socket formula documented in `docs/headless-startup.md` "Chat through the
  * person-scoped CLI socket" and "Chat through the browser": every scoped target's public socket

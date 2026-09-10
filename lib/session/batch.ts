@@ -1,8 +1,8 @@
 /** Batch observer events without blocking turns on a slow surface; ADR 0015 §9, KS-020. */
-import type { Envelope } from '../../contracts/turn-events/types.ts';
-import type { Clock } from '../events/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import type { Envelope } from '@/contracts/turn-events/types.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const limits = { batchMs: 50, batchBytes: 4096, batchEvents: 256, queueBytes: 1048576, queueEvents: 8192, eventBytes: 786432 };
 export type Item = { cursor: number; event: Envelope; bytes: number };

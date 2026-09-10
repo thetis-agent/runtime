@@ -1,6 +1,6 @@
 /** Bound frames before parsing and retain unknown fields; KS-021, TE-031. */
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const defaults = { frameBytes: 1024 * 1024, queueFrames: 256, queueBytes: 16 * 1024 * 1024, controlFrames: 4, controlBytes: 65536 };
 

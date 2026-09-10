@@ -1,9 +1,9 @@
 /** Discover review inputs without executing manifests or installing external code; proposal §5, ADR 0007. */
 import { readdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { readBounded } from '../files/read-bounded.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 import type { Layer } from './types.ts';
 import { packagesRoot } from './packages-root.ts';
 export interface Source { kind: Layer['kind']; directory: string; source: string; name: string; manifest: Record<string, unknown>; integrity?: string }

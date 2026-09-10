@@ -2,10 +2,10 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, join, basename } from 'node:path';
 import { realpath, mkdtemp, writeFile, rm } from 'node:fs/promises';
-import type { SandboxRunner, Plan } from '../sandbox-runner/index.ts';
-import type { Clock } from '../events/index.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import type { SandboxRunner, Plan } from '@/lib/sandbox-runner/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 export const scorerLimits = { active: 2, deadlineMs: 10000, outputBytes: 65536 };
 export interface ScorerInput { checks: string; snapshot: string; authority: Pick<Plan, 'socket' | 'token'>; replacements?: Readonly<Record<string, string>> }

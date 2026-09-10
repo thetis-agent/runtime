@@ -6,7 +6,7 @@ import type { Socket } from 'node:net';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Endpoint } from './endpoint.ts';
-import { connect } from '../ndjson/socket.ts';
+import { connect } from '@/lib/ndjson/socket.ts';
 
 async function listener(path: string, reply: string) {
   const clients = new Set<Socket>();

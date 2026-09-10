@@ -1,7 +1,7 @@
 /** Keep comment exclusion from hiding code or treating literal text as comments; ADR 0039. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sourceLines } from './source-lines.ts';
+import { sourceLines } from '@/scripts/source-lines.ts';
 
 await test('ADR 0039 excludes comment-only lines and retains blank and mixed code lines', () => {
   const text = '/** Defence.\n * More context.\n\n */\n\nconst value = 1; // explanation\n/* context */ value++;\n// end';

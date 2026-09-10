@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { generationDriver } from '../../test/generation-driver.ts';
-import { Schemas } from '../schema/index.ts';
+import { generationDriver } from '@/test/generation-driver.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 import { recover } from './index.ts';
 
 await test('ADR-0025 recovery takes observed commitment intent and ignores candidate-authored snapshots', async () => {

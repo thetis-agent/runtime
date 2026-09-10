@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loopFixture } from '../../../test/loop-fixture.ts';
-import { renderPrefix } from '../../../packages/core/prefix.ts';
-import type { Stage } from '../../../lib/events/stages.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
+import { renderPrefix } from '@/packages/core/prefix.ts';
+import type { Stage } from '@/lib/events/stages.ts';
 
 await test('TE-001 a base turn preserves event order and iteration numbering', async () => {
   const fixture = await loopFixture();

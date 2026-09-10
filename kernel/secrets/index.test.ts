@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Secrets } from './index.ts';
-import type { Principal } from '../identity/index.ts';
+import { Secrets } from '@/kernel/secrets/index.ts';
+import type { Principal } from '@/kernel/identity/index.ts';
 
 const person: Principal = { id: 'alice', role: 'user', projects: [], observeOthers: false };
 const admin: Principal = { ...person, role: 'admin' };

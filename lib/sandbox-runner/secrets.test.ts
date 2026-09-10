@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { randomBytes, createHash } from 'node:crypto';
 import { mkdtemp, rm, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Secrets } from '../../kernel/secrets/index.ts';
-import { socketPair } from '../../test/socket-pair.ts';
+import { Secrets } from '@/kernel/secrets/index.ts';
+import { socketPair } from '@/test/socket-pair.ts';
 import { SandboxRunner } from './index.ts';
 import type { Running } from './index.ts';
 

@@ -2,14 +2,14 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Act } from '../kernel/generations/act.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Generations } from '../kernel/generations/index.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { gate } from '../lib/evaluation/index.ts';
-import type { Plan, Row } from '../lib/evaluation/index.ts';
-import { forward, initial } from './generation-driver.ts';
-import type { Principal, Run } from '../kernel/identity/index.ts';
+import { Act } from '@/kernel/generations/act.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Generations } from '@/kernel/generations/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { gate } from '@/lib/evaluation/index.ts';
+import type { Plan, Row } from '@/lib/evaluation/index.ts';
+import { forward, initial } from '@/test/generation-driver.ts';
+import type { Principal, Run } from '@/kernel/identity/index.ts';
 
 export const reviewer: Principal = { id: 'reviewer', role: 'reviewer', projects: [], observeOthers: false };
 export const administrator: Principal = { ...reviewer, role: 'admin' };

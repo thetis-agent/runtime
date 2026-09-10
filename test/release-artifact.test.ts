@@ -5,16 +5,16 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { fileChunks } from '../lib/ndjson/file.ts';
-import { readBounded } from '../lib/files/read-bounded.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { readProfile } from '../lib/profile/bootstrap.ts';
-import { Registry } from '../lib/registry/index.ts';
-import { git, reference } from '../lib/registry/git.ts';
-import { materialize } from '../lib/profile/index.ts';
-import type { Layer } from '../lib/profile/types.ts';
-import type { Result } from '../lib/schema/index.ts';
-import type { Release } from '../lib/registry/types.ts';
+import { fileChunks } from '@/lib/ndjson/file.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { readProfile } from '@/lib/profile/bootstrap.ts';
+import { Registry } from '@/lib/registry/index.ts';
+import { git, reference } from '@/lib/registry/git.ts';
+import { materialize } from '@/lib/profile/index.ts';
+import type { Layer } from '@/lib/profile/types.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Release } from '@/lib/registry/types.ts';
 
 await test('GN-002 the default bundle reconstructs every exact pin offline without source checkout access', async () => {
   const schemas = new Schemas(); await schemas.load();

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { createConnection } from 'node:net';
 import { request as httpRequest } from 'node:http';
 import type { IncomingHttpHeaders } from 'node:http';
-import { WebSocket } from '../lib/websocket/client.ts';
-import { Queue } from '../lib/events/queue.ts';
-import { isObject } from '../lib/schema/index.ts';
+import { WebSocket } from '@/lib/websocket/client.ts';
+import { Queue } from '@/lib/events/queue.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 export interface HttpAnswer { status: number; headers: IncomingHttpHeaders; body: string }
 

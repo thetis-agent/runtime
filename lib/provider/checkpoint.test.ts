@@ -5,9 +5,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BudgetCheckpoint } from './checkpoint.ts';
 import { Budgets } from './index.ts';
-import { Schemas } from '../schema/index.ts';
-import { providerFixture, collect, stream, request } from '../../test/provider-fixture.ts';
-import { MockProvider } from '../../packages/provider-mock/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { providerFixture, collect, stream, request } from '@/test/provider-fixture.ts';
+import { MockProvider } from '@/packages/provider-mock/index.ts';
 
 const rule = { name: 'daily', cost: 1, requests: 100, windowMs: 1000 };
 

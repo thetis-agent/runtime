@@ -10,10 +10,10 @@ From the runtime checkout, with its sibling package checkout available:
 
 ```sh
 export THETIS_NODE=/home/bitmuse/.nvm/versions/node/v24.18.0/bin/node
-"$THETIS_NODE" lib/schema/generate.ts
-"$THETIS_NODE" scripts/build.ts
-"$THETIS_NODE" scripts/check.ts
-"$THETIS_NODE" scripts/test.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs lib/schema/generate.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/build.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/check.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts
 ```
 
 Generation writes committed contract types, schema guards and the reviewed
@@ -27,6 +27,24 @@ refuses stale output. Node upgrades require regeneration and rebuilding.
 Metadata records version 1, generator `node:stripTypeScriptTypes:strip`, exact
 `process.version`, and SHA-256 hashes of the source and output. Strip-only output
 preserves source positions and leaves imports and worker URLs unchanged.
+
+## Root imports
+
+`@/` resolves from the importing module's installed runtime tree, including
+`@/kernel/...`, `@/lib/...` and `@/contracts/...`. TypeScript uses the same
+mapping for checking. Independent package internals and bootstrap modules keep
+relative imports; copied compatibility fixtures retain their portable paths.
+
+The generated `source.mjs` preload enables aliases for explicit source
+execution. The generated `register.mjs` preload resolves aliases and verifies
+artifacts before loading. Both use the same resolver; neither depends on the
+current directory or the original checkout. Worker and child launchers select
+the appropriate preload without passing authority through the environment.
+
+[TypeScript paths](https://www.typescriptlang.org/tsconfig/paths.html) describe
+the checker mapping; [Node module hooks](https://nodejs.org/docs/latest-v24.x/api/module.html#customization-hooks)
+provide execution-time resolution. [ADR 0047](adr/0047-root-relative-module-imports.md)
+records the decision and the package-boundary requirements.
 
 ## Activation
 

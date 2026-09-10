@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, copyFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Schemas, decode } from './index.ts';
-import type { ResponseEvent } from '../../contracts/provider/types.ts';
+import type { ResponseEvent } from '@/contracts/provider/types.ts';
 
 await test('ADR-0006 committed types exactly match every contract schema', async () => {
   assert.equal(await generateAll(true), true);
@@ -20,7 +20,7 @@ await test('ADR 0035 generated package references are identical in a relocated r
     const expected = await generate('provider-mock', new URL('../../packages/', import.meta.url));
     const relocated = await generate('provider-mock', pathToFileURL(`${root}/`));
     assert.equal(relocated, expected);
-    assert.ok(relocated.includes("'../../contracts/provider/types.ts'"));
+    assert.ok(relocated.includes("'@/contracts/provider/types.ts'"));
     assert.ok(!relocated.includes(root));
   } finally { await rm(root, { recursive: true, force: true }); }
 });

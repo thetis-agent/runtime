@@ -6,10 +6,10 @@ import compiled from './compiled.cjs';
 import create from './compiler.cjs';
 export type Validator<T = unknown> = (value: unknown) => value is T;
 
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
-export { failure, isObject } from '../result/index.ts';
-export type { Result } from '../result/index.ts';
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
+export { failure, isObject } from '@/lib/result/index.ts';
+export type { Result } from '@/lib/result/index.ts';
 
 export class Schemas {
   #instance: Ajv2020 | undefined;

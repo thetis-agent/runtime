@@ -5,11 +5,11 @@ import { join } from 'node:path';
 import { git, limits, reference } from './git.ts';
 import { quota } from './quota.ts';
 import { normalize } from './tree.ts';
-import { snapshot } from '../snapshots/index.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
-import type { Manifest } from '../package-loader/types.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
+import type { Manifest } from '@/lib/package-loader/types.ts';
 import type { Pin } from './types.ts';
 
 async function objects(repository: string, source: string, index: string): Promise<Result<string>> {

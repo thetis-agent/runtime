@@ -227,7 +227,7 @@ attempt to rebuild them again, since doing so would both exceed this
 session's edit permissions and race a mechanism that was still moving. This
 is corroborated directly: `ps aux` at 00:46 showed live, non-self `bwrap`
 processes (not started by this session) running a focused
-`"$THETIS_NODE" scripts/test.ts` invocation over exactly this area —
+`"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts` invocation over exactly this area —
 `kernel/boundary/process.test.ts`, `kernel/generations/{act,default,driver,
 index,recovery}.test.ts`, `lib/generation-state/projection.test.ts`,
 `test/generation-{initial-recovery,retention}.test.ts` — i.e. another,
@@ -339,10 +339,10 @@ From the runtime checkout, with its sibling package repository present:
 
 ```sh
 export THETIS_NODE=/home/bitmuse/.nvm/versions/node/v24.18.0/bin/node
-"$THETIS_NODE" scripts/build.ts
-"$THETIS_NODE" scripts/check.ts
-"$THETIS_NODE" scripts/test.ts
-"$THETIS_NODE" test/conformance-inventory.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/build.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/check.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs test/conformance-inventory.ts
 ```
 
 Use `THETIS_PACKAGES` only for a non-sibling package checkout. The shell's default

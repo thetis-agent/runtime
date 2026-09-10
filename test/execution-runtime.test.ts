@@ -3,8 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
-import { executionFixture } from './execution-fixture.ts';
-import type { RunRequest } from '../contracts/evaluator/types.ts';
+import { executionFixture } from '@/test/execution-fixture.ts';
+import type { RunRequest } from '@/contracts/evaluator/types.ts';
 await test('EV-006 an ordinary bound account runs the actual seeded candidate and its frozen outcome is scored privately', async () => {
   const f = await executionFixture();
   try {

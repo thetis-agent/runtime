@@ -3,9 +3,9 @@ import { watch } from 'node:fs';
 import type { FSWatcher } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Clock } from '../events/index.ts';
-import type { Result } from '../schema/index.ts';
-import { failure } from '../schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
 
 export function freeze(path: string, frozen: boolean, clock: Clock, deadlineMs = 10000): Promise<Result<void, 'io' | 'deadline'>> {
   return state(path, 'frozen', frozen ? 1 : 0, clock, deadlineMs, () => writeFile(join(path, 'cgroup.freeze'), frozen ? '1' : '0'));

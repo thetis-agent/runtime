@@ -1,17 +1,17 @@
 /** Confine registry delivery to a fixed cache and admit only schema-valid kernel requests; ADR 0007, ADR 0017. */
 import { readFile, realpath, mkdir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { bootstrap } from '../profile/bootstrap.ts';
-import { assemble } from '../profile/delivery.ts';
+import { bootstrap } from '@/lib/profile/bootstrap.ts';
+import { assemble } from '@/lib/profile/delivery.ts';
 import { Registry } from './index.ts';
 import { lock } from './profile.ts';
 import { retain } from './retention.ts';
 import { prune } from './prune.ts';
-import { snapshot } from '../snapshots/index.ts';
-import { socketFrames, send } from '../ndjson/socket.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import type { Connection } from '../service/lifecycle.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { socketFrames, send } from '@/lib/ndjson/socket.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import type { Connection } from '@/lib/service/lifecycle.ts';
 import type { Request, Startup } from './types.ts';
 
 async function dispatch(registry: Registry, config: Startup, request: Request, schemas: Schemas): Promise<Result<unknown>> {

@@ -3,10 +3,10 @@ import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 import type { Cgroup } from './cgroup.ts';
-import { clock } from '../events/index.ts';
-import type { Clock } from '../events/index.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 export const networkLimits = { readyMs: 10000, outputBytes: 65536 };
 export interface Network { stop(): Promise<Result<void, 'io'>>; health(): Result<void, 'io'> }
 export const privateNetwork = 'exec /usr/bin/unshare --user --map-root-user --net /bin/sh -c \'printf 1 >&7; exec 7>&-; IFS= read -r ready <&8 || exit 1; exec 8<&-; exec /usr/bin/bwrap "$@"\' private-network "$@"';

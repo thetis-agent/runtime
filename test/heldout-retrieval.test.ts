@@ -3,13 +3,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { gold } from '../packages/metrics/gold.ts';
-import { retrieval } from '../packages/metrics/retrieval.ts';
-import { retriever } from '../packages/retriever-local/index.ts';
-import { mutate, vocabulary } from '../packages/evaluator/mutate.ts';
-import { skillsFixture, skill } from './skills-fixture.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import type { Task } from '../contracts/evaluator/types.ts';
+import { gold } from '@/packages/metrics/gold.ts';
+import { retrieval } from '@/packages/metrics/retrieval.ts';
+import { retriever } from '@/packages/retriever-local/index.ts';
+import { mutate, vocabulary } from '@/packages/evaluator/mutate.ts';
+import { skillsFixture, skill } from '@/test/skills-fixture.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import type { Task } from '@/contracts/evaluator/types.ts';
 
 await test('SK-012 six private held-out fixture pairs are retrieved and reported with an interval while remaining ungated', async () => {
   const skills = await skillsFixture({ astronomy: skill('astronomy'), gardening: skill('gardening'), geometry: skill('geometry') });

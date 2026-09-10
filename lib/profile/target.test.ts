@@ -7,10 +7,10 @@ import { materialize } from './index.ts';
 import type { Options } from './target.ts';
 import { target } from './target.ts';
 import { cache } from './cache.ts';
-import { Schemas } from '../schema/index.ts';
-import { snapshot } from '../snapshots/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
 import type { Layer } from './types.ts';
-import type { Registration } from '../package-loader/types.ts';
+import type { Registration } from '@/lib/package-loader/types.ts';
 await test('KS-009 neutral deployment plans retain immutable declared spawn and service mounts', async () => {
   const root = await mkdtemp('/tmp/target-case-'); const source = join(root, 'source'); await mkdir(source);
   try {

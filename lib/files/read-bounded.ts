@@ -1,7 +1,7 @@
 /** Bound final-consumer file reads even if the file grows after inspection; SK-003, KS-008. */
-import { fileChunks } from '../ndjson/file.ts';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { fileChunks } from '@/lib/ndjson/file.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export async function readBounded(path: string, maximum: number): Promise<Result<Buffer, 'budget' | 'io'>> {
   const chunks: Uint8Array[] = []; let bytes = 0;

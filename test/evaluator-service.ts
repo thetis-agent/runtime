@@ -2,21 +2,21 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Identity } from '../kernel/identity/index.ts';
-import { Journal } from '../kernel/log/index.ts';
-import { Process } from '../kernel/boundary/process.ts';
-import type { Operation } from '../kernel/socket/index.ts';
-import type { Method } from '../contracts/kernel-socket/types.ts';
-import { Schemas } from '../lib/schema/index.ts';
-import { failure } from '../lib/result/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import { seedIdentity } from '../lib/evaluation/index.ts';
-import { packageEntry, packageMounts } from './package-mounts.ts';
-import schema from '../contracts/evaluator/schema.json' with { type: 'json' };
-import type { Startup, RunRequest, ScoreRequest } from '../contracts/evaluator/types.ts';
-import { EvaluationDriver } from './evaluator-driver.ts';
-import { actFixture, administrator } from './default-act.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Journal } from '@/kernel/log/index.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Operation } from '@/kernel/socket/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
+import { seedIdentity } from '@/lib/evaluation/index.ts';
+import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
+import schema from '@/contracts/evaluator/schema.json' with { type: 'json' };
+import type { Startup, RunRequest, ScoreRequest } from '@/contracts/evaluator/types.ts';
+import { EvaluationDriver } from '@/test/evaluator-driver.ts';
+import { actFixture, administrator } from '@/test/default-act.ts';
 
 function operations(settings: Startup, schemas: Schemas, act: Awaited<ReturnType<typeof actFixture>>['act']) {
   schemas.compile(schema); const run = schemas.compile<RunRequest>({ $ref: `${schema.$id}#/$defs/runRequest` }); const score = schemas.compile<ScoreRequest>({ $ref: `${schema.$id}#/$defs/scoreRequest` });

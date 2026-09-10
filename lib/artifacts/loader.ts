@@ -2,8 +2,9 @@
 import { registerHooks } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { verified, limits } from './verify.mjs';
+import { rootImport } from './aliases.mjs';
 let modules = 0; let bytes = 0;
-registerHooks({ load(url, context, nextLoad) {
+registerHooks({ resolve: rootImport, load(url, context, nextLoad) {
   if (!url.startsWith('file:') || !fileURLToPath(url).endsWith('.ts')) return nextLoad(url, context);
   if (++modules > limits.modules) throw Object.assign(new Error('The execution module pool is full.'), { code: 'budget' });
   const source = verified(fileURLToPath(url)); bytes += source.length;

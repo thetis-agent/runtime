@@ -111,3 +111,5 @@
 - 2026-09-09: D4 — the lifted UI adapts to the existing `gateway-web` wire rather than the wire adapting to it; the only wire change on `hello` is replying with a `user` frame (ADR 0038).
 
 - 2026-09-10: Document the existing 2,048 MiB, 256-task test supervisor required by the two-account web deployment; per-sandbox limits remain separate from this test-infrastructure budget (KS-004).
+
+- 2026-09-10: The operator requested `@/` imports and selected the runtime repository root. ADR 0047 adds matching TypeScript paths and source/artifact resolution hooks, keeps independently versioned package internals relative, and extends the package import gate.

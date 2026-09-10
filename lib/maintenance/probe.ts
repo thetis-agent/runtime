@@ -1,11 +1,11 @@
 /** Test the candidate's real handshake and health using every currently connected client major; GN-007. */
 import { open } from 'node:fs/promises';
 import { dirname, basename } from 'node:path';
-import { connect, socketFrames, send } from '../ndjson/socket.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Schemas, Result } from '../schema/index.ts';
-import type { Clock } from '../events/index.ts';
-import type { Response } from '../../contracts/kernel-socket/types.ts';
+import { connect, socketFrames, send } from '@/lib/ndjson/socket.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Schemas, Result } from '@/lib/schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Response } from '@/contracts/kernel-socket/types.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Welcome } from './types.ts';
 

@@ -1,6 +1,6 @@
 /** Distinguish validated open frame variants without trusting extension fields; KS-021. */
-import type { Frame, Response, Note } from '../../contracts/kernel-socket/types.ts';
-import { isObject } from '../schema/index.ts';
+import type { Frame, Response, Note } from '@/contracts/kernel-socket/types.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 export function response(frame: Frame): frame is Response {
   if (typeof frame['id'] !== 'string') return false;

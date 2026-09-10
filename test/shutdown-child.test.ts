@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { runtimeFixture, people } from './runtime-fixture.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import { connect } from '../lib/ndjson/socket.ts';
-import type { Entry } from '../lib/package-loader/types.ts';
-import { buildTree } from '../lib/artifacts/build.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { connect } from '@/lib/ndjson/socket.ts';
+import type { Entry } from '@/lib/package-loader/types.ts';
+import { buildTree } from '@/lib/artifacts/build.ts';
 
 async function childSocket(directory: string) {
   const handle = await open(directory, 'r');

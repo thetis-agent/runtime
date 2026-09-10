@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compose } from './composition.ts';
-import { resolve } from '../semver-match/index.ts';
+import { resolve } from '@/lib/semver-match/index.ts';
 import type { Entry } from './types.ts';
 
 await test('KS-009 fresh registration composition removes obsolete requirements and provisions without changing manifests', () => {

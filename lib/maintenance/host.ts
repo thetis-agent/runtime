@@ -1,14 +1,14 @@
 /** Keep kernel maintenance controls on inherited IPC while probing without deployment writers; GN-007. */
 import { writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { Schemas, failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
-import { clock } from '../events/index.ts';
-import { configuration } from '../deployment/index.ts';
+import { Schemas, failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import { clock } from '@/lib/events/index.ts';
+import { configuration } from '@/lib/deployment/index.ts';
 import { KernelTransport } from './transport.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Command } from './types.ts';
-import type { Principal as ConfiguredPrincipal } from '../deployment/types.ts';
+import type { Principal as ConfiguredPrincipal } from '@/lib/deployment/types.ts';
 type Principal = Pick<ConfiguredPrincipal, 'id' | 'role' | 'observeOthers'> & { projects: readonly string[] };
 export interface KernelApplication {
   identity: { principal(id: string): Principal | undefined };

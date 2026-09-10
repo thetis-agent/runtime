@@ -1,7 +1,7 @@
 /** Bound shared HTTP mechanics while keeping identity and act policy at each owning edge; ADR 0009, ADR 0018. */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 export async function bytes(request: IncomingMessage, limit: number, label: string): Promise<Result<Buffer>> {
   const chunks: Buffer[] = []; let total = 0;
   for await (const chunk of request.iterator({ destroyOnReturn: false })) {

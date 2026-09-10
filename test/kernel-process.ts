@@ -2,9 +2,9 @@
 import { spawn } from 'node:child_process';
 import { Writable } from 'node:stream';
 import assert from 'node:assert/strict';
-import { isObject } from '../lib/schema/index.ts';
-import { flags } from '../lib/artifacts/index.ts';
-import { limits } from '../lib/sandbox-runner/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { flags } from '@/lib/artifacts/index.ts';
+import { limits } from '@/lib/sandbox-runner/index.ts';
 export async function kernelProcess(path: string, trusted = true, masterKey = Buffer.alloc(32, 7)) {
   const child = spawn(process.execPath, [`--max-old-space-size=${String(limits.heapMiB)}`, `--max-semi-space-size=${String(limits.youngMiB)}`, ...flags(), new URL('../kernel/main.ts', import.meta.url).pathname, path], { stdio: ['ignore', 'pipe', 'pipe', trusted ? 'pipe' : 'ignore'] });
   if (trusted) { const pipe = child.stdio[3]; assert.ok(pipe instanceof Writable); pipe.end(masterKey); }

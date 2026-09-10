@@ -1,9 +1,9 @@
 /** Reuse bounded workers so repeated review does not retain hundreds of thread arenas; GN-002. */
 import { Worker } from 'node:worker_threads';
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import { limits } from './tree.ts';
-import { flags } from '../artifacts/index.ts';
+import { flags, sourceFlags } from '@/lib/artifacts/index.ts';
 type Slot = { worker: Worker; pending?: (result: Result<string>) => void; fault?: string };
 function complete(slot: Slot, result: Result<string>): void {
   const pending = slot.pending; delete slot.pending; slot.worker.unref(); pending?.(result);
@@ -21,7 +21,7 @@ export class Workers {
   constructor(entry = new URL('./worker.ts', import.meta.url)) { this.#entry = entry; }
   #create(): Slot {
     const slot: Slot = { worker: new Worker(this.#entry, {
-      execArgv: process.execArgv.includes('--no-experimental-strip-types') ? flags() : [],
+      execArgv: process.execArgv.includes('--no-experimental-strip-types') ? flags() : sourceFlags(),
       resourceLimits: { maxOldGenerationSizeMb: limits.workerOldMiB, maxYoungGenerationSizeMb: limits.workerYoungMiB, stackSizeMb: limits.workerStackMiB }
     }) }; this.#workers.push(slot);
     slot.worker.on('message', (message: unknown) => { complete(slot, result(message)); });

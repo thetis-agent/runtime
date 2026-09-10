@@ -1,7 +1,7 @@
 /** Preserve normalized provider reasoning and the last usage counters; TE-028, PR-015. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loopFixture } from './loop-fixture.ts';
+import { loopFixture } from '@/test/loop-fixture.ts';
 
 await test('TE-028 opaque reasoning survives history and returns in the next request', async () => {
   const fixture = await loopFixture([], [[{ type: 'delta.reasoning', text: 'thinking', opaque: { signature: 'opaque-marker' } }, { type: 'delta.text', text: 'answer' }]]);

@@ -3,12 +3,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { join } from 'node:path';
-import { origin } from './origin.ts';
-import { Identity } from '../identity/index.ts';
-import { Secrets } from '../secrets/index.ts';
-import { Schemas } from '../../lib/schema/index.ts';
-import { actFixture, reviewer, administrator, evidence, source } from '../../test/default-act.ts';
-import { post } from '../../test/origin-http.ts';
+import { origin } from '@/kernel/socket/origin.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { Secrets } from '@/kernel/secrets/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { actFixture, reviewer, administrator, evidence, source } from '@/test/default-act.ts';
+import { post } from '@/test/origin-http.ts';
 
 await test('KS-015 kernel origin authenticates independently, displays one code line and checks the final act', async () => {
   const fixture = await actFixture(); const schemas = new Schemas(); await schemas.load();

@@ -2,11 +2,11 @@
 import { parentPort } from 'node:worker_threads';
 import { cp, rm, mkdir } from 'node:fs/promises';
 import { hashTree } from './tree.ts';
-import { failure, isObject } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure, isObject } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 import { differences } from './differences.ts';
 import { exportStore } from './export.ts';
-import { verifyTree } from '../artifacts/verify-tree.ts';
+import { verifyTree } from '@/lib/artifacts/verify-tree.ts';
 
 async function run(input: unknown): Promise<Result<string>> {
   if (!isObject(input) || typeof input['path'] !== 'string') return failure('invalid-args', 'The snapshot worker requires a source path.');

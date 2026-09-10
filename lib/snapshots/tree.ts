@@ -2,9 +2,9 @@
 import { createHash } from 'node:crypto';
 import { opendir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileChunks } from '../ndjson/file.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { fileChunks } from '@/lib/ndjson/file.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 
 export const limits = { entries: 10000, bytes: 1024 * 1024 * 1024, depth: 64, workers: 2, workerOldMiB: 16, workerYoungMiB: 2, workerStackMiB: 2, changeBytes: 61440 };
 async function listing(path: string, prefix: string, remaining: { entries: number }, depth: number): Promise<Result<string[]>> {

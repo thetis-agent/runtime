@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { skillsFixture, skill } from '../../../test/skills-fixture.ts';
-import { uniqueSkills } from '../../../lib/skills/index.ts';
-import { retriever } from '../../../packages/retriever-local/index.ts';
+import { skillsFixture, skill } from '@/test/skills-fixture.ts';
+import { uniqueSkills } from '@/lib/skills/index.ts';
+import { retriever } from '@/packages/retriever-local/index.ts';
 
 await test('SK-001 frontmatter validates and loading twice is deterministic', async () => {
   const fixture = await skillsFixture({ query: skill('query') });

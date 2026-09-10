@@ -3,9 +3,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Registry } from '../registry/index.ts';
-import { git } from '../registry/git.ts';
-import { Schemas } from '../schema/index.ts';
+import { Registry } from '@/lib/registry/index.ts';
+import { git } from '@/lib/registry/git.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 import { bootstrap, writeProfile, readProfile } from './bootstrap.ts';
 import { assemble } from './delivery.ts';
 

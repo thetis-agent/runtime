@@ -1,10 +1,10 @@
 /** Bind transient generations to an ordinary principal and a kernel-held cost ceiling; EV-006, ADR 0017. */
 import { join } from 'node:path';
-import { Driver } from '../generations/driver.ts';
-import type { Context } from './process.ts';
-import type { Revision } from '../generations/prepare.ts';
-import { failure } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
+import { Driver } from '@/kernel/generations/driver.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import type { Revision } from '@/kernel/generations/prepare.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 export async function execution(context: Context, root: string, owner: string, services: readonly string[], cost: number, revision: Revision, state: string): Promise<Result<Driver>> {
   if (!context.identity.principal(owner)) return failure('unbound', 'The execution account has no ordinary principal.');
   if (!Number.isFinite(cost) || cost < 0) return failure('invalid-args', 'The execution cost ceiling is invalid.');

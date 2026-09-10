@@ -1,9 +1,9 @@
 /** Separate reviewed usage from candidate diagnostics when assembling an evaluation row; ADR 0014, ADR 0020. */
-import { fileFrames } from '../ndjson/file.ts';
-import { failure } from '../result/index.ts';
-import type { Schemas } from '../schema/index.ts';
-import schema from '../../contracts/evaluator/schema.json' with { type: 'json' };
-import type { Diagnostic, JournalRow } from '../../contracts/evaluator/types.ts';
+import { fileFrames } from '@/lib/ndjson/file.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Schemas } from '@/lib/schema/index.ts';
+import schema from '@/contracts/evaluator/schema.json' with { type: 'json' };
+import type { Diagnostic, JournalRow } from '@/contracts/evaluator/types.ts';
 import type { Candidate } from './runtime-types.ts';
 export const factLimits = { bytes: 67108864, rows: 100000, counters: 256 };
 

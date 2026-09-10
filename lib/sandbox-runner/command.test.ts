@@ -5,7 +5,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { SandboxRunner } from './index.ts';
 import { command } from './command.ts';
-import { ManualClock } from '../events/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 
 await test('GN-002 a short migration preserves its exit status without consuming the authority pipe', async () => {
   const root = await mkdtemp('/tmp/migration-exit-'); const entry = join(root, 'entry.ts');

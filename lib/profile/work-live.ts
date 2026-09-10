@@ -2,11 +2,11 @@
 import { WorkQueue } from './work.ts';
 import type { Work, Settings } from './work.ts';
 import { overlay, facts, matched, capturedTarget } from './work-overlay.ts';
-import type { ConfiguredTarget } from '../deployment/index.ts';
-import type { Captured, Entry } from '../package-loader/types.ts';
-import type { Clock } from '../events/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import type { Provision } from '../semver-match/index.ts';
+import type { ConfiguredTarget } from '@/lib/deployment/index.ts';
+import type { Captured, Entry } from '@/lib/package-loader/types.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import type { Provision } from '@/lib/semver-match/index.ts';
 import { limits } from './index.ts';
 export interface Changes {
   describe?(target: ConfiguredTarget): Promise<Result<Captured>>;

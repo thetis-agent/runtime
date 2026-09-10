@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { kernelProcess } from './kernel-process.ts';
-import { runtimeFixture } from './runtime-fixture.ts';
-import { isObject } from '../lib/result/index.ts';
+import { kernelProcess } from '@/test/kernel-process.ts';
+import { runtimeFixture } from '@/test/runtime-fixture.ts';
+import { isObject } from '@/lib/result/index.ts';
 
 const maximumRssBytes = 512000000;
 

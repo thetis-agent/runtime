@@ -1,9 +1,9 @@
 /** Observe startup only through the real inherited health boundary; GN-003. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { serviceFixture } from './provider-service.ts';
-import { environmentProcess } from './environment-process.ts';
-import { Process } from '../kernel/boundary/process.ts';
+import { serviceFixture } from '@/test/provider-service.ts';
+import { environmentProcess } from '@/test/environment-process.ts';
+import { Process } from '@/kernel/boundary/process.ts';
 await test('GN-003 startup phase measurements accompany actual ready health', async () => {
   const shared = await serviceFixture();
   try {

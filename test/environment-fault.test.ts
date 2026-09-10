@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { providerFixture } from './provider-fixture.ts';
-import { faultProcess } from './fault-process.ts';
-import { ProviderEngine } from '../lib/provider/engine.ts';
-import type { Vendor } from '../lib/provider/engine.ts';
-import { listen } from '../lib/provider/server.ts';
-import { SessionClient } from '../lib/session/client.ts';
-import { Schemas, isObject } from '../lib/schema/index.ts';
-import { ManualClock } from '../lib/events/index.ts';
-import type { Batch } from '../lib/session/types.ts';
+import { providerFixture } from '@/test/provider-fixture.ts';
+import { faultProcess } from '@/test/fault-process.ts';
+import { ProviderEngine } from '@/lib/provider/engine.ts';
+import type { Vendor } from '@/lib/provider/engine.ts';
+import { listen } from '@/lib/provider/server.ts';
+import { SessionClient } from '@/lib/session/client.ts';
+import { Schemas, isObject } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import type { Batch } from '@/lib/session/types.ts';
 
 await test('TE-031 an oversized inherited frame ends the active turn as crash with frame-too-large', async () => {
   const root = await mkdtemp('/tmp/fault-vendor-'); const schemas = new Schemas(); await schemas.load(); const fixture = providerFixture();

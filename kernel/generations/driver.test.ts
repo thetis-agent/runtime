@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { processGeneration, person, endpointVersion } from '../../test/process-generation.ts';
-import { snapshot } from '../../lib/snapshots/index.ts';
-import { isObject } from '../../lib/schema/index.ts';
+import { processGeneration, person, endpointVersion } from '@/test/process-generation.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 function writes(rows: string, action: string, expected: readonly string[]): void {
   const values = rows.trim().split('\n').map((row): unknown => JSON.parse(row));

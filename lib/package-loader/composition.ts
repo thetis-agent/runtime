@@ -1,6 +1,6 @@
 /** Compose already validated declarations without choosing their authority; ADR 0016, ADR 0045. */
 import type { Entry, Registration } from './types.ts';
-import type { Package } from '../semver-match/index.ts';
+import type { Package } from '@/lib/semver-match/index.ts';
 
 export interface Declaration { source: string; registration: Registration }
 

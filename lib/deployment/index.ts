@@ -1,12 +1,12 @@
 /** Admit bounded deployment data without executing package code; ADR 0016, GN-002. */
 import { readFile } from 'node:fs/promises';
-import { readBounded } from '../files/read-bounded.ts';
-import { failure, isObject } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
-import { validators } from '../evaluation/index.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
+import { validators } from '@/lib/evaluation/index.ts';
 import { releaseDigest } from './release.ts';
-import { validator } from '../package-loader/index.ts';
-import type { Entry } from '../package-loader/types.ts';
+import { validator } from '@/lib/package-loader/index.ts';
+import type { Entry } from '@/lib/package-loader/types.ts';
 import type { Deployment, Target, Trusted, Release } from './types.ts';
 
 export type ConfiguredTarget = Target & { entries: Entry[] };

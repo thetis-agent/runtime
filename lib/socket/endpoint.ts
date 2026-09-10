@@ -1,8 +1,8 @@
 /** Repoint only socket inodes within a canonical target root; GN-004, ADR 0025. */
 import { mkdir, realpath, lstat, rename, open } from 'node:fs/promises';
 import { dirname, basename, join, relative, isAbsolute } from 'node:path';
-import { failure } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 
 export const endpointLimits = { pathBytes: 107 };
 

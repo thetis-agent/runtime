@@ -1,9 +1,9 @@
 /** Persist reservations before vendor access so restart cannot reset spend; ADR 0020, PR-010. */
 import { readFile, lstat } from 'node:fs/promises';
-import type { Schemas, Result, Validator } from '../schema/index.ts';
-import { failure, isObject } from '../schema/index.ts';
-import { atomicWrite } from '../files/atomic.ts';
-import { readBounded } from '../files/read-bounded.ts';
+import type { Schemas, Result, Validator } from '@/lib/schema/index.ts';
+import { failure, isObject } from '@/lib/schema/index.ts';
+import { atomicWrite } from '@/lib/files/atomic.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
 import type { Checkpoint, Ledger } from './types.ts';
 import { migrate } from './migrate.ts';
 

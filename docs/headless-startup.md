@@ -80,8 +80,8 @@ deployment or make the unaccepted kernel a production installation.
 Regenerate after reviewing changes in both repositories:
 
 ```sh
-"$THETIS_NODE" scripts/release.ts
-"$THETIS_NODE" scripts/test.ts test/release-artifact.test.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/release.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts test/release-artifact.test.ts
 ```
 
 Generation runs inside bubblewrap with no network or install scripts. Review the
@@ -201,7 +201,7 @@ of USD 0.04. This demonstrates live answers, not real-vendor prefix cache hits.
 It is deliberately excluded from `scripts/test.ts`. To repeat this paid check:
 
 ```sh
-"$THETIS_NODE" scripts/live.ts /opt/thetis/thetis.local.toml
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/live.ts /opt/thetis/thetis.local.toml
 ```
 
 The launcher requires Python 3's standard-library TOML reader, uses only

@@ -2,13 +2,13 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import { lstat, chmod, rename, writeFile } from 'node:fs/promises';
 import { join, basename, dirname } from 'node:path';
-import { paths, hashTree } from '../snapshots/tree.ts';
-import { readBounded } from '../files/read-bounded.ts';
-import { Schemas } from '../schema/index.ts';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
-import schema from '../../contracts/evaluator/schema.json' with { type: 'json' };
-import type { FixtureWork } from '../../contracts/evaluator/types.ts';
+import { paths, hashTree } from '@/lib/snapshots/tree.ts';
+import { readBounded } from '@/lib/files/read-bounded.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
+import schema from '@/contracts/evaluator/schema.json' with { type: 'json' };
+import type { FixtureWork } from '@/contracts/evaluator/types.ts';
 import { replace } from './replace.ts';
 const check = new Schemas().compile<FixtureWork>({ ...schema, $id: 'thetis://worker/fixture/1', $ref: '#/$defs/fixtureWork' });
 

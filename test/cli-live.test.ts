@@ -1,10 +1,10 @@
 /** Send from the shipped CLI while receiving its live content on the scoped direct stream; ADR 0019. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { serviceFixture } from './provider-service.ts';
-import { environmentProcess } from './environment-process.ts';
-import { gatewayProcess } from './gateway-process.ts';
-import { isObject } from '../lib/schema/index.ts';
+import { serviceFixture } from '@/test/provider-service.ts';
+import { environmentProcess } from '@/test/environment-process.ts';
+import { gatewayProcess } from '@/test/gateway-process.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 await test('CLI live output arrives through the environment mount while the kernel observes only turn metadata', async () => {
   const shared = await serviceFixture(1); assert.ok((await shared.process.probe()).ok);

@@ -1,5 +1,5 @@
 /** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */
-import type * as Registry from '../../contracts/registry/types.ts';
+import type * as Registry from '@/contracts/registry/types.ts';
 export type Layer = { "kind": "packages" | "lib" | "contracts" | "node_modules"; "directory": string; "pin": Registry.Pin; "source": string; [key: string]: unknown; };
 export type Grant = { "source": string; "hash": string; "mount": string; [key: string]: unknown; };
 export type Package = { "name": string; "version": string; "entry": string; "manifest": { [key: string]: unknown; }; [key: string]: unknown; };

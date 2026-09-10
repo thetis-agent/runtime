@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { gate, summarize, validators, calculate } from './index.ts';
 import type { Plan, Row, Submission } from './index.ts';
-import { Schemas } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
 const plan: Plan = { identities: { baseline: '1', candidate: 'candidate', suite: 'suite', scorer: 'scorer', provider: 'provider', model: 'model', seed: 'seed' }, tasks: ['a', 'b'], regressions: ['r'], runs: 3, scorers: ['scorer'], margin: -2 };
 function submission(): Submission {
   const rows: Row[] = [];

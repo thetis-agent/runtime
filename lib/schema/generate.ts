@@ -1,9 +1,8 @@
 /** Keep contract types subordinate to schemas, including open fields; ADR 0006. */
 import { readFile, writeFile, readdir, stat } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { posix } from 'node:path';
-import { packagesRoot } from '../profile/packages-root.ts';
-import { generateSupport } from '../artifacts/generate.ts';
+import { packagesRoot } from '@/lib/profile/packages-root.ts';
+import { generateSupport } from '@/lib/artifacts/generate.ts';
 import { precompile } from './precompile.ts';
 
 type ObjectValue = Record<string, unknown>;
@@ -67,8 +66,6 @@ export async function generate(name: string, root = new URL('../../contracts/', 
   const raw: unknown = JSON.parse(await readFile(new URL(`${name}/schema.json`, root), 'utf8'));
   const schema = object(raw);
   const defs = object(schema['$defs']);
-  const category = root.href === new URL('../../contracts/', import.meta.url).href ? 'contracts'
-    : root.href === new URL('../../lib/', import.meta.url).href ? 'lib' : 'packages';
   const imports = new Set<string>();
   const serialized = JSON.stringify(raw);
   for (const match of serialized.matchAll(/thetis:\/\/(contract|internal)\/([^/]+)\/\d+#/gu)) {
@@ -77,8 +74,7 @@ export async function generate(name: string, root = new URL('../../contracts/', 
     const directory = kind === 'contract' ? '../../contracts/' : '../../lib/';
     const destination = new URL(`${directory}${target}/types.ts`, import.meta.url);
     if (destination.href === new URL(`${name}/types.ts`, root).href) continue;
-    const path = posix.relative(`${category}/${name}`, `${kind === 'contract' ? 'contracts' : 'lib'}/${target}/types.ts`);
-    imports.add(`import type * as ${title(target)} from '${path.startsWith('.') ? path : `./${path}`}';`);
+    imports.add(`import type * as ${title(target)} from '@/${kind === 'contract' ? 'contracts' : 'lib'}/${target}/types.ts';`);
   }
   const lines = ['/** Generated from schema.json; defend wire compatibility (ADR 0006). Do not edit. */', ...imports];
   for (const [key, value] of Object.entries(defs)) {

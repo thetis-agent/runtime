@@ -3,11 +3,12 @@ import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import type { Clock } from '../events/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import type { Clock } from '@/lib/events/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Command, Ready, Reply, Status } from './types.ts';
+import { sourceFlags } from '@/lib/artifacts/index.ts';
 
 export const processLimits = { outputBytes: 65536, frameBytes: 65536, messages: 256, freezePolls: 128, deadlineMs: 10000 };
 export interface Launch { entry: string; configuration: string; endpoint: string; administrator: string; mode: 'probe' | 'serve'; descriptors?: readonly number[] }
@@ -33,7 +34,7 @@ export class KernelProcess {
   }
   static async start(input: Launch, schemas: Schemas, clock: Clock): Promise<Result<KernelProcess>> {
     let child: ChildProcess;
-    try { child = spawn(process.execPath, [input.entry, input.configuration, input.endpoint, input.mode, input.administrator], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', ...input.descriptors ?? []] }); }
+    try { child = spawn(process.execPath, [...sourceFlags(), input.entry, input.configuration, input.endpoint, input.mode, input.administrator], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', ...input.descriptors ?? []] }); }
     catch { return failure('io', 'The trusted kernel process could not be launched.'); }
     const kernel = new KernelProcess(child, input.endpoint, schemas, clock); const timer = new AbortController();
     try {

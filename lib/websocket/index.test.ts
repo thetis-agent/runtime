@@ -4,9 +4,9 @@ import { test } from 'node:test';
 import { request as httpRequest } from 'node:http';
 import { accept, limits } from './index.ts';
 import type { RequestHandler } from './index.ts';
-import { privateEndpoint } from '../socket/private.ts';
-import { webClient } from '../../test/web-client.ts';
-import { isObject, failure } from '../schema/index.ts';
+import { privateEndpoint } from '@/lib/socket/private.ts';
+import { webClient } from '@/test/web-client.ts';
+import { isObject, failure } from '@/lib/schema/index.ts';
 
 async function fixture() {
   const endpoint = await privateEndpoint(); assert.ok(endpoint.ok);

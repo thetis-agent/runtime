@@ -1,9 +1,9 @@
 /** Bound byte pools and acknowledge only durable replacements in an owned root; ADR 0040, ST-001–005. */
 import { mkdir, realpath, opendir, lstat } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
-import type { Limits, Result, Storage } from '../../contracts/storage/index.ts';
-import { failure } from '../result/index.ts';
-import { atomicWrite, syncDirectory } from '../files/atomic.ts';
+import type { Limits, Result, Storage } from '@/contracts/storage/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import { atomicWrite, syncDirectory } from '@/lib/files/atomic.ts';
 import { read } from './read.ts';
 
 const validKey = (key: string): boolean => /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u.test(key);

@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { revision as controlledRevision, endpointVersion } from '../../test/process-generation.ts';
-import { runtimeFixture, people } from '../../test/runtime-fixture.ts';
-import { administrator, reviewer, evidence, source } from '../../test/default-act.ts';
-import type { Target } from '../boundary/runtime.ts';
-import { defaultAct } from './default.ts';
-import { isObject } from '../../lib/schema/index.ts';
-import { releaseDigest } from '../../lib/deployment/release.ts';
+import { revision as controlledRevision, endpointVersion } from '@/test/process-generation.ts';
+import { runtimeFixture, people } from '@/test/runtime-fixture.ts';
+import { administrator, reviewer, evidence, source } from '@/test/default-act.ts';
+import type { Target } from '@/kernel/boundary/runtime.ts';
+import { defaultAct } from '@/kernel/generations/default.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { releaseDigest } from '@/lib/deployment/release.ts';
 
 await test('GN-005 two code-bound default digests race through the actual deployment process transaction', async () => {
   const fixture = await runtimeFixture(); const root = join(fixture.root, 'default'); await mkdir(root);

@@ -3,12 +3,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Driver } from '../kernel/generations/driver.ts';
-import { Identity } from '../kernel/identity/index.ts';
-import { recover } from '../lib/generation-state/index.ts';
-import { isObject } from '../lib/schema/index.ts';
-import { snapshot } from '../lib/snapshots/index.ts';
-import { endpointVersion, person, processGeneration, revision } from './process-generation.ts';
+import { Driver } from '@/kernel/generations/driver.ts';
+import { Identity } from '@/kernel/identity/index.ts';
+import { recover } from '@/lib/generation-state/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { endpointVersion, person, processGeneration, revision } from '@/test/process-generation.ts';
 
 async function initiallyMigrated() {
   const fixture = await processGeneration();

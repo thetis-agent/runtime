@@ -2,21 +2,21 @@
 import { join } from 'node:path';
 import { lstat, unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { Process } from '../boundary/process.ts';
-import type { Context } from '../boundary/process.ts';
-import type { Principal, Run } from '../identity/index.ts';
-import { Generations, deadlines } from './index.ts';
-import type { Generation, Input, View } from './index.ts';
-import { prepare, discard, serving, limits as preparationLimits } from './prepare.ts';
-import type { Prepared, Revision } from './prepare.ts';
-import { SnapshotStore } from '../../lib/snapshots/store.ts';
-import { retireRuns } from '../../lib/snapshots/retention.ts';
-import { formats } from '../../lib/files/formats.ts';
-import { Endpoint } from '../../lib/socket/endpoint.ts';
-import { failure } from '../../lib/schema/index.ts';
-import { isObject } from '../../lib/schema/index.ts';
-import type { Result } from '../../lib/schema/index.ts';
-import type { Method } from '../../contracts/kernel-socket/types.ts';
+import { Process } from '@/kernel/boundary/process.ts';
+import type { Context } from '@/kernel/boundary/process.ts';
+import type { Principal, Run } from '@/kernel/identity/index.ts';
+import { Generations, deadlines } from '@/kernel/generations/index.ts';
+import type { Generation, Input, View } from '@/kernel/generations/index.ts';
+import { prepare, discard, serving, limits as preparationLimits } from '@/kernel/generations/prepare.ts';
+import type { Prepared, Revision } from '@/kernel/generations/prepare.ts';
+import { SnapshotStore } from '@/lib/snapshots/store.ts';
+import { retireRuns } from '@/lib/snapshots/retention.ts';
+import { formats } from '@/lib/files/formats.ts';
+import { Endpoint } from '@/lib/socket/endpoint.ts';
+import { failure } from '@/lib/schema/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
 
 interface Live { process: Process; prepared: Prepared; revision: Revision }
 export interface Configuration { root: string; owner: string; context: Context; scope?: Run['scope']; services?: readonly string[]; cost?: number; recovered?: View; recoverySnapshot?: string; checkpoint?(view: View, prepared: Prepared, revision: Revision): Promise<Result<void>> }

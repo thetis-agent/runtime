@@ -5,10 +5,10 @@ import { readFile, stat, realpath } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { resolvePath, boundedFile } from '../files/index.ts';
-import type { Root } from '../files/index.ts';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { resolvePath, boundedFile } from '@/lib/files/index.ts';
+import type { Root } from '@/lib/files/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 
 export const limits = { fileBytes: 4194304, files: 256 };
 

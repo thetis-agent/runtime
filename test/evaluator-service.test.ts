@@ -2,10 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { evaluatorService } from './evaluator-service.ts';
-import { connect, send, socketFrames } from '../lib/ndjson/socket.ts';
-import { isObject } from '../lib/result/index.ts';
-import { reviewer } from './default-act.ts';
+import { evaluatorService } from '@/test/evaluator-service.ts';
+import { connect, send, socketFrames } from '@/lib/ndjson/socket.ts';
+import { isObject } from '@/lib/result/index.ts';
+import { reviewer } from '@/test/default-act.ts';
 
 await test('EV-001 registered evaluator submits real loop outcomes and exposes only aggregates', async () => {
   const f = await evaluatorService();

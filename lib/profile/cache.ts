@@ -1,8 +1,8 @@
 /** Map only the configured service cache into canonical host sources before kernel verification; GN-002. */
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
-import { failure } from '../schema/index.ts';
-import type { Result, Schemas } from '../schema/index.ts';
+import { failure } from '@/lib/schema/index.ts';
+import type { Result, Schemas } from '@/lib/schema/index.ts';
 import { validator } from './schema.ts';
 import type { Install } from './types.ts';
 export async function cache(input: unknown, host: string, schemas: Schemas): Promise<Result<Install>> {

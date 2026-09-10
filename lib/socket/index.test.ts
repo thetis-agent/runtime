@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Peer, limits } from './index.ts';
 import type { Handler } from './index.ts';
-import type { Method } from '../../contracts/kernel-socket/types.ts';
-import { Schemas } from '../schema/index.ts';
-import { ManualClock } from '../events/index.ts';
-import { socketPair } from '../../test/socket-pair.ts';
+import type { Method } from '@/contracts/kernel-socket/types.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
+import { socketPair } from '@/test/socket-pair.ts';
 
 async function fixture(handlers: ReadonlyMap<Method, Handler>, clientMethods: readonly string[] = ['health.probe']) {
   const pair = await socketPair(); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();

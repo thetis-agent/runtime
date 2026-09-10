@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Pins } from './index.ts';
-import { Schemas } from '../schema/index.ts';
-import type { Result } from '../schema/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 const hash = `sha256:${'a'.repeat(64)}`;
 
 await test('KS-011 pin admission and pruning serialize so a new conversation cannot lose its installed release', async () => {

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Journal, limits } from './index.ts';
+import { Journal, limits } from '@/kernel/log/index.ts';
 
 await test('Journal serializes observed and reported halves without relabelling claims', async () => {
   const root = await mkdtemp('/tmp/log-'); const path = join(root, 'turns');

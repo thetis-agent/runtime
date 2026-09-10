@@ -8,9 +8,9 @@ import { materialize } from './index.ts';
 import { WorkQueue } from './work.ts';
 import type { Layer } from './types.ts';
 import type { Work } from './work.ts';
-import { snapshot } from '../snapshots/index.ts';
-import { Schemas } from '../schema/index.ts';
-import { ManualClock } from '../events/index.ts';
+import { snapshot } from '@/lib/snapshots/index.ts';
+import { Schemas } from '@/lib/schema/index.ts';
+import { ManualClock } from '@/lib/events/index.ts';
 
 await test('GN-002 composite layout verifies selected trees and exposes exact cache aliases', async () => {
   const root = await mkdtemp('/tmp/profile-case-'); const source = join(root, 'source'); await mkdir(source);

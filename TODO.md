@@ -133,10 +133,10 @@ non-sibling development checkout.
 Use Node 24.18.0, not this host's default Node 20. Run from the runtime checkout:
 
 ```sh
-"$THETIS_NODE" scripts/build.ts
-"$THETIS_NODE" scripts/check.ts
-"$THETIS_NODE" scripts/test.ts
-"$THETIS_NODE" test/conformance-inventory.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/build.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/check.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/test.ts
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs test/conformance-inventory.ts
 ```
 
 Checks require bubblewrap and working user namespaces. Tests additionally create

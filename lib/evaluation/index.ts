@@ -1,6 +1,6 @@
 /** Share validated evaluation identities and arithmetic without granting promotion authority; ADR 0014. */
-import schema from '../../contracts/evaluator/schema.json' with { type: 'json' };
-import type { Schemas, Validator } from '../schema/index.ts';
+import schema from '@/contracts/evaluator/schema.json' with { type: 'json' };
+import type { Schemas, Validator } from '@/lib/schema/index.ts';
 import type { Plan, Submission, Task } from './types.ts';
 export type { Plan, Submission, Task, Row, Identities } from './types.ts';
 export { gate, summarize, bootstrap, metricLimits } from './metrics.ts';

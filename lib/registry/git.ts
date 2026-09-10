@@ -1,7 +1,7 @@
 /** Disable ambient git execution and bound local plumbing; proposal §5, ADR 0007. */
 import { spawn } from 'node:child_process';
-import { failure } from '../result/index.ts';
-import type { Result } from '../result/index.ts';
+import { failure } from '@/lib/result/index.ts';
+import type { Result } from '@/lib/result/index.ts';
 export const limits = { processes: 2, outputBytes: 16777216, entries: 10000, fileBytes: 16777216, treeBytes: 67108864, versions: 4096, noteBytes: 4096, commandMs: 30000 };
 let active = 0;
 export async function git(path: string, args: string[], input?: Uint8Array, extra: Record<string, string> = {}): Promise<Result<Buffer>> {
