@@ -142,7 +142,7 @@ jobs:
           name: runtime-ci-shard-${{ matrix.shard }}-${{ github.run_id }}
           path: reports/
           overwrite: true
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
   verify:
     name: Full CI
