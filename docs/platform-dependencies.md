@@ -1,5 +1,12 @@
 # Platform boundary tools
 
+CI coverage aggregation uses Ubuntu 24.04's `lcov` **2.0** package, installed only
+in the final reporting job. Its `--add-tracefile` operation combines execution
+counts for overlapping sources, with `--branch-coverage` enabled. The existing
+bounded Node reporter validates the merged output and calculates summaries. LCOV
+is not a runtime dependency and is not needed for local tests or single-run
+coverage. Source: [Ubuntu's LCOV manual](https://manpages.ubuntu.com/manpages/noble/man1/lcov.1.html).
+
 Release-only archive tooling: GNU tar **1.34**, `/usr/bin/tar`, SHA-256
 `4e11647a9c86fb8857768bd622c43ed0662d7019f60f5bdd12fb15ac5f087070`, and
 gzip **1.12**, `/usr/bin/gzip`, SHA-256

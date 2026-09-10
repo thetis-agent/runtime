@@ -17,10 +17,11 @@ async function script(root: string): Promise<string> {
   const config: unknown = parse(await readFile(join(root, '.github/workflows/ci.yml'), 'utf8'));
   const workflow = object(config);
   assert.deepEqual(workflow['permissions'], { contents: 'read' });
-  const steps = object(object(workflow['jobs'])['verify'])['steps']; assert.ok(Array.isArray(steps));
+  const jobs = object(workflow['jobs']);
+  const steps = object(jobs['resolve'] ?? jobs['verify'])['steps']; assert.ok(Array.isArray(steps));
   const entries = steps.map((step: unknown) => object(step));
   const select = entries.find(step => step['id'] === 'peer'); assert.ok(select);
-  const checkout = entries.find(step => isObject(step['with']) && 'repository' in step['with']); assert.ok(checkout);
+  const checkout = entries.find(step => isObject(step['with']) && step['with']['ref'] === '${{ steps.peer.outputs.ref }}'); assert.ok(checkout);
   const options = object(checkout['with']);
   assert.equal(options['repository'], root.endsWith('/packages') ? 'thetis-agent/runtime' : 'thetis-agent/packages');
   assert.equal(options['ref'], '${{ steps.peer.outputs.ref }}');

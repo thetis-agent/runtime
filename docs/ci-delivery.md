@@ -10,7 +10,7 @@ without that tooling cannot run this pipeline.
 ## Verification
 
 Pull requests, merge queues, pushes to `main`, manual runs and daily schedules
-run `Full CI` on a fresh GitHub-hosted Ubuntu 24.04 x64 VM. There are no path
+run `Full CI` across fresh GitHub-hosted Ubuntu 24.04 x64 VMs. There are no path
 filters: contract and dependency changes need the same combined suite as package
 changes. The peer defaults to `main`; repository variables `THETIS_PACKAGES_REF`
 (runtime) and `THETIS_RUNTIME_REF` (packages) may pin a supported peer commit.
@@ -35,6 +35,27 @@ release builds always require the peer's complete commit hash.
 Concurrency is separate for push, pull-request, scheduled and manual runs, so a
 delayed daily run cannot cancel the main push whose release candidate is needed.
 Newer pushes still replace older push runs on the same branch.
+
+The source-resolution job pins both commit hashes once. Four test jobs then run
+in parallel with a separate checkout, systemd scope and bubblewrap namespace per
+job. Sorted test files are distributed round-robin across shards `1/4` through
+`4/4`; every discovered runtime/package test runs exactly once. Sharding balances
+file counts, not measured durations. Each shard keeps `--test-concurrency=1`, the
+one-CPU quota, 2 GiB memory ceiling and 256-task limit. This also keeps performance
+tests free of competing test files and prevents kernel startup's orphan sweep
+from killing another test's processes. Local runs remain sequential by default.
+
+Build, static checks and the installed-service smoke run in a separate job beside
+the test matrix. Both paths build from the pinned pair and regenerate their registry
+bundle before testing. A failed shard does not cancel the other shards. `Full CI`
+always runs, requires every upstream job to succeed, merges coverage and only then
+promotes the staged delivery to the existing release-candidate artifact. Missing,
+failed, cancelled or skipped gates block promotion. Staged delivery has provenance
+mode `gates`; finalization verifies its checksums and exact source pair before
+changing the mode to `verify` and refreshing checksums. Releases cannot consume
+the intermediate artifact. Intermediate artifact names are stable within a run
+and replaced on retry, allowing failed-job reruns to reuse successful jobs from
+that same pinned source pair.
 
 CI performs these blocking checks:
 
@@ -73,8 +94,8 @@ measurements, so CI does not run `bench` a second time.
 ## Coverage reports
 
 Both repositories' CI workflows collect coverage in the complete
-sandboxed test run. [Node 24's native coverage reporters](https://nodejs.org/download/release/v24.18.0/docs/api/test.html#coverage-reporters)
-provide the LCOV data; no coverage service token or additional dependency is
+sandboxed test shards. [Node 24's native coverage reporters](https://nodejs.org/download/release/v24.18.0/docs/api/test.html#coverage-reporters)
+provide the LCOV data; no coverage service token or additional npm dependency is
 required. Test failures retain their nonzero status, and coverage does not impose
 a new percentage threshold or waive performance/conformance assertions.
 The child preload stops V8 coverage before `acceptance-performance.test.ts` and
@@ -88,6 +109,15 @@ publication reuses CI's verified bytes and does not generate new coverage. Each 
 contains `lcov.info`, `summary.json` and `summary.md`; the workflow summary shows
 line, branch and function coverage for runtime, packages and their combined total.
 LCOV source paths start with `runtime/` or `packages/` to match the two checkouts.
+Each shard retains its own coverage and diagnostic artifact even on failure.
+The aggregate job installs Ubuntu's `lcov` and combines all four tracefiles with
+branch coverage enabled before recalculating weighted summaries. It never adds
+per-shard percentages or counts the same source file four times. A missing shard
+report or failed merge blocks `Full CI`; complete reports from failing tests can
+still produce combined coverage, while their test failure remains blocking.
+The LCOV reporter qualifies function names with their source line and occurrence,
+so same-name methods on different lines remain distinct and lazy function discovery
+does not rename anonymous functions by their changing array index.
 
 The report includes loaded TypeScript source modules under `kernel`, `lib`,
 `contracts` and `packages`. It excludes test files, third-party dependencies,
@@ -109,6 +139,10 @@ node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage /tmp/thetis-
 ```
 
 Existing test-path prefixes may follow the coverage directory for a focused run.
+Reproduce a CI partition with `--shard 1/4` (and similarly `2/4`, `3/4`, `4/4`).
+The runner accepts at most 16 shards, rejects invalid or repeated options, and
+fails an empty selection. Passing path prefixes intentionally limits the selected
+suite before sharding; CI supplies no prefixes.
 
 ## Repository configuration
 

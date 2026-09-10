@@ -2,7 +2,13 @@
 # ADR 0002, ADR 0037, implementation note 0055: CI verifies; release mode assembles previously reviewed sources.
 set -euo pipefail
 mode=${1:-verify}
-case "$mode" in verify|assemble) ;; *) printf 'Unknown delivery mode: %s\n' "$mode" >&2; exit 2 ;; esac
+case "$mode" in verify|assemble|gates|shard) ;; *) printf 'Unknown delivery mode: %s\n' "$mode" >&2; exit 2 ;; esac
+shard=${2:-}
+if [[ "$mode" == shard ]]; then
+  [[ "$shard" =~ ^[1-4]/4$ ]] || { printf 'CI requires a shard from 1/4 through 4/4.\n' >&2; exit 2; }
+else
+  [[ -z "$shard" ]] || { printf 'Only shard mode accepts a test shard.\n' >&2; exit 2; }
+fi
 workspace=$(pwd -P)
 export THETIS_PACKAGES="$workspace/packages"
 mkdir -p reports delivery
@@ -41,7 +47,7 @@ gate() {
 # Execution artifacts are deliberately untracked; committed schemas and validators
 # are checked for freshness by check.ts, never regenerated to make CI pass.
 node --import ./lib/artifacts/source.mjs scripts/build.ts 2>&1 | tee "$workspace/reports/build.log"
-if [[ "$mode" == verify ]]; then
+if [[ "$mode" == verify || "$mode" == gates ]]; then
   gate check node --import ./lib/artifacts/source.mjs scripts/check.ts
   gate kernel-size node --import ./lib/artifacts/source.mjs scripts/size.ts
   gate kernel-boundary bash .github/scripts/kernel-boundary.sh
@@ -50,23 +56,26 @@ fi
 node --import ./lib/artifacts/source.mjs scripts/release.ts 2>&1 | tee "$workspace/reports/registry.log"
 # Includes conformance inventory, providers and dependants, recovery, deployment
 # smoke tests, evaluator isolation and the actual latency/RSS acceptance limits.
-if [[ "$mode" == verify ]]; then
-  gate test node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage "$workspace/reports/coverage"
+if [[ "$mode" == verify || "$mode" == shard ]]; then
+  test_options=()
+  if [[ "$mode" == shard ]]; then test_options=(--shard "$shard"); fi
+  gate test node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage "$workspace/reports/coverage" "${test_options[@]}"
   if [[ -f "$workspace/reports/coverage/summary.md" ]]; then
     cat "$workspace/reports/coverage/summary.md" >> "$GITHUB_STEP_SUMMARY"
   else
     printf '\nCoverage report unavailable; inspect the test gate log.\n' >> "$GITHUB_STEP_SUMMARY"
   fi
-else
+elif [[ "$mode" == assemble ]]; then
   printf '\nRelease assembly uses reviewed main history; CI acceptance and coverage are not rerun (implementation note 0055).\n' >> "$GITHUB_STEP_SUMMARY"
 fi
-if [[ "$mode" == verify ]]; then
+if [[ "$mode" == verify || "$mode" == gates ]]; then
   gate installed-service bash .github/scripts/install-smoke.sh "$workspace/reports"
 fi
 if (( failures != 0 )); then
   printf '::error::%s acceptance gate(s) failed; delivery is blocked.\n' "$failures"
   exit 1
 fi
+if [[ "$mode" == shard ]]; then exit 0; fi
 node --import ./lib/artifacts/source.mjs scripts/distribution.ts "$workspace/delivery"
 cp profiles/default/{package.json,profile.lock.json,registry.json,registry.bundle} "$workspace/delivery/"
 cp "$workspace/reports/provenance.json" "$workspace/delivery/"
