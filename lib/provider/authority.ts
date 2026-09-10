@@ -6,11 +6,14 @@ import type { Authority, Caller } from './index.ts';
 
 export class KernelAuthority implements Authority {
   readonly #peer: Peer;
-  constructor(peer: Peer) { this.#peer = peer; }
+  readonly #service: string | undefined;
+  constructor(peer: Peer, service?: string) { this.#peer = peer; this.#service = service; }
 
   async whois(token: string): Promise<Result<Caller, 'auth'>> {
     const result = await this.#peer.call('token.whois', { runToken: token });
     if (!result.ok || !isObject(result.value)) return failure('auth', 'The kernel could not authenticate the caller.');
+    const services = result.value['services'];
+    if (this.#service !== undefined && (!Array.isArray(services) || !services.includes(this.#service))) return failure('auth', 'The caller has no grant for this service.');
     const person = result.value['person']; const scope = result.value['scope'];
     if (typeof person !== 'string' || (scope !== 'person' && scope !== 'deployment')) return failure('auth', 'The kernel returned an invalid caller identity.');
     const cost = result.value['cost'];
