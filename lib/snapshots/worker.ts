@@ -1,6 +1,7 @@
 /** Verify copies before admitting their hashes to a generation; ADR 0012 §2, GN-002. */
 import { parentPort } from 'node:worker_threads';
-import { cp, rm, mkdir } from 'node:fs/promises';
+import { rm, mkdir } from 'node:fs/promises';
+import { cpSync, lstatSync } from 'node:fs';
 import { hashTree } from './tree.ts';
 import { failure, isObject } from '@/lib/result/index.ts';
 import type { Result } from '@/lib/result/index.ts';
@@ -20,7 +21,8 @@ async function run(input: unknown): Promise<Result<string>> {
   try { await mkdir(input['destination'], { mode: 0o700 }); }
   catch { return failure('io', 'The snapshot destination already exists or cannot be created.'); }
   try {
-    await cp(input['path'], input['destination'], { recursive: true, errorOnExist: false, force: false, preserveTimestamps: true });
+    // This already runs in a bounded worker: per-file thread-pool hops only delay the frozen generation.
+    cpSync(input['path'], input['destination'], { recursive: true, errorOnExist: false, force: false, preserveTimestamps: true, filter: regular });
     const copied = await hashTree(input['destination']);
     if (copied.ok && copied.value === initial.value) return copied;
     await rm(input['destination'], { recursive: true, force: true });
@@ -30,6 +32,13 @@ async function run(input: unknown): Promise<Result<string>> {
     catch { return failure('io', 'The failed snapshot copy could not be removed.'); }
     return failure('io', 'The snapshot copy could not be completed.');
   }
+}
+
+// Keep copied directory modes exact and refuse entries changed to links or devices after hashing.
+function regular(path: string): boolean {
+  const info = lstatSync(path);
+  if (info.isDirectory() || info.isFile()) return true;
+  throw new Error('The snapshot source no longer contains only regular entries.');
 }
 
 if (!parentPort) throw new Error('The snapshot worker requires its parent port.');
