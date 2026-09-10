@@ -37,7 +37,7 @@ export async function precompile(check: boolean): Promise<boolean> {
   }
   const output = `/** Generated lazy validator index; ADR 0006, ADR 0037. Do not edit. */\nconst files = ${JSON.stringify(index)};\nconst dependencies = ${JSON.stringify(dependencies)};\nmodule.exports = function lookup(key, known) { const file = files[key]; if (!file || known && !dependencies[key].every(([id, hash]) => known.get(id)?.root === hash)) return undefined; return require(\`./compiled/\${file}.cjs\`)[key]; };\n`;
   outputs.push([new URL('./compiled.cjs', import.meta.url), output], [new URL('./compiled.d.cts', import.meta.url), '/** Generated validator types; ADR 0006, ADR 0037. Do not edit. */\ndeclare function lookup(key: string, known?: ReadonlyMap<string, { root: string }>): ((value: unknown) => boolean) | undefined;\nexport = lookup;\n']);
-  outputs.push(...await packages(ajv));
+  outputs.push(...await packages(documents));
   outputs.push([new URL('./compiler.cjs', import.meta.url), '/** Generated lazy dynamic-schema compiler; ADR 0037. Do not edit. */\nmodule.exports = function create(documents) { const { Ajv2020 } = require("ajv/dist/2020.js"); const instance = new Ajv2020({ strict: false, strictNumbers: true, allErrors: false, validateFormats: false, inlineRefs: false }); for (const document of documents) instance.addSchema(document); return instance; };\n'],
     [new URL('./compiler.d.cts', import.meta.url), '/** Generated compiler types; ADR 0037. Do not edit. */\nimport type { Ajv2020 } from "ajv/dist/2020.js";\ndeclare function create(documents: Iterable<Record<string, unknown>>): Ajv2020;\nexport = create;\n']);
   if (!check) await mkdir(new URL('./compiled/', import.meta.url), { recursive: true });
@@ -54,18 +54,22 @@ export async function precompile(check: boolean): Promise<boolean> {
   return fresh;
 }
 
-async function packages(ajv: Ajv2020): Promise<[URL, string][]> {
+async function packages(documents: Record<string, unknown>[]): Promise<[URL, string][]> {
   const root = pathToFileURL(`${packagesRoot(fileURLToPath(new URL('../..', import.meta.url)))}/`); const outputs: [URL, string][] = [];
   for (const entry of (await readdir(root, { withFileTypes: true })).sort((left, right) => left.name.localeCompare(right.name))) {
     if (!entry.isDirectory() || entry.name.startsWith('.') || !(await readdir(new URL(`${entry.name}/`, root))).includes('schema.json')) continue;
     const schema: unknown = JSON.parse(await readFile(new URL(`${entry.name}/schema.json`, root), 'utf8')); if (!isObject(schema)) throw new Error('The committed package schema is invalid.');
-    const [code, declaration] = packageGuard(ajv, schema);
+    const [code, declaration] = packageGuard(schema, documents);
     outputs.push([new URL(`${entry.name}/schema-validators.cjs`, root), code], [new URL(`${entry.name}/schema-validators.d.cts`, root), declaration]);
   }
   return outputs;
 }
 
-export function packageGuard(ajv: Ajv2020, schema: Record<string, unknown>): [string, string] {
+export function packageGuard(schema: Record<string, unknown>, documents: Iterable<Record<string, unknown>> = []): [string, string] {
+  // Ajv's generated names depend on earlier compilations. Each package owns its
+  // compiler so unrelated runtime or package edits cannot stale its output (ADR 0035).
+  const ajv = new Ajv2020({ strict: false, strictNumbers: true, validateFormats: false, inlineRefs: false, code: { source: true } });
+  for (const document of documents) ajv.addSchema(document);
   const validate = ajv.compile(schema);
   return [`/** Generated package schema guard; ADR 0037. Do not edit. */\n${standalone.default(ajv, validate)}\nmodule.exports.digest = ${JSON.stringify(signature(schema, true))};\n`,
     '/** Generated package schema types; ADR 0037. Do not edit. */\ndeclare const validate: { (value: unknown): boolean; digest: string };\nexport = validate;\n'];
