@@ -1,6 +1,6 @@
 # ADR 0035: both repositories use the runtime's installed-layout gate.
 name: Verify Thetis
-description: Build, check, test and assemble the exact runtime/packages checkout pair
+description: Build, check, test with coverage and assemble the exact runtime/packages checkout pair
 runs:
   using: composite
   steps:

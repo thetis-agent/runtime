@@ -97,8 +97,8 @@ use injected clocks; performance assertions measure actual elapsed time.
 aggregate kernel-plus-idle-environment RSS at most 512,000,000 bytes (ADR 0041)
 through the same sandbox launcher. `"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/size.ts` counts
 non-test kernel TypeScript lines excluding imports, blank lines and comment-only
-lines against 1,300 (ADRs 0039 and 0051), while reporting each exclusion separately. The kernel-size gate
-remains over budget; current benchmark results are in [implementation status](docs/implementation-status.md).
+lines against 1,500 (ADRs 0039, 0051 and 0054), while reporting each exclusion separately. The kernel-size gate
+passes at 1,423 lines; current benchmark results are in [implementation status](docs/implementation-status.md).
 
 `"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/release.ts` exports the exact default profile and offline
 registry bundle. The optional paid `scripts/live.ts` check is documented in
@@ -156,7 +156,7 @@ no package, no vendor, and no counter but `cost`. Grepping `kernel/` for a packa
 name should return nothing; a hit is a bug.
 
 It holds exactly four things — identity, the boundary, secrets, generations —
-against a 1,300-line budget. It is currently over that budget
+against a 1,500-line budget (ADR 0054). It currently counts 1,423 lines
 ([TODO.md](TODO.md) §2).
 
 ### Packages

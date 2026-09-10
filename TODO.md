@@ -69,7 +69,8 @@ Do not commit until both `check` and the full `test` command pass.
 The integrated DI/IoC inventory has **1,774 physical non-test TypeScript lines**.
 Under operator-approved ADRs 0039 and 0051, it excludes **190 import-only lines**,
 **140 blank lines** and **21 comment-only lines**. The **1,423 counted lines**
-remain **123 lines above** the unchanged 1,300-line budget. The installer and
+pass the operator-approved **1,500-line budget** with **77 lines remaining**
+(ADR 0054). The installer and
 update work adds exactly one kernel file, `kernel/supervisor-main.ts`, the
 production entry ADR 0048 requires, at **2 counted and 6 physical lines**;
 everything else it adds is in `lib/`. The DI/IoC refactor keeps named dispatch
@@ -89,7 +90,7 @@ Record any further architectural extraction before implementation.
   installation seed. The profile now has 58 exact pins and a matching offline
   git bundle; its reconstruction test verifies every commit and tree hash.
   The example recipe and package bundle alone are not a provisioned deployment.
-- A passing `scripts/size.ts` result; kernel size remains above its limit.
+- Preserve the passing `scripts/size.ts` result under ADR 0054.
   Performance acceptance uses ADRs 0041–0042's approved memory and latency ceilings.
 - A reproducible installation path to `/opt/zero`. `install.sh`, the systemd
   units, the supervised kernel entry and `zero update`/`zero undo` are built and

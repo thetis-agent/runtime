@@ -45,7 +45,12 @@ gate kernel-boundary bash .github/scripts/kernel-boundary.sh
 node --import ./lib/artifacts/source.mjs scripts/release.ts 2>&1 | tee "$workspace/reports/registry.log"
 # Includes conformance inventory, providers and dependants, recovery, deployment
 # smoke tests, evaluator isolation and the actual latency/RSS acceptance limits.
-gate test node --import ./lib/artifacts/source.mjs scripts/test.ts
+gate test node --import ./lib/artifacts/source.mjs scripts/test.ts --coverage "$workspace/reports/coverage"
+if [[ -f "$workspace/reports/coverage/summary.md" ]]; then
+  cat "$workspace/reports/coverage/summary.md" >> "$GITHUB_STEP_SUMMARY"
+else
+  printf '\nCoverage report unavailable; inspect the test gate log.\n' >> "$GITHUB_STEP_SUMMARY"
+fi
 if (( failures != 0 )); then
   printf '::error::%s acceptance gate(s) failed; delivery is blocked.\n' "$failures"
   exit 1

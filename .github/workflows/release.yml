@@ -71,6 +71,14 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$PEER_COMMIT" ]]
           git merge-base --is-ancestor HEAD refs/remotes/origin/main
       - uses: ./runtime/.github/actions/verify
+      - name: Retain coverage, including failed tests
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-release-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/coverage/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Retain diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

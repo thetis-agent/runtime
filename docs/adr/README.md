@@ -60,6 +60,7 @@ successor repository as `docs/adr/` on day one.
 | [0051](0051-exclude-imports-and-whitespace-from-kernel-size.md) | Exclude imports and whitespace from kernel size | Accepted |
 | [0052](0052-installed-service-recovery-and-provisioning.md) | Installed service recovery and provisioning | Accepted |
 | [0053](0053-bounded-deployment-store-exports.md) | Bounded deployment store exports | Accepted |
+| [0054](0054-raise-kernel-size-ceiling-to-1500-lines.md) | Raise the kernel size ceiling to 1,500 lines | Accepted by the operator |
 
 ## Decisions in the register that still need a record
 
