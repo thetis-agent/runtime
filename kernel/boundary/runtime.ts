@@ -20,7 +20,7 @@ import type { Secrets } from '@/kernel/secrets/index.ts';
 import { declaration, deliver } from '@/kernel/secrets/spawn.ts';
 import { Register } from '@/lib/package-loader/registration.ts';
 import { requirements } from '@/lib/package-loader/requirements.ts';
-import type { Method } from '@/contracts/kernel-socket/types.ts';
+import type { Method, Note } from '@/contracts/kernel-socket/types.ts';
 import type { Socket } from 'node:net';
 import type { Context } from '@/kernel/boundary/process.ts';
 import { execution } from '@/kernel/boundary/execution.ts';
@@ -296,19 +296,59 @@ export class Runtime {
       const person = this.#context.identity.principal(run.person);
       return person && run.scope === 'person' ? this.session(person, method, params) : Promise.resolve(failure('forbidden', 'This run has no scoped session authority.'));
     });
-    methods.set('profile.get', run => { const profile = (mounted.profiles.get(run.generation) ?? mounted.target).profile; return Promise.resolve({ ok: true, value: { ...profile, ...(isObject(profile['runtime']) ? { runtime: { ...profile['runtime'], generation: run.generation } } : {}) } }); });
+    methods.set('profile.get', run => this.#profile(mounted, run));
     methods.set('package.register', (run, params) => this.#register(mounted, run, params));
-    methods.set('token.whois', (run, params) => {
-      const caller = typeof params['runToken'] === 'string' ? this.#context.identity.authenticate(params['runToken']) : failure('auth', 'The caller credential is invalid.');
-      if (!caller.ok) return Promise.resolve(caller);
-      return Promise.resolve(run.scope === 'deployment' || run.id === caller.value.id && run.person === caller.value.person && run.target === caller.value.target && run.generation === caller.value.generation ? caller : failure('forbidden', 'Only deployment scope can resolve another run.'));
-    });
+    methods.set('token.whois', (run, params) => this.#tokenWhois(run, params['runToken']));
     methods.set('session.whois', (run, params) => Promise.resolve(sessionWhois(this.#context.identity, run, params['sessionToken'])));
     methods.set('usage.report', (run, params) => this.#report(run, params));
-    methods.set('identity.assert', (run, params) => Promise.resolve(run.scope === 'deployment' && typeof params['kind'] === 'string' && typeof params['id'] === 'string' ? this.#context.identity.session(run.target, params['kind'], params['id']) : failure('forbidden', 'The identity assertion requires a designated deployment authority.')));
+    methods.set('identity.assert', (run, params) => this.#assertIdentity(run, params));
     const extension = this.#context.extension?.(mounted.target);
-    for (const [method, handler] of extension?.methods ?? []) { if (methods.has(method)) throw new Error('An extension cannot replace kernel authority.'); methods.set(method, method === 'prune' ? (run, params) => typeof params['id'] === 'string' ? this.prune(params['id'], () => handler(run, params)) : Promise.resolve(failure('invalid-args', 'The prune identity is absent.')) : handler); }
-    return { capabilities: extension?.capabilities ?? [], methods, notes: ['turn.report', 'notice', 'run.stop', 'env.updated'], note: (run, note) => note.note === 'turn.report' || note.note === 'notice' ? this.#context.journal.reported(run.target, note.note, note.params) : Promise.resolve(failure('forbidden', 'Only the kernel sends lifecycle control.')) };
+    for (const [method, handler] of extension?.methods ?? []) {
+      if (methods.has(method)) throw new Error('An extension cannot replace kernel authority.');
+      methods.set(method, method === 'prune' ? this.#protectPrune(handler) : handler);
+    }
+    return {
+      capabilities: extension?.capabilities ?? [], methods,
+      notes: ['turn.report', 'notice', 'run.stop', 'env.updated'],
+      note: (run, note) => this.#reportedNote(run, note)
+    };
+  }
+
+  #profile(mounted: Mounted, run: Run): Promise<Result<unknown>> {
+    const profile = (mounted.profiles.get(run.generation) ?? mounted.target).profile;
+    const runtime = profile['runtime'];
+    const generation = isObject(runtime) ? { runtime: { ...runtime, generation: run.generation } } : {};
+    return Promise.resolve({ ok: true, value: { ...profile, ...generation } });
+  }
+
+  #tokenWhois(run: Run, token: unknown): Promise<Result<unknown>> {
+    const caller = typeof token === 'string' ? this.#context.identity.authenticate(token) : failure('auth', 'The caller credential is invalid.');
+    if (!caller.ok) return Promise.resolve(caller);
+    const sameRun = run.id === caller.value.id && run.person === caller.value.person
+      && run.target === caller.value.target && run.generation === caller.value.generation;
+    return Promise.resolve(run.scope === 'deployment' || sameRun
+      ? caller : failure('forbidden', 'Only deployment scope can resolve another run.'));
+  }
+
+  #assertIdentity(run: Run, params: Record<string, unknown>): Promise<Result<unknown>> {
+    if (run.scope !== 'deployment' || typeof params['kind'] !== 'string' || typeof params['id'] !== 'string') {
+      return Promise.resolve(failure('forbidden', 'The identity assertion requires a designated deployment authority.'));
+    }
+    return Promise.resolve(this.#context.identity.session(run.target, params['kind'], params['id']));
+  }
+
+  #protectPrune(handler: Operation): Operation {
+    return (run, params) => {
+      const id = params['id'];
+      if (typeof id !== 'string') return Promise.resolve(failure('invalid-args', 'The prune identity is absent.'));
+      return this.prune(id, () => handler(run, params));
+    };
+  }
+
+  #reportedNote(run: Run, note: Note): Promise<Result<void>> {
+    return note.note === 'turn.report' || note.note === 'notice'
+      ? this.#context.journal.reported(run.target, note.note, note.params)
+      : Promise.resolve(failure('forbidden', 'Only the kernel sends lifecycle control.'));
   }
 
   async #register(mounted: Mounted, run: Run, params: Record<string, unknown>): Promise<Result<void>> {
