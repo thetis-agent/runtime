@@ -14,7 +14,7 @@ ZERO_NAMESPACE='zero-release'
 # in a release signed with the key being retired (docs/ci-delivery.md).
 ZERO_ALLOWED_SIGNERS='release@thetis-agent namespaces="zero-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholderUntilTheFirstReleaseIsCut'
 STATE_ROOT_LIMIT=18
-PASSWORD_MINIMUM=12
+PASSWORD_MINIMUM=6
 SYSTEMD_MINIMUM=252
 DEFAULT_STATE_SIZE=4294967296
 ASSETS='thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt kernel-pins.json install.sh SHA256SUMS SHA256SUMS.sig'
