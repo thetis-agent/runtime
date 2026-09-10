@@ -9,6 +9,7 @@ import type { Identity, Run } from '../identity/index.ts';
 
 export type Operation = (run: Run, params: Record<string, unknown>) => Promise<Result<unknown>>;
 export interface Operations {
+  capabilities?: readonly string[];
   methods: ReadonlyMap<Method, Operation>;
   notes: readonly Note['note'][];
   note(run: Run, value: Note): Promise<Result<void>>;
@@ -24,7 +25,7 @@ export async function accept(
     const current = identity.authenticate(credential, ['health.probe', 'profile.get', 'package.register'].includes(method) ? 'probe' : 'call');
     return current.ok ? handler(current.value, params) : Promise.resolve(current);
   });
-  const peer = new Peer(socket, schemas, clock, [...handlers.keys(), ...operations.notes], {
+  const peer = new Peer(socket, schemas, clock, [...handlers.keys(), ...operations.notes, ...operations.capabilities ?? []], {
     handlers, note: value => {
       const current = identity.authenticate(credential);
       return current.ok ? operations.note(current.value, value) : Promise.resolve(current);

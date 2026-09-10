@@ -16,7 +16,7 @@ import { listen } from './server.ts';
 import type { Service } from './lifecycle.ts';
 import type { Startup } from './types.ts';
 
-type Factory = (settings: Record<string, unknown>, authority: Authority, budgets: Budgets, schemas: Schemas, clock: Clock) => Result<Provider> | Promise<Result<Provider>>;
+type Factory = (settings: Record<string, unknown>, authority: Authority, budgets: Budgets, schemas: Schemas, clock: Clock, scope: 'person' | 'deployment') => Result<Provider> | Promise<Result<Provider>>;
 const paths = { socket: '/endpoint/service.sock', checkpoint: '/state/budget.json' };
 
 class Control {
@@ -62,11 +62,10 @@ export async function serve(factory: Factory, observe: (result: Result<void>) =>
   const peer = new Peer(inherited.value.socket, schemas, clock, ['health.probe', 'profile.get', 'token.whois', 'usage.report', 'run.stop', 'env.updated'], { handlers: control.handlers, note: note => control.note(note) });
   try {
     const connected = await peer.connect(); if (!connected.ok) return connected;
-    if (connected.value.scope !== 'deployment') return failure('auth', 'This registered service requires deployment scope.');
     const config = await policy(peer, schemas); if (!config.ok) return config;
     const checkpoint = await BudgetCheckpoint.open(paths.checkpoint, schemas); if (!checkpoint.ok) return checkpoint;
     const budgets = new Budgets(config.value.rule, Date.now, config.value.peopleLimit, checkpoint.value);
-    const adapter = await factory(config.value.settings, new KernelAuthority(peer), budgets, schemas, clock); if (!adapter.ok) return adapter;
+    const adapter = await factory(config.value.settings, new KernelAuthority(peer), budgets, schemas, clock, connected.value.scope); if (!adapter.ok) return adapter;
     const opened = await listen(paths.socket, adapter.value, schemas, observe); if (!opened.ok) return opened;
     control.attach(opened.value);
     return await peer.finished();

@@ -1,0 +1,797 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://internal/deployment/1",
+  "$defs": {
+    "mount": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "mode": {
+          "enum": [
+            "ro",
+            "rw"
+          ]
+        },
+        "maximumBytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "source",
+        "path",
+        "mode"
+      ]
+    },
+    "revision": {
+      "type": "object",
+      "properties": {
+        "plan": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "entry": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "args": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "cwd": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "execution": { "enum": ["source", "artifacts"] },
+            "network": {
+              "enum": [
+                "none",
+                "egress"
+              ]
+            }
+          },
+          "required": [
+            "name",
+            "version",
+            "entry",
+            "args",
+            "cwd"
+          ]
+        },
+        "pins": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "hash": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              "mount": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "source",
+              "hash",
+              "mount"
+            ]
+          }
+        },
+        "mounts": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/mount"
+          }
+        },
+        "stateMount": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "endpointMount": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "socketName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "quotaBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "formats": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "schema": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "path",
+              "schema"
+            ]
+          }
+        },
+        "migrations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "entry": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "args": {
+                "type": "array",
+                "maxItems": 256,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            },
+            "required": [
+              "entry",
+              "args"
+            ]
+          }
+        },
+        "migrate": {
+          "enum": [
+            "stop",
+            "shared"
+          ]
+        }
+      },
+      "required": [
+        "plan",
+        "pins",
+        "mounts",
+        "stateMount",
+        "endpointMount",
+        "socketName",
+        "quotaBytes",
+        "formats",
+        "migrations",
+        "migrate"
+      ]
+    },
+    "principal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "reviewer",
+            "user"
+          ]
+        },
+        "projects": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "observeOthers": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "projects",
+        "observeOthers"
+      ]
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "people": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/principal"
+          }
+        },
+        "bindings": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "person": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "person"
+            ]
+          }
+        },
+        "authorities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "required": [
+        "people",
+        "bindings",
+        "authorities"
+      ]
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "owner": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "scope": {
+          "enum": [
+            "person",
+            "deployment"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "profile": {
+          "type": "object"
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object"
+          }
+        },
+        "services": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "registration": {
+          "type": "object",
+          "properties": {
+            "package": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "package",
+            "id"
+          ]
+        },
+        "environment": {
+          "type": "boolean"
+        },
+        "revision": {
+          "$ref": "#/$defs/revision"
+        }
+      },
+      "required": [
+        "id",
+        "owner",
+        "scope",
+        "state",
+        "profile",
+        "entries",
+        "services",
+        "revision"
+      ]
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "cgroup": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "targets": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/target"
+          }
+        },
+        "bootstrap": {
+          "$ref": "#/$defs/bootstrap"
+        },
+        "trusted": {
+          "$ref": "#/$defs/trusted"
+        },
+        "work": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/work"
+          }
+        }
+      },
+      "required": [
+        "version",
+        "root",
+        "cgroup",
+        "identity",
+        "targets"
+      ]
+    },
+    "bootstrap": {
+      "type": "object",
+      "required": [
+        "recipe",
+        "registry",
+        "cache",
+        "output",
+        "profile",
+        "discoveryRoot"
+      ],
+      "properties": {
+        "recipe": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "registry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "cache": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "output": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "discoveryRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "required": [
+        "digest",
+        "targets"
+      ],
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/target"
+          }
+        }
+      }
+    },
+    "trusted": {
+      "type": "object",
+      "required": [
+        "origin",
+        "socket",
+        "keyFd",
+        "administrator",
+        "baseline",
+        "digest",
+        "releases",
+        "plans"
+      ],
+      "properties": {
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "socket": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "keyFd": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 1024
+        },
+        "administrator": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "baseline": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "releases": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/release"
+          }
+        },
+        "plans": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "required": [
+              "source",
+              "plan"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "plan": {
+                "$ref": "thetis://contract/evaluator/1#/$defs/plan"
+              }
+            }
+          }
+        },
+        "execution": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/execution"
+          }
+        }
+      }
+    },
+    "work": {
+      "type": "object",
+      "required": [
+        "target",
+        "root",
+        "cache",
+        "discoveryRoot",
+        "discoveryEntry"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "cache": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "discoveryRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "discoveryEntry": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "executionArm": {
+      "type": "object",
+      "properties": {
+        "plan": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "entry": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "args": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "cwd": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "execution": { "enum": ["source", "artifacts"] },
+            "network": {
+              "enum": [
+                "none",
+                "egress"
+              ]
+            },
+            "mounts": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/mount"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "version",
+            "entry",
+            "args",
+            "cwd",
+            "mounts"
+          ]
+        },
+        "setup": {
+          "type": "object"
+        },
+        "pins": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "hash": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "source",
+              "hash"
+            ]
+          }
+        }
+      },
+      "required": [
+        "plan",
+        "setup",
+        "pins"
+      ]
+    },
+    "executionFixture": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "checks": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "hash": {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "hash"
+            ]
+          }
+        }
+      },
+      "required": [
+        "source",
+        "hash",
+        "checks"
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "account": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "services": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "startup": {
+          "$ref": "thetis://contract/evaluator/1#/$defs/startup"
+        },
+        "arms": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": {
+            "$ref": "#/$defs/executionArm"
+          }
+        },
+        "fixtures": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "$ref": "#/$defs/executionFixture"
+          }
+        },
+        "privateRoots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "required": [
+        "source",
+        "account",
+        "services",
+        "startup",
+        "arms",
+        "fixtures",
+        "privateRoots"
+      ]
+    }
+  },
+  "$ref": "#/$defs/deployment"
+}

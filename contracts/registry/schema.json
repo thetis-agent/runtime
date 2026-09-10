@@ -1,0 +1,525 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/registry/1",
+  "$defs": {
+    "pin": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "commit",
+        "hash"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*(/[a-z][a-z0-9-]*)?$",
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "required": [
+        "pin",
+        "at",
+        "note"
+      ],
+      "properties": {
+        "pin": {
+          "$ref": "#/$defs/pin"
+        },
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    },
+    "lock": {
+      "type": "object",
+      "required": [
+        "version",
+        "pins"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "pins": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/pin"
+          }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "enum": [
+            "invalid-args",
+            "io",
+            "budget",
+            "outside-roots",
+            "not-found",
+            "conflict",
+            "gap",
+            "hash-mismatch",
+            "deadline",
+            "cycle",
+            "scope",
+            "envelope",
+            "collision",
+            "forbidden"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "startup": {
+      "type": "object",
+      "required": [
+        "cache",
+        "registry",
+        "sources"
+      ],
+      "properties": {
+        "cache": {
+          "const": "/cache"
+        },
+        "registry": {
+          "const": "/registry"
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "pattern": "^/sources/[a-z0-9-]+$",
+            "maxLength": 256
+          }
+        }
+      }
+    },
+    "request": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "name",
+            "version"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "inspect"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "version": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "name",
+            "range"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "search"
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "range": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "pin"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "fetch"
+            },
+            "pin": {
+              "$ref": "#/$defs/pin"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "source",
+            "note",
+            "at"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "publish"
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "note": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "at": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "pins"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "resolve"
+            },
+            "pins": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/pin"
+              }
+            },
+            "facts": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/provision"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "live",
+            "defaults",
+            "at"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "retention"
+            },
+            "live": {
+              "type": "array",
+              "maxItems": 10000,
+              "items": {
+                "$ref": "#/$defs/pin"
+              }
+            },
+            "defaults": {
+              "type": "array",
+              "maxItems": 10000,
+              "items": {
+                "$ref": "#/$defs/pin"
+              }
+            },
+            "at": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "source",
+            "at"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "bootstrap"
+            },
+            "source": {
+              "type": "string",
+              "maxLength": 256
+            },
+            "at": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "layers"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "assemble"
+            },
+            "layers": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/selection"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "method",
+            "pin"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "method": {
+              "const": "prune"
+            },
+            "pin": {
+              "$ref": "#/$defs/pin"
+            }
+          }
+        }
+      ]
+    },
+    "response": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "ok",
+            "value"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "ok": {
+              "const": true
+            },
+            "value": {}
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "v",
+            "id",
+            "ok",
+            "error"
+          ],
+          "properties": {
+            "v": {
+              "const": "1"
+            },
+            "id": {
+              "type": "string",
+              "maxLength": 128
+            },
+            "ok": {
+              "const": false
+            },
+            "error": {
+              "$ref": "#/$defs/error"
+            }
+          }
+        }
+      ]
+    },
+    "provision": {
+      "type": "object",
+      "required": [
+        "name",
+        "version",
+        "scope",
+        "owner"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "version": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "scope": {
+          "enum": [
+            "person",
+            "deployment"
+          ]
+        },
+        "owner": {
+          "type": "string",
+          "maxLength": 256
+        }
+      }
+    },
+    "selection": {
+      "type": "object",
+      "required": [
+        "kind",
+        "directory",
+        "pin"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "packages",
+            "lib",
+            "contracts",
+            "node_modules"
+          ]
+        },
+        "directory": {
+          "type": "string",
+          "pattern": "^(@[a-z0-9-]+/)?[a-z0-9][a-z0-9_.-]*$",
+          "maxLength": 128
+        },
+        "pin": {
+          "$ref": "#/$defs/pin"
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/lock"
+}

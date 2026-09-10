@@ -9,20 +9,22 @@ import { Journal } from '../kernel/log/index.ts';
 import { Schemas, failure } from '../lib/schema/index.ts';
 import { ManualClock } from '../lib/events/index.ts';
 import { SandboxRunner } from '../lib/sandbox-runner/index.ts';
-import type { Mount } from '../lib/sandbox-runner/index.ts';
+import type { Mount, Plan } from '../lib/sandbox-runner/index.ts';
 import { discover } from '../lib/package-loader/index.ts';
+import { packagesRoot } from '../lib/profile/packages-root.ts';
+import { packageEntry, packageMounts } from './package-mounts.ts';
 import { sessionMethods } from '../packages/core/protocol.ts';
 import type { Method } from '../contracts/kernel-socket/types.ts';
 import type { serviceFixture } from './provider-service.ts';
 
-export async function environmentProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, person: string) {
+export async function environmentProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, person: string, publicEndpoint = false) {
   const root = await mkdtemp('/tmp/person-environment-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
-  await mkdir(join(root, 'state')); await mkdir(join(root, 'space'));
+  await mkdir(join(root, 'state')); await mkdir(join(root, 'space')); if (publicEndpoint) await mkdir(join(root, 'endpoint'));
   const journal = await Journal.open(join(root, 'observed.jsonl'), () => clock.now()); assert.ok(journal.ok);
   const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
-  const entries = await discover(join(repository, 'packages'), '/state/packages', {}, schemas); assert.ok(entries.ok);
+  const entries = await discover(packagesRoot(repository), '/state/packages', {}, schemas); assert.ok(entries.ok);
   const profile = { entries: entries.value.filter(entry => ['core', 'tools-files'].includes(entry.manifest.name)), profile: {}, provided: {}, spaces: [], excluded: [], runtime: {
-    root: '/state/conversations', providerSocket: '/services/provider.sock', person: 'wrong-person', token: 'not-the-inherited-token', model: 'scripted', provider: 'shared', space: '/space',
+    ...(publicEndpoint ? { endpoint: '/endpoint/service.sock' } : {}), root: '/state/conversations', providerSocket: '/services/provider.sock', person: 'wrong-person', token: 'not-the-inherited-token', model: 'scripted', provider: 'shared', space: '/space',
     system: [{ role: 'system', source: 'core', content: [{ type: 'text', text: 'A stable stored prefix. '.repeat(1024) }] }],
     roots: [{ path: '/space', mode: 'rw', space: 'person' }], mode: { readOnly: false, deny: [] }
   } };
@@ -34,12 +36,14 @@ export async function environmentProcess(shared: Awaited<ReturnType<typeof servi
     note: (run, note) => note.note === 'notice' || note.note === 'turn.report' ? journal.value.reported(run.target, note.note, note.params) : Promise.resolve(failure('forbidden', 'Only the kernel sends environment control notes.'))
   } };
   const caller = shared.client(person);
-  const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: `${repository}/packages/core/main.ts`, args: [], cwd: '/state', mounts: [
-    ...['lib', 'contracts', 'node_modules', 'packages/core', 'packages/tools-files'].map((name): Mount => ({ source: `${repository}/${name}`, path: `${repository}/${name}`, mode: 'ro' })),
+  const plan = { name: 'fixture', version: '1.0.0', entry: packageEntry(repository, 'core', 'main.ts'), args: [], cwd: '/state', execution: 'artifacts', mounts: [
+    ...packageMounts(repository, ['core', 'tools-files']),
     ...['state', 'space'].map((name): Mount => ({ source: join(root, name), path: `/${name}`, mode: 'rw', maximumBytes: 67108864 })),
-    { source: join(shared.root, 'endpoint/service.sock'), path: '/services/provider.sock', mode: 'ro' }
-  ] }, caller.token, context); assert.ok(started.ok, JSON.stringify(started));
-  return { root, process: started.value, token: caller.token, rows: () => readFile(join(root, 'observed.jsonl'), 'utf8'), async close() {
+    { source: join(shared.root, 'endpoint/service.sock'), path: '/services/provider.sock', mode: 'ro' },
+    ...(publicEndpoint ? [{ source: join(root, 'endpoint'), path: '/endpoint', mode: 'rw', maximumBytes: 67108864 } satisfies Mount] : [])
+  ] } satisfies Omit<Plan, 'socket' | 'token'>;
+  const started = await Process.start(plan, caller.token, context); assert.ok(started.ok, JSON.stringify(started));
+  return { root, plan, context, process: started.value, token: caller.token, rows: () => readFile(join(root, 'observed.jsonl'), 'utf8'), async close() {
     const stopped = await started.value.stop('test complete'); assert.ok(stopped.ok); await journal.value.close(); await rm(root, { recursive: true, force: true });
   } };
 }

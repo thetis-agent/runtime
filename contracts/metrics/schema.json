@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/metrics/1",
+  "$defs": {
+    "request": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "method",
+            "submission",
+            "plan",
+            "v"
+          ],
+          "properties": {
+            "method": {
+              "const": "summary"
+            },
+            "submission": {
+              "$ref": "thetis://contract/evaluator/1#/$defs/submission"
+            },
+            "plan": {
+              "$ref": "thetis://contract/evaluator/1#/$defs/plan"
+            },
+            "v": {
+              "const": "1"
+            }
+          },
+          "additionalProperties": true
+        },
+        {
+          "type": "object",
+          "required": [
+            "method",
+            "target",
+            "v"
+          ],
+          "properties": {
+            "method": {
+              "const": "logs"
+            },
+            "target": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "from": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "v": {
+              "const": "1"
+            }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "goldPair": {
+      "type": "object",
+      "required": [
+        "query",
+        "skills"
+      ],
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/request"
+}

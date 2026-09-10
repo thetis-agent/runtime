@@ -27,3 +27,5 @@ a deployment-scope service (a provider, a gateway).
 | KS-020 | E | `turn.report` | note | one per turn, ≤ 64 KiB, labelled `candidate-reported` in the log |
 | KS-021 | K | a frame with unknown fields | any | ignored; the response validates |
 | KS-022 | K | `token.whois` for a token of another run | request | the person and scope of that run, only to a deployment-scope service |
+| KS-023 | K | `session.whois` | request | a run resolves a browser session only for the person it serves: a person-scope run is refused a token naming another person; a deployment-scope run may resolve any; the token is never echoed or logged (ADR 0038) |
+| KS-024 | K | a target's service grant | mount | refused when the granted service is person-scoped and owned by another person; a same-owner grant is accepted (kernel/boundary/runtime.ts, ADR 0038) |

@@ -34,6 +34,11 @@ findings.
 | skills | [schema/skills.schema.json](schema/skills.schema.json) | [conformance/skills.md](conformance/skills.md), SK-001 to SK-015 |
 | provider | [schema/provider.schema.json](schema/provider.schema.json) | [conformance/provider.md](conformance/provider.md), PR-001 to PR-015 |
 | kernel-socket | [schema/kernel-socket.schema.json](schema/kernel-socket.schema.json) | [conformance/kernel-socket.md](conformance/kernel-socket.md), KS-001 to KS-022 |
+| storage | [../../contracts/storage/schema.json](../../contracts/storage/schema.json) | [conformance/storage.md](conformance/storage.md), ST-001 to ST-007 |
+
+[Storage](storage.md) adds the in-process byte-store and append-log API in ADR
+0040. Its data types are generated from its schema; the callable interface carries
+opaque `Uint8Array` values without introducing a socket protocol.
 
 The schemas are the authority where they and the prose differ; the
 prose explains. Every message is `additionalProperties: true` by rule

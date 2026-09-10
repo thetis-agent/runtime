@@ -15,10 +15,12 @@ import type { Journal } from '../log/index.ts';
 
 export const limits = { turnMs: 600000, pending: 128, probeMs: 10000, identifierBytes: 256 };
 export interface Context { target: string; identity: Identity; schemas: Schemas; clock: Clock; runner: SandboxRunner; journal: Journal; operations: Operations }
+export interface Termination { expected: boolean; result: Result<void> }
 
 export class Process {
   readonly running: Running;
   readonly control: Peer;
+  readonly exited: Promise<Termination>;
   readonly #pair: Pair;
   readonly #context: Context;
   readonly #token: string;
@@ -26,7 +28,13 @@ export class Process {
   #stopping: Promise<Result<void>> | undefined;
   private constructor(running: Running, control: Peer, pair: Pair, token: string, context: Context) {
     this.running = running; this.control = control; this.#pair = pair; this.#token = token; this.#context = context;
+    this.exited = running.exited.then(async () => {
+      const expected = this.#stopping !== undefined;
+      return { expected, result: await this.stop('unexpected process exit') };
+    });
   }
+
+  get alive(): boolean { return !this.#stopping && this.running.process.exitCode === null && this.running.process.signalCode === null; }
 
   static async start(plan: Omit<Plan, 'socket' | 'token'>, token: string, context: Context): Promise<Result<Process>> {
     const authenticated = context.identity.authenticate(token, 'probe'); if (!authenticated.ok) return authenticated;
@@ -47,7 +55,8 @@ export class Process {
   }
 
   async probe(): Promise<Result<void>> {
-    const answer = await this.control.call('health.probe', {}, limits.probeMs);
+    const boundary = this.running.health(); if (!boundary.ok) return boundary;
+    const answer = await this.control.call('health.probe', { activation: true }, limits.probeMs);
     if (!answer.ok) return answer;
     return isObject(answer.value) && answer.value['ready'] === true ? { ok: true, value: undefined } : failure('io', 'The generation did not answer healthy.');
   }
@@ -99,9 +108,18 @@ export class Process {
 
   stop(reason: string): Promise<Result<void>> { this.#stopping ??= this.#stop(reason); return this.#stopping; }
 
+  async shutdown(reason: string, deadlineMs: number): Promise<Result<void>> {
+    if (this.#stopping) return this.#stopping;
+    const signalled = await this.control.notify({ note: 'run.stop', params: { shutdown: true, deadlineMs } });
+    const acknowledged = signalled.ok ? await this.control.call('health.probe', {}, deadlineMs) : signalled;
+    const stopped = await this.stop(reason); if (!stopped.ok) return stopped;
+    return this.#context.journal.observed(this.#context.target, 'process.shutdown', { outcome: acknowledged.ok ? 'acknowledged' : 'killed', reason }, true);
+  }
+
   async #stop(reason: string): Promise<Result<void>> {
+    this.#context.identity.revoke(this.#token); this.control.close();
     const stopped = await this.running.stop();
-    this.control.close(); const endpoints = await this.#pair.close(); await this.control.finished(); this.#context.identity.revoke(this.#token);
+    const endpoints = await this.#pair.close(); await this.control.finished();
     if (!stopped.ok) return stopped; if (!endpoints.ok) return endpoints;
     const exit = await this.running.exited;
     return this.#context.journal.observed(this.#context.target, 'process.exit', { reason, ...exit }, true);

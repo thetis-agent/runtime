@@ -1,5 +1,5 @@
 /** Apply the same envelope to exported and initialized spawns; ADR 0016 §3, KS-009. */
-import type { ValidateFunction } from 'ajv';
+import type { Validator as ValidateFunction } from '../schema/index.ts';
 import type { Result } from '../schema/index.ts';
 import { failure } from '../schema/index.ts';
 import { envelope } from '../semver-match/index.ts';

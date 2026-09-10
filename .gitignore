@@ -1,3 +1,7 @@
 node_modules/
 .runtime/
+.registry/
 *.tsbuildinfo
+*.ts.js
+*.ts.artifact.json
+codex-session-*.md

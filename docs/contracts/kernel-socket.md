@@ -37,6 +37,7 @@ fields ignored everywhere. Two logical channels on one socket: control
 | `session.list`, `session.create`, `session.submit`, `session.subscribe`, `session.cancel` | client → kernel | only the person the token names; a gateway passes the person its `identity` returned and the kernel checks it against the gateway's scope |
 | `usage.report` | provider → kernel | a call's final usage counters with the caller's run token; appended to the log uninterpreted, labelled by the provider's scope (ADR 0019) |
 | `token.whois` | service → kernel | the person and scope behind a run token presented on a service socket |
+| `session.whois` | client → kernel | the person and role behind a `thetis_session` token; a capability-gated addition wrapping `identity.resolveSession`. A person-scope caller may resolve only a token naming that run's own person; a deployment-scope caller may resolve any (ADR 0038, KS-023) |
 | `profile.get` | client → kernel | the resolved package list and paths for this run |
 | `install`, `snapshot`, `prune`, `results.submit` | package → kernel | the delegation calls of ADR 0017: install verifies the hash against the pin; snapshot and prune act on kernel-owned directories; results carry their identities |
 | `package.register` | client → kernel | a package's `init`-time `{ requires, provides, spawn }`; matched like static requirements; refused by name outside the package's envelope (ADR 0016) |

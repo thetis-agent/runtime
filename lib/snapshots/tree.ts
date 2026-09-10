@@ -6,7 +6,7 @@ import { fileChunks } from '../ndjson/file.ts';
 import { failure } from '../result/index.ts';
 import type { Result } from '../result/index.ts';
 
-export const limits = { entries: 10000, bytes: 1024 * 1024 * 1024, depth: 64, workers: 2, changeBytes: 61440 };
+export const limits = { entries: 10000, bytes: 1024 * 1024 * 1024, depth: 64, workers: 2, workerOldMiB: 16, workerYoungMiB: 2, workerStackMiB: 2, changeBytes: 61440 };
 async function listing(path: string, prefix: string, remaining: { entries: number }, depth: number): Promise<Result<string[]>> {
   if (depth > limits.depth) return failure('budget', 'The snapshot exceeds its depth budget.');
   const paths: string[] = [];

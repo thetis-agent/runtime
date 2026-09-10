@@ -1,0 +1,1 @@
+{"name":"@thetis/contract-registry","version":"1.0.0","type":"module","exports":"./types.ts","requires":{},"provides":{"contract/registry":"1.0.0"},"settings":{},"envelope":{"requires":[],"provides":[],"spawn":{"scope":"deployment","network":"none"}}}

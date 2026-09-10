@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Revision } from '../kernel/generations/prepare.ts';
 import { Driver } from '../kernel/generations/driver.ts';
+import type { Configuration } from '../kernel/generations/driver.ts';
 import { Identity } from '../kernel/identity/index.ts';
 import type { Principal } from '../kernel/identity/index.ts';
 import { Journal } from '../kernel/log/index.ts';
@@ -20,7 +21,7 @@ import { connect } from '../lib/ndjson/socket.ts';
 const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
 export const person: Principal = { id: 'alice', role: 'user', projects: [], observeOthers: false };
 
-async function revision(root: string, name: string, mode: string, version: number, migrate: boolean): Promise<Revision> {
+export async function revision(root: string, name: string, mode: string, version: number, migrate: boolean): Promise<Revision> {
   const source = join(root, name); await mkdir(source);
   const entry = (await readFile(new URL('./fixtures/controlled-process.ts', import.meta.url), 'utf8')).replaceAll('../../lib/', `${repository}/lib/`).replaceAll('../../contracts/', `${repository}/contracts/`);
   await writeFile(join(source, 'index.ts'), entry); await writeFile(join(source, 'version'), name);
@@ -38,7 +39,7 @@ async function revision(root: string, name: string, mode: string, version: numbe
   };
 }
 
-export async function processGeneration(mode = 'healthy') {
+export async function processGeneration(mode = 'healthy', checkpoint?: Configuration['checkpoint']) {
   const root = await mkdtemp('/tmp/generation-process-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'work'));
   await writeFile(join(root, 'state/value.json'), JSON.stringify({ version: 1 }));
   const clock = new ManualClock(); const schemas = new Schemas(); await schemas.load();
@@ -54,8 +55,8 @@ export async function processGeneration(mode = 'healthy') {
   } };
   const old = await revision(root, 'old', 'healthy', 1, false); const next = await revision(root, 'new', mode, 2, true);
   const hash = old.pins['entry']?.hash; assert.ok(hash);
-  const started = await Driver.start({ root: join(root, 'target'), owner: person.id, context }, old, join(root, 'state'), { n: 1, pins: { entry: hash }, stateSnapshot: '', prefixRenderer: '1', at: 0 }); assert.ok(started.ok, JSON.stringify(started));
-  return { root, driver: started.value, next, clock, identity, probing: probing.promise, rows: () => readFile(join(root, 'observed.jsonl'), 'utf8'), async close() {
+  const started = await Driver.start({ root: join(root, 'target'), owner: person.id, context, ...(checkpoint ? { checkpoint } : {}) }, old, join(root, 'state'), { n: 1, pins: { entry: hash }, stateSnapshot: '', prefixRenderer: '1', at: 0 }); assert.ok(started.ok, JSON.stringify(started));
+  return { root, driver: started.value, old, next, context, clock, identity, probing: probing.promise, rows: () => readFile(join(root, 'observed.jsonl'), 'utf8'), async close() {
     const stopped = await started.value.process.stop('test complete'); await journal.value.close(); await rm(root, { recursive: true, force: true }); assert.ok(stopped.ok, JSON.stringify(stopped));
   } };
 }

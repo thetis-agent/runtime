@@ -1,15 +1,39 @@
 {
-  "name": "thetis", "version": "1.0.0", "private": true, "type": "module",
-  "engines": { "node": ">=24.18.0 <25" },
-  "workspaces": ["kernel", "packages/*", "contracts/*", "lib/*", "test"],
+  "name": "thetis",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.18.0 <25"
+  },
+  "workspaces": [
+    "kernel",
+    "contracts/*",
+    "lib/*",
+    "test"
+  ],
   "scripts": {
-    "check": "node scripts/check.ts", "test": "node scripts/test.ts",
-    "bench": "node scripts/bench.ts", "size": "node scripts/size.ts",
+    "check": "node scripts/check.ts",
+    "build": "node scripts/build.ts",
+    "test": "node scripts/test.ts",
+    "bench": "node scripts/bench.ts",
+    "size": "node scripts/size.ts",
+    "release": "node scripts/release.ts",
+    "live": "node scripts/live.ts",
     "generate": "node lib/schema/generate.ts"
   },
-  "dependencies": { "ajv": "8.17.1", "semver": "7.7.2", "yaml": "2.8.1" },
+  "dependencies": {
+    "ajv": "8.17.1",
+    "semver": "7.7.2",
+    "ws": "8.21.3",
+    "yaml": "2.8.1"
+  },
   "devDependencies": {
-    "typescript": "5.9.3", "eslint": "9.39.1", "typescript-eslint": "8.46.4",
-    "@types/node": "24.10.0", "@types/semver": "7.7.1"
+    "@types/node": "24.10.0",
+    "@types/semver": "7.7.1",
+    "@types/ws": "8.18.1",
+    "eslint": "9.39.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.4"
   }
 }

@@ -42,3 +42,8 @@ await test('Satisfiable profiles resolve to the same set regardless of input ord
     assert.deepEqual(resolve(shuffled), resolve(packages));
   }
 });
+
+await test('TE-004 singleton retrieve collisions name both packages before activation', () => {
+  const result = resolve([{ ...base, name: 'first', provides: { 'stage/retrieve': '1.0.0' } }, { ...base, name: 'second', provides: { 'stage/retrieve': '1.0.0' } }]);
+  assert.equal(result.ok, false); assert.match(result.error.message, /first/u); assert.match(result.error.message, /second/u);
+});

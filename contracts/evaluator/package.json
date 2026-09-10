@@ -1,0 +1,1 @@
+{"name":"@thetis/contract-evaluator","version":"1.0.0","type":"module","exports":"./types.ts","provides":{"contract/evaluator":"1.0.0"},"requires":{"contract/turn-events":"^1.1"},"settings":{"type":"object","properties":{},"additionalProperties":false},"envelope":{"requires":[],"provides":[],"spawn":{"scope":"deployment","network":"none"}}}

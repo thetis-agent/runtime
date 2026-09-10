@@ -13,7 +13,11 @@ export class KernelAuthority implements Authority {
     if (!result.ok || !isObject(result.value)) return failure('auth', 'The kernel could not authenticate the caller.');
     const person = result.value['person']; const scope = result.value['scope'];
     if (typeof person !== 'string' || (scope !== 'person' && scope !== 'deployment')) return failure('auth', 'The kernel returned an invalid caller identity.');
-    return { ok: true, value: { person, scope } };
+    const cost = result.value['cost'];
+    if (cost !== undefined && (typeof cost !== 'number' || !Number.isFinite(cost) || cost < 0) || person.includes('\0')) return failure('auth', 'The kernel returned an invalid caller cost boundary.');
+    const expires = result.value['expires'];
+    if (expires !== undefined && (typeof expires !== 'number' || !Number.isFinite(expires) || expires < 0) || cost !== undefined && expires === undefined) return failure('auth', 'The kernel returned an invalid run retirement deadline.');
+    return { ok: true, value: { person, scope, ...(cost === undefined ? {} : { cost }), ...(expires === undefined ? {} : { expires }) } };
   }
 
   async report(token: string, callId: string, counters: Record<string, number>): Promise<Result<void, 'auth'>> {

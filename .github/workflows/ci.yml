@@ -1,0 +1,58 @@
+# ADR 0035: verify each change with the peer checkout in the installed layout.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+  merge_group:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+    inputs:
+      peer_ref:
+        description: Optional packages commit to test a coordinated change
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: Full CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out runtime
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: runtime
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - name: Check out packages
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: thetis-agent/packages
+          ref: ${{ inputs.peer_ref || vars.THETIS_PACKAGES_REF || 'main' }}
+          token: ${{ secrets.THETIS_SOURCE_TOKEN || github.token }}
+          path: packages
+          persist-credentials: false
+          submodules: false
+          lfs: false
+      - uses: ./runtime/.github/actions/verify
+      - name: Retain diagnostics, including failed gates
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Retain verified delivery candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: runtime-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: delivery/
+          if-no-files-found: error
+          retention-days: 14
