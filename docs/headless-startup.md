@@ -189,6 +189,11 @@ The gateway preserves the trailing slash when redirecting an unauthenticated
 account page through sign-in, so relative browser assets resolve under the
 account prefix. Installed lifecycle tests exercise this redirect, authenticated
 assets and a completed WebSocket conversation before and after restart.
+Opening a saved conversation also loads its durable transcript directly from the
+person-scoped environment socket, never through kernel control. The snapshot is
+bounded to the most recent 256 messages and 256 KiB, with an explicit truncation
+notice; retained conversation storage is unchanged. Live events follow the saved
+snapshot so reconnecting does not clear the transcript or lose arriving frames.
 
 ## Password authority and trusted kernel origin
 

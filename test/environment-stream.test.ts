@@ -24,6 +24,13 @@ const created = await alice.process.invoke('session.create', { surface: 'faux-ga
     assert.ok((await alice.process.invoke('session.submit', { conversation: id, input: { text: 'Hello', attachments: [] } })).ok);
     assert.ok((await client.value.end()).ok); const events = batches.flatMap(batch => batch.events);
     assert.equal(events.filter(event => event.type === 'token').length, 1000); assert.equal(events.at(-1)?.type, 'end'); assert.ok(batches.length < 100);
+    const reopened = await SessionClient.open(join(alice.root, 'endpoint/service.sock'), schemas, clock, () => Promise.resolve({ ok: true, value: undefined })); assert.ok(reopened.ok);
+    try {
+      const subscribed = await reopened.value.subscribe(id); assert.ok(subscribed.ok);
+      assert.ok(isObject(subscribed.value['history']));
+      assert.ok(JSON.stringify(subscribed.value['history']).includes('PRIVATE_STREAM_TEXT'));
+      assert.ok(JSON.stringify(subscribed.value['history']).includes('Hello'));
+    } finally { reopened.value.close(); }
     const rows = await alice.rows(); assert.ok(rows.includes('turn.start')); assert.ok(rows.includes('turn.end')); assert.ok(!rows.includes('PRIVATE_STREAM_TEXT')); assert.ok(!(await shared.rows()).includes('PRIVATE_STREAM_TEXT'));
   } finally { client.value.close(); other.value.close(); await alice.close(); await bob.close(); await shared.close(); }
 });

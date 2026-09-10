@@ -76,6 +76,18 @@
         }
       }
     },
+    "history": {
+      "type": "object",
+      "required": ["messages", "truncated"],
+      "properties": {
+        "messages": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "thetis://contract/turn-events/1#/$defs/message" }
+        },
+        "truncated": { "type": "boolean" }
+      }
+    },
     "subscribed": {
       "type": "object",
       "required": [
@@ -92,6 +104,7 @@
           "type": "integer",
           "minimum": 0
         },
+        "history": { "$ref": "#/$defs/history" },
         "oldest": {
           "type": "integer",
           "minimum": 1

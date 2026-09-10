@@ -51,6 +51,15 @@ await test('the kernel boundary gate fails closed on missing inputs and scans di
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
+await test('scheduled CI cannot cancel the main push whose candidate a release needs', async () => {
+  for (const root of ['/workspace', '/workspace/packages']) {
+    const config: unknown = parse(await readFile(join(root, '.github/workflows/ci.yml'), 'utf8'));
+    const concurrency = object(object(config)['concurrency']);
+    assert.match(String(concurrency['group']), /github\.event_name/u);
+    assert.equal(concurrency['cancel-in-progress'], true);
+  }
+});
+
 await test('release publication requires a successful exact CI candidate and isolates signing from candidate execution', async () => {
   const runtime = await workflow('runtime'); const packages = await workflow('packages');
   assert.equal(keyScript(runtime), keyScript(packages).replaceAll('zero-release-key', 'thetis-release-key'));

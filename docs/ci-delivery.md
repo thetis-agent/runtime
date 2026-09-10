@@ -18,6 +18,9 @@ Manual CI's `peer_ref` allows testing coordinated changes before either is merge
 The report records the resolved commits of both checkouts, including a PR's
 tested merge commit. A rerun against a moving peer branch may resolve new bytes;
 release builds always require the peer's complete commit hash.
+Concurrency is separate for push, pull-request, scheduled and manual runs, so a
+delayed daily run cannot cancel the main push whose release candidate is needed.
+Newer pushes still replace older push runs on the same branch.
 
 CI performs these blocking checks:
 

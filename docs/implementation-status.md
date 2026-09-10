@@ -28,11 +28,13 @@ major architectural changes.
 
 ## Verification
 
-The complete sandboxed suite passed: 583 tests, zero failures, cancellations or
+The complete sandboxed suite passed: 586 tests, zero failures, cancellations or
 skips. Build, strict checks, generated-file freshness, shell checks and workflow
 validation also passed. The native system-service smoke passed installation,
 chat, restart, chat and purge. The signed installed lifecycle covers browser
-login/chat, update, undo and recovery. A separately authorized live-provider
+login/chat, saved transcripts after restart, update, undo and recovery. An isolated
+Chrome check also passed transcript restoration on reconnect and reload, without
+duplicate replies or page errors. A separately authorized live-provider
 check passed four turns across two accounts with a $0.04 cost ceiling.
 
 Release publication and host-specific browser routing are validated separately
@@ -40,8 +42,8 @@ from the offline suite. CI retains its coverage, diagnostics and exact verified
 delivery candidate; publication cannot proceed without that successful run.
 
 Current measured kernel size is 1,423 counted lines against 1,500. The latest
-coverage-suite performance checks measured 160,305,152 bytes against 512,000,000
-and 1,662.60 ms against 2,000. No assertion was removed or threshold raised in
+coverage-suite performance checks measured 160,792,576 bytes against 512,000,000
+and 1,753.37 ms against 2,000. No assertion was removed or threshold raised in
 this remediation.
 
 ## Operational boundaries
