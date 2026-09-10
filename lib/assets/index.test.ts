@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { mkdtemp, writeFile, symlink, rm, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Schemas, isObject } from '@/lib/schema/index.ts';
-import { load, respond, limits } from './index.ts';
+import { load, respond, merge, limits } from './index.ts';
 import type { Table } from './index.ts';
 
 function errorCode(body: Buffer): unknown {
@@ -127,4 +127,38 @@ await test('respond serves the table over a real Unix socket with the promised h
       assert.equal(ranged.status, 416); assert.equal(ranged.headers['accept-ranges'], 'none');
     } finally { await service.close(); }
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+await test('merged tables serve every package and refuse a claimed path', async () => {
+  const first = await mkdtemp('/tmp/assets-one-');
+  const second = await mkdtemp('/tmp/assets-two-');
+  try {
+    const compiler = await schemas();
+    await writeFile(join(first, 'app.js'), 'export const a = 1;\n');
+    await writeFile(join(second, 'panel.js'), 'export const b = 2;\n');
+    const one = await load(first, await manifest(first, [{ path: '/app.js', file: 'app.js', type: 'text/javascript' }]), compiler);
+    const two = await load(second, await manifest(second, [{ path: '/surface/demo/panel.js', file: 'panel.js', type: 'text/javascript' }]), compiler);
+    assert.ok(one.ok); assert.ok(two.ok);
+
+    const joined = merge([one.value, two.value]);
+    assert.ok(joined.ok);
+    assert.deepEqual(joined.value.assets.map(asset => asset.path).sort(), ['/app.js', '/surface/demo/panel.js']);
+    // Each row keeps the absolute file it was canonicalised to under its own root.
+    assert.ok(joined.value.assets.every(asset => asset.absolute.startsWith(first) || asset.absolute.startsWith(second)));
+
+    const clash = merge([one.value, one.value]);
+    assert.ok(!clash.ok); assert.equal(clash.error.code, 'invalid-args');
+    assert.match(clash.error.message, /\/app\.js is served by both/u);
+
+    assert.ok(merge([]).ok);
+  } finally { await rm(first, { recursive: true, force: true }); await rm(second, { recursive: true, force: true }); }
+});
+
+await test('a merged table is bounded like a single manifest', () => {
+  const row = (index: number) => ({ path: `/surface/demo/${String(index)}.js`, file: `${String(index)}.js`, type: 'text/javascript', size: 1, sha256: 'x', absolute: `/tmp/${String(index)}.js` });
+  const half = limits.files;
+  const table = { root: '/tmp/one', assets: Array.from({ length: half }, (_, index) => row(index)) };
+  const other = { root: '/tmp/two', assets: [{ ...row(half), path: '/surface/other/extra.js' }] };
+  const joined = merge([table, other]);
+  assert.ok(!joined.ok); assert.equal(joined.error.code, 'budget');
 });

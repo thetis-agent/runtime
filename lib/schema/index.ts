@@ -43,7 +43,7 @@ export class Schemas {
   }
 
   async #load(): Promise<void> {
-    for (const name of ['provider', 'turn-events', 'skills', 'kernel-socket']) {
+    for (const name of ['provider', 'turn-events', 'skills', 'kernel-socket', 'surface']) {
       const value: unknown = JSON.parse(await readFile(new URL(`../../contracts/${name}/schema.json`, import.meta.url), 'utf8'));
       if (!isObject(value)) throw new Error(`Invalid committed schema: ${name}`);
       this.#register(value);

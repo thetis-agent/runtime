@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "thetis://contract/skills/1",
-  "title": "contract/skills 1.0.0",
+  "title": "contract/skills 1.1.0",
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$", "maxLength": 128 },
     "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?$" },
@@ -54,7 +54,9 @@
         "path": { "type": "string" },
         "contentHash": { "$ref": "#/$defs/hash" },
         "universal": { "type": "boolean" },
-        "body": { "type": "string", "description": "absent for a model-driven matcher" }
+        "body": { "type": "string", "description": "absent for a model-driven matcher" },
+        "score": { "type": "number", "description": "the retriever's own ranking score, when it ranks" },
+        "how": { "enum": ["dense", "lexical", "fusion", "parent-of-match", "whole-corpus", "universal", "activated"], "description": "why the entry was chosen, so a reader is never shown a bare number" }
       },
       "additionalProperties": true
     },

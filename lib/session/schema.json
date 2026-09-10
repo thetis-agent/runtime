@@ -41,6 +41,68 @@
                   "$ref": "thetis://contract/turn-events/1#/$defs/end"
                 }
               }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "input"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/input"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "call"
+                },
+                "payload": {
+                  "oneOf": [
+                    {
+                      "$ref": "thetis://contract/turn-events/1#/$defs/callRequest"
+                    },
+                    {
+                      "$ref": "thetis://contract/turn-events/1#/$defs/callAnswer"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "notice"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/notice"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "model.event"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/turn-events/1#/$defs/modelEvent"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "retrieve"
+                },
+                "payload": {
+                  "$ref": "thetis://contract/skills/1#/$defs/retrieveAnswer"
+                }
+              }
             }
           ]
         }
@@ -78,14 +140,21 @@
     },
     "history": {
       "type": "object",
-      "required": ["messages", "truncated"],
+      "required": [
+        "messages",
+        "truncated"
+      ],
       "properties": {
         "messages": {
           "type": "array",
           "maxItems": 256,
-          "items": { "$ref": "thetis://contract/turn-events/1#/$defs/message" }
+          "items": {
+            "$ref": "thetis://contract/turn-events/1#/$defs/message"
+          }
         },
-        "truncated": { "type": "boolean" }
+        "truncated": {
+          "type": "boolean"
+        }
       }
     },
     "subscribed": {
@@ -104,7 +173,9 @@
           "type": "integer",
           "minimum": 0
         },
-        "history": { "$ref": "#/$defs/history" },
+        "history": {
+          "$ref": "#/$defs/history"
+        },
         "oldest": {
           "type": "integer",
           "minimum": 1
