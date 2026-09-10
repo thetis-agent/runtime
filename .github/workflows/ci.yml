@@ -45,7 +45,7 @@ jobs:
       - uses: ./runtime/.github/actions/verify
       - name: Retain coverage, including failed tests
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-ci-coverage-${{ github.run_id }}-${{ github.run_attempt }}
           path: reports/coverage/
@@ -53,14 +53,14 @@ jobs:
           retention-days: 14
       - name: Retain diagnostics, including failed gates
         if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-reports-${{ github.run_id }}-${{ github.run_attempt }}
           path: reports/
           if-no-files-found: warn
           retention-days: 14
       - name: Retain verified delivery candidate
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: runtime-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           path: delivery/
