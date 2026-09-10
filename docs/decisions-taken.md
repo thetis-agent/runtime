@@ -113,3 +113,5 @@
 - 2026-09-10: Document the existing 2,048 MiB, 256-task test supervisor required by the two-account web deployment; per-sandbox limits remain separate from this test-infrastructure budget (KS-004).
 
 - 2026-09-10: The operator requested `@/` imports and selected the runtime repository root. ADR 0047 adds matching TypeScript paths and source/artifact resolution hooks, keeps independently versioned package internals relative, and extends the package import gate.
+
+- 2026-09-10: The operator requests that the kernel counter exclude imports and whitespace. ADR 0051 classifies static imports, blank lines, comments and implementation without overlap; the inventory is 1,361 counted lines from 1,700 physical lines, excluding 185 imports, 134 blanks and 20 comments, against 1,300.
