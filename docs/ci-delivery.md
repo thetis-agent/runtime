@@ -77,6 +77,17 @@ checks `/dev/net/tun`. It refuses other runner environments; do not run that set
 on a deployment host. The job records installed platform versions and hashes.
 
 The pipeline checks committed validators instead of regenerating stale output.
+Both committed and edited-package guard generation use a fresh Ajv instance per
+package. Adding, removing or widening an unrelated runtime
+schema, or compiling another package first, does not change a package's generated
+bytes. Runtime schemas remain available for external references; changing a
+referenced contract can still require regeneration in its consumers. The first
+adoption of this isolation requires one regeneration of the committed package
+guards alongside the runtime generator change. Subsequent unrelated runtime
+schema edits no longer require a matching packages change. An actual code
+dependency on an unmerged peer API still needs the dependency to land or a
+coordinated manual run; validator isolation does not make that pair compatible.
+
 Untracked `.ts.js` and `.ts.artifact.json` files are built with **Node 24.18.0**
 and checked before tests. The bundle is regenerated before the suite so GN-002
 reconstructs this run's exact release offline and exercises hash-tamper refusal.
