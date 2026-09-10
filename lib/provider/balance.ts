@@ -1,4 +1,4 @@
-/** Keep reservation arithmetic separate from periodic and lifetime policy; ADR 0044, PR-010. */
+/** Keep reservation arithmetic separate from periodic and lifetime policy; implementation note 0044, PR-010. */
 import { balance, decimal, money } from './money.ts';
 
 export class Balance {

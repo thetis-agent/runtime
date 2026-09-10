@@ -3,16 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdir, cp, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
-import { catalog } from '@/lib/profile/catalog.ts';
-import { snapshot } from '@/lib/snapshots/index.ts';
+import { buildDistribution } from '@/scripts/distribution-tree.ts';
 import { run } from '@/lib/update/tool.ts';
 
 const fixtureLimits = { archiveBytes: 134217728, toolDeadlineMs: 30000, toolOutputBytes: 4194304 };
 /** The nine assets a GitHub Release carries, in the order `docs/ci-delivery.md` lists them. */
 export const releaseAssets = ['thetis-distribution.tar.gz', 'package.json', 'profile.lock.json', 'registry.json', 'registry.bundle', 'provenance.json', 'platform.txt', 'kernel-pins.json', 'install.sh'] as const;
 /** The kernel code pins `test/maintenance.test.ts` hashes, plus `packages`; ADR 0048's `kernel-pins.json`. */
-export const kernelPinDirectories = ['kernel', 'lib', 'contracts',
-  ...['ajv', 'semver', 'ws', 'yaml', 'fast-uri', 'fast-deep-equal', 'json-schema-traverse', 'require-from-string'].map(name => `node_modules/${name}`), 'packages'];
+export { kernelPinDirectories } from '@/scripts/distribution-tree.ts';
 const testCommit = 'deadbeef'.repeat(5);
 const testPackagesCommit = 'cafef00d'.repeat(5);
 const signerPrincipal = 'release@thetis-agent';
@@ -31,25 +29,10 @@ async function signingKey(parent: string): Promise<{ path: string; allowedSigner
 }
 
 async function archive(workspace: string, stage: string, destination: string): Promise<void> {
-  await mkdir(stage, { recursive: true });
-  for (const name of ['kernel', 'lib', 'contracts', 'packages', 'profiles', 'docs']) await cp(join(workspace, name), join(stage, name), { recursive: true });
-  for (const name of ['README.md', 'package.json', 'package-lock.json']) await cp(join(workspace, name), join(stage, name));
-  const sources = await catalog(workspace); assert.ok(sources.ok, JSON.stringify(sources));
-  for (const source of sources.value.filter(entry => entry.kind === 'node_modules')) await cp(source.source, join(stage, 'node_modules', source.directory), { recursive: true });
+  await rm(stage, { recursive: true, force: true });
+  await buildDistribution(workspace, stage, destination);
   const tarball = join(destination, 'thetis-distribution.tar.gz');
-  const tarred = await run('/usr/bin/tar', ['--sort=name', '--mtime=@0', '--owner=0', '--group=0', '--numeric-owner', '-czf', tarball, '-C', stage, '.'],
-    { cwd: stage, deadlineMs: fixtureLimits.toolDeadlineMs, outputBytes: fixtureLimits.toolOutputBytes });
-  assert.ok(tarred.ok, JSON.stringify(tarred));
   assert.ok((await stat(tarball)).size <= fixtureLimits.archiveBytes, 'The fixture release archive exceeds its byte budget.');
-}
-
-async function kernelPins(workspace: string): Promise<Record<string, string>> {
-  const pins: Record<string, string> = {};
-  for (const directory of kernelPinDirectories) {
-    const hash = await snapshot(join(workspace, directory)); assert.ok(hash.ok, JSON.stringify(hash));
-    pins[directory] = hash.value;
-  }
-  return pins;
 }
 
 /** Assemble a complete, signed, offline release into `destination` from `options.workspace`
@@ -68,8 +51,6 @@ export async function buildRelease(destination: string, options: { tag: string; 
   }
   await cp(join(workspace, 'install.sh'), join(destination, 'install.sh'));
   await writeFile(join(destination, 'platform.txt'), 'tar (fixture)\ngzip (fixture)\nssh-keygen (fixture)\nsha256sum (fixture)\n');
-  await writeFile(join(destination, 'kernel-pins.json'),
-    `${JSON.stringify({ entry: 'kernel/maintenance-main.ts', pins: await kernelPins(workspace) }, null, 2)}\n`);
   const provenance = {
     version: 1,
     runtime: { repository: 'https://github.com/thetis-agent/runtime', commit },

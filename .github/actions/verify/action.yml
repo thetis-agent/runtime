@@ -3,7 +3,7 @@ name: Prepare Thetis delivery
 description: Verify in CI or assemble a release from the selected runtime/packages checkout pair
 inputs:
   mode:
-    description: verify runs CI acceptance and coverage; assemble only builds delivery files (ADR 0055)
+    description: verify runs CI acceptance and coverage; assemble only builds delivery files (implementation note 0055)
     default: verify
 runs:
   using: composite

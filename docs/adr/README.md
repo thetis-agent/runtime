@@ -1,9 +1,8 @@
 # Architecture decision records
 
-One file per decision, numbered, never edited after acceptance except to
-change its status. A decision that is reversed gets a new record that
-supersedes the old one; the old one stays. This directory moves to the
-successor repository as `docs/adr/` on day one.
+Use an ADR only for a major architectural choice: a change to system structure, trust or isolation boundaries, execution, or persistence that needs substantial cross-component redesign to reverse.
+
+Features, bug fixes, refactors, defaults, dependency updates, workflows and budget adjustments belong in the relevant guide, tests and pull request. A repeated question or a day's work is not sufficient reason for an ADR. Routine records have been consolidated into [implementation notes](../implementation.md); git retains their history.
 
 | ADR | Title | Status |
 | --- | --- | --- |
@@ -28,52 +27,15 @@ successor repository as `docs/adr/` on day one.
 | [0019](0019-no-door.md) | No door: keys live on providers, usage is formless counters | Accepted; §4–5 corrected by 0020 |
 | [0020](0020-budgets-in-band.md) | Budgets are enforced in-band by the provider; `cost` is a reserved counter | Accepted |
 | [0021](0021-explicit-descriptor-forwarding.md) | Deliberate descriptor delegation shares the run principal | Accepted by the operator |
-| [0022](0022-ephemeral-context-sections.md) | Keep iteration context appends outside the stored prefix | Accepted |
 | [0023](0023-fenced-rollback.md) | Recover fenced generations without reviving credentials | Accepted |
-| [0024](0024-tool-call-history.md) | Preserve assistant tool calls as normalized content | Accepted |
 | [0025](0025-fence-before-repoint.md) | Persist commitment intent and fence before repointing | Accepted |
 | [0026](0026-probe-without-shared-writes.md) | Probe without shared writable grants | Accepted |
 | [0027](0027-isolate-initialization-from-the-environment-monitor.md) | Keep initialization off the environment monitor | Accepted |
-| [0028](0028-reset-failed-generations.md) | Reset failed targets through the generation table | Accepted |
 | [0029](0029-private-network-egress.md) | Configure egress inside the mandatory network namespace | Accepted |
 | [0030](0030-replay-recovery-before-admission.md) | Replay recovery before admitting a restarted target | Accepted |
-| [0031](0031-shared-state-format-mechanics.md) | Keep state-format mechanics in the shared files package | Accepted |
-| [0032](0032-bounded-journal-mechanics.md) | Keep journal provenance in the kernel | Accepted |
-| [0033](0033-generation-snapshot-projection.md) | Separate snapshot projection from transition authority | Accepted |
-| [0034](0034-sealed-envelope-mechanics.md) | Separate authenticated byte envelopes from secret authority | Accepted |
 | [0035](0035-separate-development-repositories.md) | Review separate repositories in the installed directory layout | Accepted |
-| [0036](0036-generation-local-compile-caches.md) | Keep optional Node compilation caches inside generation state | Accepted |
 | [0037](0037-verified-javascript-execution-artifacts.md) | Verify JavaScript execution artifacts alongside TypeScript sources | Accepted by the operator |
 | [0038](0038-per-person-public-sockets-and-session-whois.md) | Per-person public sockets for the web surface, and `session.whois` | Accepted by the operator |
-| [0039](0039-exclude-comment-only-kernel-lines.md) | Exclude comment-only lines from the kernel size budget | Accepted by the operator |
 | [0040](0040-storage-contract-and-default-file-backend.md) | Storage contract and default file backend | Accepted by the operator |
-| [0041](0041-raise-idle-memory-ceiling.md) | Allow 512 MB for the kernel and one idle environment | Accepted by the operator |
-| [0042](0042-allow-two-second-work-edits.md) | Allow two seconds for a watched work edit to serve | Accepted by the operator |
-| [0043](0043-observe-exits-and-recover-interrupted-freezes.md) | Observe process exits and recover interrupted freezes | Accepted |
-| [0044](0044-exact-provider-budget-lifetimes.md) | Preserve exact provider budgets for their proper lifetimes | Accepted |
-| [0045](0045-recapture-dynamic-work-provisions.md) | Recapture dynamic provisions for work edits | Accepted |
-| [0046](0046-retire-generation-resources.md) | Retire generation resources when their authority ends | Accepted |
-| [0047](0047-root-relative-module-imports.md) | Resolve root-relative imports in every execution mode | Accepted |
 | [0048](0048-supervised-kernel-service-and-installed-layout.md) | Supervised kernel service and the installed layout | Accepted by the operator |
 | [0049](0049-pre-authorised-kernel-updates.md) | Pre-authorised kernel updates for fixes and improvements | Proposed: stops for the operator |
-| [0050](0050-short-generation-store-roots.md) | Short generation store roots for a supervised kernel | Accepted |
-| [0051](0051-exclude-imports-and-whitespace-from-kernel-size.md) | Exclude imports and whitespace from kernel size | Accepted |
-| [0052](0052-installed-service-recovery-and-provisioning.md) | Installed service recovery and provisioning | Accepted |
-| [0053](0053-bounded-deployment-store-exports.md) | Bounded deployment store exports | Accepted |
-| [0054](0054-raise-kernel-size-ceiling-to-1500-lines.md) | Raise the kernel size ceiling to 1,500 lines | Accepted by the operator |
-| [0055](0055-assemble-releases-without-repeating-ci.md) | Assemble releases without repeating CI | Accepted by the operator |
-
-## Decisions in the register that still need a record
-
-The decision register in [../05-successor.md](../05-successor.md) holds
-twenty decisions with one-line reasons. Each becomes a record when its
-consequences are first felt, in this order of likely need.
-
-| Register row | Record to write |
-| --- | --- |
-| D2, D3 | Releases as the unit of change; semver as the dependency graph |
-| D8 | One namespace of requirements and provisions; git registries pinned by commit |
-| D6 (kinds) | Stages over turn events instead of package kinds |
-| D15 | The LLM door in the host |
-| D11, D13 | The default moves only by a reviewer's act |
-| D1 | The loop as the only fixed thing, itself a package |

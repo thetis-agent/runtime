@@ -1,4 +1,4 @@
-/** Serialize bounded byte reservations and refuse writes after durability failure; ADR 0032. */
+/** Serialize bounded byte reservations and refuse writes after durability failure; implementation note 0032. */
 import { open, realpath } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { dirname, resolve } from 'node:path';

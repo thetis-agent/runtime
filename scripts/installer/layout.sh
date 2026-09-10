@@ -1,14 +1,14 @@
-# --- retain every path used by the installed bootstrap (ADR 0052) -------------------------------
+# --- retain every path used by the installed bootstrap (implementation note 0052) -------------------------------
 
-write_bin_zero() {
-  mkdir -p "$prefix/bin"
-  cat > "$prefix/bin/zero" <<SH
+write_bin_thetis() {
+  install -d -m 0755 "$prefix/bin"
+  cat > "$prefix/bin/thetis" <<SH
 #!/bin/sh
 exec "$prefix/node/current/bin/node" --no-experimental-strip-types \\
   --import "$prefix/current/lib/artifacts/register.mjs" \\
   "$prefix/current/lib/update/main.ts" "\$@" --prefix "$prefix"
 SH
-  chmod 0755 "$prefix/bin/zero"
+  chmod 0755 "$prefix/bin/thetis"
 }
 
 state_capacity() {
@@ -25,9 +25,12 @@ state_dirs() {
 }
 
 write_installation() {
-  "$node_bin" --no-experimental-strip-types --import "file://$1/lib/artifacts/register.mjs" \
-    "$1/lib/update/seed.ts" --release "$1" --state "$state" --prefix "$prefix" --cgroup "$cgroup_path" \
-    --operator "$operator_id" --origin "$origin" --quota "$quota_bytes" >/dev/null \
+  seed_release=$1
+  set --
+  if [ "$demo" = 0 ]; then set -- --provider-config "$provider_config"; fi
+  "$node_bin" --no-experimental-strip-types --import "file://$seed_release/lib/artifacts/register.mjs" \
+    "$seed_release/lib/update/seed.ts" --release "$seed_release" --state "$state" --prefix "$prefix" --cgroup "$cgroup_path" \
+    --operator "$operator_id" --origin "$origin" --kernel-origin "$kernel_origin" --quota "$quota_bytes" "$@" >/dev/null \
     || die 'The installation recipe and seed could not be written from the release sources.'
   chmod 0644 "$prefix/etc/seed.json" "$prefix/etc/recipe.json"
 }
@@ -48,11 +51,11 @@ process.stdout.write(`${JSON.stringify({ version: 1, accounts: [record.value] })
 
 write_install_json() {
   "$node_bin" --input-type=module -e '
-const [prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceUser,stateLayout,noMount,keyStore,credential,unitDirectory,lingerCreated,userCreated] = process.argv.slice(1);
+const [prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceUser,stateLayout,noMount,keyStore,credential,unitDirectory,lingerCreated,userCreated,serviceName] = process.argv.slice(1);
 const { writeFileSync } = await import("node:fs");
-writeFileSync(`${prefix}/etc/install.json`, JSON.stringify({version:1,prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceUser,stateLayout,noMount:noMount==="1",keyStore,credential,unitDirectory,lingerCreated:lingerCreated==="1",userCreated:userCreated==="1",allowedSigners:`${prefix}/etc/allowed_signers`,login:"login"})+"\n");' \
-    "$prefix" "$state" "$release" "$remote" "$release_url" "$ZERO_SIGNER" "$auto_update" "$origin" "$operator_id" "$service" \
-    "$service_user" "$state_layout" "$no_mount" "$key_store" "$credential_path" "$unit_directory" "$linger_created" "$user_created"
+writeFileSync(`${prefix}/etc/install.json`, JSON.stringify({version:1,prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceName,serviceUser,stateLayout,noMount:noMount==="1",keyStore,credential,unitDirectory,lingerCreated:lingerCreated==="1",userCreated:userCreated==="1",allowedSigners:`${prefix}/etc/allowed_signers`,login:"login"})+"\n");' \
+    "$prefix" "$state" "$release" "$remote" "$release_url" "$THETIS_SIGNER" "$auto_update" "$origin" "$operator_id" "$service" \
+    "$service_user" "$state_layout" "$no_mount" "$key_store" "$credential_path" "$unit_directory" "$linger_created" "$user_created" "$service_name"
   chmod 0644 "$prefix/etc/install.json"
 }
 

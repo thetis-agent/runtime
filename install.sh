@@ -1,18 +1,19 @@
 #!/bin/sh
-# Generated from scripts/installer/*.sh by scripts/installer.ts; edit those sources (ADR 0052).
-# Stand up a supervised Zero kernel service from a signed release, verifying every byte before
-# anything is written and printing every privileged step; ADR 0048, ADR 0049, ADR 0050.
+# Generated from scripts/installer/*.sh by scripts/installer.ts; edit those sources (implementation note 0052).
+# Stand up a supervised Thetis kernel service from a signed release, verifying every byte before
+# anything is written and printing every privileged step; ADR 0048, ADR 0049, implementation note 0050.
 # POSIX sh (dash): no pipefail, so every pipe writes to a file and its status is checked.
 set -eu
 
-ZERO_REPO='https://github.com/thetis-agent/runtime'
-ZERO_TAG='v0.1.0'
-ZERO_RELEASE_URL='https://github.com/thetis-agent/runtime/releases/download'
-ZERO_SIGNER='release@thetis-agent'
-ZERO_NAMESPACE='zero-release'
+THETIS_REPO='https://github.com/thetis-agent/runtime'
+THETIS_TAG='v0.1.1'
+THETIS_RELEASE_URL='https://github.com/thetis-agent/runtime/releases/download'
+THETIS_SIGNER='release@thetis-agent'
+# Retain the existing cryptographic namespace so published signatures remain verifiable.
+THETIS_NAMESPACE='zero-release'
 # The one-liner's trust root is this script and its pins. Rotation ships a new line here,
 # in a release signed with the key being retired (docs/ci-delivery.md).
-ZERO_ALLOWED_SIGNERS='release@thetis-agent namespaces="zero-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPlaceholderUntilTheFirstReleaseIsCut'
+THETIS_ALLOWED_SIGNERS='release@thetis-agent namespaces="zero-release" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF11pGLCkpbhH79zkcdjDOD1xhUt/ZYZVX2t7dXN9CwT'
 STATE_ROOT_LIMIT=18
 PASSWORD_MINIMUM=6
 SYSTEMD_MINIMUM=252
@@ -20,16 +21,24 @@ DEFAULT_STATE_SIZE=4294967296
 ASSETS='thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt kernel-pins.json install.sh SHA256SUMS SHA256SUMS.sig'
 SIGNED_ASSETS=9
 
-prefix='/opt/zero'
-state='/var/lib/z'
+prefix='/opt/thetis'
+state='/var/lib/thetis'
 state_size=''
 state_layout='one'
 no_mount=0
 service='system'
-service_user='zero'
+service_name='thetis'
+service_user='thetis'
 operator=''
 password_fd=''
+api_key_fd=''
+api_key_value=''
+model=''
+daily_budget='10'
+provider_config=''
+demo=0
 origin=''
+kernel_origin=''
 auto_update='none'
 key_store='file'
 release=''
@@ -41,7 +50,6 @@ assume_yes=0
 dry_run=0
 do_uninstall=0
 purge_state=0
-allow_root=0
 print_unit=''
 prefix_set=0
 state_set=0
@@ -61,16 +69,23 @@ usage() {
   cat <<'EOF'
 Usage: install.sh [flags]
 
-  --prefix <dir>             Code prefix (default /opt/zero)
-  --state <dir>              State volume root (default /var/lib/z)
+  --prefix <dir>             Code prefix (default /opt/thetis)
+  --state <dir>              State volume root (default /var/lib/thetis)
   --state-size <bytes>       Size of the provisioned state volume (default 4294967296)
   --state-layout one|split   One volume, or a second small volume for the seed root
   --no-mount                 Use an existing bounded mountpoint instead of provisioning one
   --service system|user|none Run as a system service, a user service, or in the foreground
-  --user <name>              Service account for --service system (default zero)
+  --service-name <name>      Unit and credential namespace (default thetis)
+  --user <name>              Service account for --service system (default thetis)
   --operator <id>            Administrator account id (default admin, or prompted)
   --password-fd <n>          Read the administrator password from this open descriptor
+  --model <id>               OpenRouter model id (prompted for interactive installs)
+  --api-key-fd <n>           Read the provider API key from this open descriptor
+  --daily-budget <amount>    Per-person daily model budget in USD (default 10)
+  --provider-config <path>   JSON endpoint, model capabilities/prices and dailyBudget
+  --demo                    Use a clearly labelled offline demo instead of a real model
   --origin <url>             Public origin for the sign-in line and the proxy rules
+  --kernel-origin <url>      Separate trusted origin (default https://kernel.<public-host>)
   --auto-update none         Update policy; only none is accepted (ADR 0049)
   --key-store file|tpm2      Where the kernel master key is held
   --release <tag>            Release tag to install (default the tag this script pins)
@@ -82,18 +97,41 @@ Usage: install.sh [flags]
   --dry-run                  Print every privileged step and write nothing
   --uninstall                Remove the installed prefix
   --purge-state              With --uninstall, also remove the state volume's contents
-  --allow-root               Permit running as root under sudo from a login shell
+  --allow-root               Compatibility flag; sudo is supported without this flag
   --print-unit <name>        Print one embedded unit template and exit
   --help                     Show this text
 EOF
 }
-# --- embedded units: the authoritative text, copied for review under units/ (ADR 0048) --------
-unit_zero_service() {
-  cat <<'EOF'
+# Terminal presentation is optional; redirected logs and NO_COLOR stay plain.
+color=''; reset=''; strong=''
+init_display() {
+  if [ -t 1 ] && [ "${TERM:-dumb}" != dumb ] && [ -z "${NO_COLOR+x}" ]; then
+    color=$(printf '\033[36m'); strong=$(printf '\033[1m'); reset=$(printf '\033[0m')
+  fi
+}
+
+banner() {
+  [ "$dry_run" = 0 ] || return 0
+  printf '\n%s%s  t h e t i s%s\n' "$strong" "$color" "$reset"
+  printf '  Your agent. Your environment.\n\n'
+}
+
+progress() {
+  [ "$dry_run" = 0 ] || return 0
+  printf '%s  →%s %s\n' "$color" "$reset" "$1"
+}
+
+display_complete() {
+  printf '\n%s%s  ✓ Thetis is ready%s\n\n' "$strong" "$color" "$reset"
+}
+# Generated from units/ by scripts/installer.ts; edit those templates.
+unit_text() {
+  case "$1" in
+    thetis.service) cat <<'UNIT'
 # ADR 0048: the service runs the supervisor, never kernel/main.ts, so every later kernel start
 # is a GN-007 transaction rather than a restart outside the generation machine.
 [Unit]
-Description=Zero kernel supervisor
+Description=Thetis kernel supervisor
 RequiresMountsFor=@STATE@
 After=network-online.target
 Wants=network-online.target
@@ -103,7 +141,7 @@ Type=simple
 User=@USER@
 Group=@USER@
 Delegate=yes
-LoadCredential=master:/etc/zero/master.key
+LoadCredential=master:/etc/thetis/master.key
 ExecStart=/bin/sh -c 'exec @PREFIX@/node/current/bin/node --max-old-space-size=32 --max-semi-space-size=1 --no-experimental-strip-types --import @PREFIX@/current/lib/artifacts/register.mjs @PREFIX@/current/kernel/supervisor-main.ts @PREFIX@/etc/seed.json --release @PREFIX@/current --state @STATE@ --installation @PREFIX@ --credential "$CREDENTIALS_DIRECTORY/master" --delegate'
 KillMode=mixed
 TimeoutStopSec=90
@@ -111,6 +149,7 @@ MemoryMax=2G
 TasksMax=512
 DeviceAllow=/dev/net/tun rw
 ProtectSystem=strict
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,size=64M,mode=1777
 ReadWritePaths=@STATE@
 ProtectHome=yes
 NoNewPrivileges=yes
@@ -118,15 +157,13 @@ RestrictSUIDSGID=yes
 
 [Install]
 WantedBy=multi-user.target
-EOF
-}
-
-unit_zero_update_service() {
-  cat <<'EOF'
+UNIT
+      ;;
+    thetis-update.service) cat <<'UNIT'
 # ADR 0048: the timer only checks, stages and verifies; an administrator applies. ADR 0049 holds
 # every update policy but none refused, so this unit never changes the kernel.
 [Unit]
-Description=Zero update check
+Description=Thetis update check
 After=network-online.target
 Wants=network-online.target
 
@@ -134,8 +171,9 @@ Wants=network-online.target
 Type=oneshot
 User=@USER@
 Group=@USER@
-ExecStart=@PREFIX@/bin/zero update --check
+ExecStart=@PREFIX@/bin/thetis update --check
 ProtectSystem=strict
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,size=64M,mode=1777
 ReadWritePaths=@PREFIX@/releases @STATE@/updates
 ProtectHome=yes
 PrivateTmp=yes
@@ -145,13 +183,11 @@ CapabilityBoundingSet=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 MemoryMax=256M
 TimeoutStartSec=15min
-EOF
-}
-
-unit_zero_update_timer() {
-  cat <<'EOF'
+UNIT
+      ;;
+    thetis-update.timer) cat <<'UNIT'
 [Unit]
-Description=Zero update check
+Description=Thetis update check
 
 [Timer]
 OnCalendar=hourly
@@ -160,15 +196,13 @@ Persistent=true
 
 [Install]
 WantedBy=timers.target
-EOF
-}
-
-unit_state_mount() {
-  cat <<'EOF'
+UNIT
+      ;;
+    state.mount) cat <<'UNIT'
 # ADR 0048 D7: the state volume's enforced capacity is the deployment's declared quota, which is
 # what lib/sandbox-runner/index.ts compares against statfs.
 [Unit]
-Description=Zero state volume
+Description=Thetis state volume
 
 [Mount]
 What=@STATE@.img
@@ -178,19 +212,11 @@ Options=loop,nosuid,nodev,noexec
 
 [Install]
 WantedBy=multi-user.target
-EOF
-}
-
-unit_text() {
-  case "$1" in
-    zero.service) unit_zero_service ;;
-    zero-update.service) unit_zero_update_service ;;
-    zero-update.timer) unit_zero_update_timer ;;
-    state.mount) unit_state_mount ;;
+UNIT
+      ;;
     *) die "There is no embedded unit named $1." ;;
   esac
 }
-
 # --- arguments ---------------------------------------------------------------------------------
 need_value() { [ $# -ge 2 ] || die "The flag $1 needs a value."; }
 
@@ -203,16 +229,23 @@ parse_args() {
       --dry-run) dry_run=1; shift ;;
       --uninstall) do_uninstall=1; shift ;;
       --purge-state) purge_state=1; shift ;;
-      --allow-root) allow_root=1; shift ;;
+      --allow-root) shift ;;
+      --demo) demo=1; shift ;;
       --prefix) need_value "$@"; prefix=$2; prefix_set=1; shift 2 ;;
       --state) need_value "$@"; state=$2; state_set=1; shift 2 ;;
       --state-size) need_value "$@"; state_size=$2; shift 2 ;;
       --state-layout) need_value "$@"; state_layout=$2; shift 2 ;;
       --service) need_value "$@"; service=$2; service_set=1; shift 2 ;;
+      --service-name) need_value "$@"; service_name=$2; shift 2 ;;
       --user) need_value "$@"; service_user=$2; shift 2 ;;
       --operator) need_value "$@"; operator=$2; shift 2 ;;
       --password-fd) need_value "$@"; password_fd=$2; shift 2 ;;
+      --api-key-fd) need_value "$@"; api_key_fd=$2; shift 2 ;;
+      --model) need_value "$@"; model=$2; shift 2 ;;
+      --daily-budget) need_value "$@"; daily_budget=$2; shift 2 ;;
+      --provider-config) need_value "$@"; provider_config=$2; shift 2 ;;
       --origin) need_value "$@"; origin=$2; shift 2 ;;
+      --kernel-origin) need_value "$@"; kernel_origin=$2; shift 2 ;;
       --auto-update) need_value "$@"; auto_update=$2; shift 2 ;;
       --key-store) need_value "$@"; key_store=$2; shift 2 ;;
       --release) need_value "$@"; release=$2; shift 2 ;;
@@ -227,11 +260,12 @@ parse_args() {
 }
 
 validate_args() {
-  [ -n "$release" ] || release=$ZERO_TAG
-  [ -n "$release_url" ] || release_url=$ZERO_RELEASE_URL
-  [ -n "$remote" ] || remote="${ZERO_REPO}.git"
+  [ -n "$release" ] || release=$THETIS_TAG
+  [ -n "$release_url" ] || release_url=$THETIS_RELEASE_URL
+  [ -n "$remote" ] || remote="${THETIS_REPO}.git"
   case "$state_layout" in one|split) ;; *) die 'The --state-layout value is one or split.' ;; esac
   case "$service" in system|user|none) ;; *) die 'The --service value is system, user or none.' ;; esac
+  printf '%s\n' "$service_name" | grep -Eq '^[a-z][a-z0-9_-]{0,31}$' || die 'The service name must start with a lowercase letter and contain only lowercase letters, digits, underscores and dashes.'
   case "$key_store" in file|tpm2) ;; *) die 'The --key-store value is file or tpm2.' ;; esac
   case "$auto_update" in
     none) ;;
@@ -243,10 +277,18 @@ validate_args() {
   case "$node_url" in https://*|file://*) ;; *) die 'The --node-url value starts with https:// or file://.' ;; esac
   printf '%s\n' "$release" | grep -Eq '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || die 'The --release value is a vMAJOR.MINOR.PATCH tag.'
   case "$password_fd" in ''|[0-9]|[0-9][0-9]) ;; *) die 'The --password-fd value is a small non-negative descriptor number.' ;; esac
+  case "$api_key_fd" in ''|[0-9]|[0-9][0-9]) ;; *) die 'The --api-key-fd value is a small non-negative descriptor number.' ;; esac
   [ "$do_uninstall" = 1 ] && return 0
+  if [ "$demo" = 1 ] && { [ -n "$provider_config" ] || [ -n "$model" ] || [ -n "$api_key_fd" ]; }; then
+    die 'Choose --demo or a real provider, not both.'
+  fi
+  [ -z "$provider_config" ] || [ -f "$provider_config" ] || die 'The provider configuration file does not exist.'
   [ -z "$allowed_signers" ] || [ -f "$allowed_signers" ] || die 'The --allowed-signers path does not name a file.'
   [ -n "$origin" ] || die 'A fresh install needs --origin <url>.'
   printf '%s\n' "$origin" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?$' || die 'The public origin is an https origin without a path.'
+  [ -n "$kernel_origin" ] || kernel_origin="https://kernel.${origin#https://}"
+  printf '%s\n' "$kernel_origin" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?$' || die 'The kernel origin is an https origin without a path.'
+  [ "$kernel_origin" != "$origin" ] || die 'The trusted kernel must have a separate origin from package pages.'
   printf '%s\n' "$service_user" | grep -Eq '^[a-z_][a-z0-9_-]{0,31}$' || die 'The service account name is not valid.'
   case "$state_size" in ''|*[!0-9]*) [ -z "$state_size" ] || die 'The state size is a positive number of bytes.' ;; esac
   [ "${state_size:-$DEFAULT_STATE_SIZE}" -ge 67108864 ] || die 'The state volume must be at least 67108864 bytes.'
@@ -275,6 +317,9 @@ prompt_choices() {
   if [ "$state_set" = 0 ]; then printf 'State directory [%s]: ' "$state" > /dev/tty; IFS= read -r answer < /dev/tty; state=${answer:-$state}; fi
   if [ "$service_set" = 0 ]; then printf 'Service (system/user/none) [%s]: ' "$service" > /dev/tty; IFS= read -r answer < /dev/tty; service=${answer:-$service}; fi
   if [ -z "$origin" ]; then printf 'Public https origin: ' > /dev/tty; IFS= read -r origin < /dev/tty; fi
+  if [ "$demo" = 0 ] && [ -z "$provider_config" ] && [ -z "$model" ]; then
+    printf 'OpenRouter model id: ' > /dev/tty; IFS= read -r model < /dev/tty
+  fi
 }
 
 validate_state_root() {
@@ -286,10 +331,7 @@ validate_state_root() {
 need() { command -v "$1" >/dev/null 2>&1 || die "This installer needs $1 on PATH."; }
 
 preflight_root() {
-  [ "$allow_root" = 1 ] && return 0
-  if [ "$(id -u)" = 0 ] && [ -n "${SUDO_USER:-}" ]; then
-    die 'Do not run this installer with sudo from a login shell; pass --allow-root if you meant to.'
-  fi
+  # sudo is the ordinary system-install path; --allow-root remains accepted for compatibility.
   return 0
 }
 
@@ -299,7 +341,7 @@ preflight_host() {
   for tool in sh tar gzip xz sha256sum ssh-keygen git flock realpath stat timeout find mountpoint slirp4netns unshare; do need "$tool"; done
   [ "$no_mount" = 1 ] || { need fallocate; need mkfs.ext4; }
   [ "$service" = none ] || need systemctl
-  [ "$service" != system ] || [ "$(id -u)" = 0 ] || die 'Installing a system service requires root; run the reviewed script with sudo sh install.sh --allow-root.'
+  [ "$service" != system ] || [ "$(id -u)" = 0 ] || die 'Installing a system service requires root; run the reviewed script with sudo sh install.sh.'
   [ "$no_mount" = 1 ] || [ "$(id -u)" = 0 ] || die 'Provisioning a bounded volume requires root.'
   [ "$key_store" != tpm2 ] || { need systemd-creds; systemd-creds has-tpm2 >/dev/null || die 'No usable TPM2 is available.'; }
   hierarchy=$( [ "$service" = none ] && printf '%s' "$cgroup_path" || printf '/sys/fs/cgroup' )
@@ -326,6 +368,7 @@ resolve_operator() {
     [ -n "$answer" ] && operator_id=$answer
   fi
   case "$operator_id" in *[!A-Za-z0-9_-]*|'') die 'An administrator account id is letters, digits, underscores and dashes.' ;; esac
+  case "$operator_id" in login|provider|registry|discovery|update-status|default|kernel) die 'That account id is reserved; choose a different administrator id.' ;; esac
 }
 
 read_password_twice() {
@@ -345,7 +388,7 @@ read_password_twice() {
 resolve_password() {
   if [ -n "$password_fd" ]; then
     # dash cannot expand a variable in a redirection target, so the read is built and evaluated.
-    eval "IFS= read -r password_value <&$password_fd" || die 'The administrator password descriptor could not be read.'
+    eval "IFS= read -r password_value <&$password_fd" || [ -n "$password_value" ] || die 'The administrator password descriptor could not be read.'
   elif [ "$assume_yes" = 1 ]; then
     die 'With --yes an administrator password source is required; pass --password-fd. There is no default password.'
   else
@@ -355,7 +398,7 @@ resolve_password() {
   [ "$bytes" -le 1024 ] || die 'An administrator password is at most 1024 bytes.'
   [ "$bytes" -ge "$PASSWORD_MINIMUM" ] || die "An administrator password is at least ${PASSWORD_MINIMUM} characters."
 }
-# --- provisioning commands share the same call sites in dry-run and execution (ADR 0052) ---------
+# --- provisioning commands share the same call sites in dry-run and execution (implementation note 0052) ---------
 step() {
   if [ "$dry_run" = 1 ]; then printf '%s\n' "$1"; else eval "$1"; fi
 }
@@ -395,6 +438,7 @@ fetch_bounded() {
 fetch_release() {
   total=0
   for name in $ASSETS; do
+    progress "  $name"
     fetch_one "${release_url%/}/${release}/${name}" "$1/$name"
     bytes=$(stat -c %s "$1/$name"); total=$((total + bytes))
     [ "$total" -le 536870912 ] || die 'The release exceeds its 512 MiB total download limit.'
@@ -417,7 +461,7 @@ verify_asset_list() {
 }
 
 verify_signature() {
-  ( cd "$1" && ssh-keygen -Y verify -f "$signers" -I "$ZERO_SIGNER" -n "$ZERO_NAMESPACE" -s SHA256SUMS.sig < SHA256SUMS >/dev/null 2>&1 ) \
+  ( cd "$1" && ssh-keygen -Y verify -f "$signers" -I "$THETIS_SIGNER" -n "$THETIS_NAMESPACE" -s SHA256SUMS.sig < SHA256SUMS >/dev/null 2>&1 ) \
     || die 'The release SHA256SUMS signature could not be verified against the allowed signer.'
 }
 
@@ -448,10 +492,10 @@ const [allowedSigners, signer, tag, commit] = process.argv.slice(4);
 const verified = await verifyRelease(pins, { allowedSigners, signer, tag: { tag, commit } }, schemas);
 const result = verified.ok ? await verifyPins(root, verified.value.pins) : verified;
 if (!result.ok) { process.stderr.write(`${result.error.message}\n`); process.exitCode = 1; }' \
-    "file://$2/lib/update/verify.ts" "$1" "$2" "$signers" "$ZERO_SIGNER" "$release" "$commit" \
+    "file://$2/lib/update/verify.ts" "$1" "$2" "$signers" "$THETIS_SIGNER" "$release" "$commit" \
     || die 'The extracted release does not match the kernel pin hashes it published.'
 }
-# --- bootstrap the exact signed Node archive, never a host executable (ADR 0037, ADR 0052) ------
+# --- bootstrap the exact signed Node archive, never a host executable (ADR 0037, implementation note 0052) ------
 resolve_node() {
   metadata=$(tr -d '\n\r' < "$1/provenance.json")
   node_version=$(printf '%s' "$metadata" | sed -n 's/.*"node"[[:space:]]*:[[:space:]]*{[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\(v[0-9.]*\)".*/\1/p')
@@ -464,7 +508,7 @@ resolve_node() {
   printf '%s  %s\n' "$digest" "$archive" > "$tmp/node.sum"
   (cd "$tmp" && sha256sum --check --strict --status node.sum) || die 'The Node archive does not match its signed provenance digest.'
   mkdir "$tmp/node"
-  tar -xJf "$tmp/$archive" --no-same-owner -C "$tmp/node"
+  tar -xpJf "$tmp/$archive" --no-same-owner -C "$tmp/node"
   node_root="$tmp/node/node-$node_version-$node_platform"
   node_bin="$node_root/bin/node"
   [ -x "$node_bin" ] && [ "$("$node_bin" --version)" = "$node_version" ] || die 'The verified Node archive does not supply the release runtime.'
@@ -474,20 +518,67 @@ install_node() {
   step "install -d -m 0755 $prefix/node"
   if [ "$dry_run" = 1 ]; then say 'install verified Node archive'; return 0; fi
   [ ! -e "$prefix/node/$node_version" ] || die 'A Node installation already occupies the destination.'
-  cp -R "$node_root" "$prefix/node/$node_version"
+  cp -pR "$node_root" "$prefix/node/$node_version"
   ln -s "$node_version" "$prefix/node/current"
 }
-# --- retain every path used by the installed bootstrap (ADR 0052) -------------------------------
+# Model configuration is validated before provisioning; API keys travel only over stdin.
+provider_tool() {
+  "$node_bin" --no-experimental-strip-types --import "file://$extracted/lib/artifacts/register.mjs" \
+    "$extracted/lib/update/provider-setup.ts" "$@"
+}
 
-write_bin_zero() {
-  mkdir -p "$prefix/bin"
-  cat > "$prefix/bin/zero" <<SH
+resolve_provider() {
+  [ "$demo" = 0 ] || return 0
+  if [ -n "$provider_config" ]; then
+    cp "$provider_config" "$tmp/provider.json"
+  else
+    [ -n "$model" ] || die 'Choose --model <OpenRouter id>, --provider-config <file>, or --demo.'
+    progress "Looking up $model"
+    provider_tool openrouter "$model" "$daily_budget" "$tmp/provider.json" || die 'The selected model could not be configured.'
+  fi
+  provider_config="$tmp/provider.json"
+  provider_tool check "$provider_config" || die 'The provider configuration is invalid.'
+  if [ -n "$api_key_fd" ]; then
+    eval "IFS= read -r api_key_value <&$api_key_fd" || [ -n "$api_key_value" ] || die 'The provider API key descriptor could not be read.'
+  elif [ "$assume_yes" = 1 ]; then
+    die 'A real provider needs --api-key-fd with --yes.'
+  else
+    stty -F /dev/tty -echo || die 'Cannot hide terminal input for the API key.'
+    terminal_hidden=1
+    printf 'Provider API key: ' > /dev/tty
+    IFS= read -r api_key_value < /dev/tty || api_key_value=''
+    printf '\n' > /dev/tty
+    stty -F /dev/tty echo; terminal_hidden=0
+  fi
+  [ -n "$api_key_value" ] || die 'The provider API key must not be empty.'
+  [ "$(printf '%s' "$api_key_value" | wc -c)" -le 16384 ] || die 'The provider API key is too long.'
+}
+
+seal_provider() {
+  [ "$demo" = 0 ] || return 0
+  if [ "$dry_run" = 1 ]; then say 'seal provider API key in the kernel secret store'; return 0; fi
+  if [ "$key_store" = tpm2 ]; then
+    systemd-creds decrypt --name=master "$credential_path" - | (
+      exec 3<&0
+      printf '%s' "$api_key_value" | provider_tool seal "$state" /dev/fd/3 "$operator_id"
+    ) || die 'The provider API key could not be sealed with the TPM2 credential.'
+  else
+    printf '%s' "$api_key_value" | provider_tool seal "$state" "$credential_path" "$operator_id" \
+      || die 'The provider API key could not be sealed.'
+  fi
+  api_key_value=''
+}
+# --- retain every path used by the installed bootstrap (implementation note 0052) -------------------------------
+
+write_bin_thetis() {
+  install -d -m 0755 "$prefix/bin"
+  cat > "$prefix/bin/thetis" <<SH
 #!/bin/sh
 exec "$prefix/node/current/bin/node" --no-experimental-strip-types \\
   --import "$prefix/current/lib/artifacts/register.mjs" \\
   "$prefix/current/lib/update/main.ts" "\$@" --prefix "$prefix"
 SH
-  chmod 0755 "$prefix/bin/zero"
+  chmod 0755 "$prefix/bin/thetis"
 }
 
 state_capacity() {
@@ -504,9 +595,12 @@ state_dirs() {
 }
 
 write_installation() {
-  "$node_bin" --no-experimental-strip-types --import "file://$1/lib/artifacts/register.mjs" \
-    "$1/lib/update/seed.ts" --release "$1" --state "$state" --prefix "$prefix" --cgroup "$cgroup_path" \
-    --operator "$operator_id" --origin "$origin" --quota "$quota_bytes" >/dev/null \
+  seed_release=$1
+  set --
+  if [ "$demo" = 0 ]; then set -- --provider-config "$provider_config"; fi
+  "$node_bin" --no-experimental-strip-types --import "file://$seed_release/lib/artifacts/register.mjs" \
+    "$seed_release/lib/update/seed.ts" --release "$seed_release" --state "$state" --prefix "$prefix" --cgroup "$cgroup_path" \
+    --operator "$operator_id" --origin "$origin" --kernel-origin "$kernel_origin" --quota "$quota_bytes" "$@" >/dev/null \
     || die 'The installation recipe and seed could not be written from the release sources.'
   chmod 0644 "$prefix/etc/seed.json" "$prefix/etc/recipe.json"
 }
@@ -527,11 +621,11 @@ process.stdout.write(`${JSON.stringify({ version: 1, accounts: [record.value] })
 
 write_install_json() {
   "$node_bin" --input-type=module -e '
-const [prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceUser,stateLayout,noMount,keyStore,credential,unitDirectory,lingerCreated,userCreated] = process.argv.slice(1);
+const [prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceUser,stateLayout,noMount,keyStore,credential,unitDirectory,lingerCreated,userCreated,serviceName] = process.argv.slice(1);
 const { writeFileSync } = await import("node:fs");
-writeFileSync(`${prefix}/etc/install.json`, JSON.stringify({version:1,prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceUser,stateLayout,noMount:noMount==="1",keyStore,credential,unitDirectory,lingerCreated:lingerCreated==="1",userCreated:userCreated==="1",allowedSigners:`${prefix}/etc/allowed_signers`,login:"login"})+"\n");' \
-    "$prefix" "$state" "$release" "$remote" "$release_url" "$ZERO_SIGNER" "$auto_update" "$origin" "$operator_id" "$service" \
-    "$service_user" "$state_layout" "$no_mount" "$key_store" "$credential_path" "$unit_directory" "$linger_created" "$user_created"
+writeFileSync(`${prefix}/etc/install.json`, JSON.stringify({version:1,prefix,state,release,remote,releaseUrl,signer,policy,origin,operator,service,serviceName,serviceUser,stateLayout,noMount:noMount==="1",keyStore,credential,unitDirectory,lingerCreated:lingerCreated==="1",userCreated:userCreated==="1",allowedSigners:`${prefix}/etc/allowed_signers`,login:"login"})+"\n");' \
+    "$prefix" "$state" "$release" "$remote" "$release_url" "$THETIS_SIGNER" "$auto_update" "$origin" "$operator_id" "$service" \
+    "$service_user" "$state_layout" "$no_mount" "$key_store" "$credential_path" "$unit_directory" "$linger_created" "$user_created" "$service_name"
   chmod 0644 "$prefix/etc/install.json"
 }
 
@@ -548,14 +642,14 @@ layout_release() {
   cp "$signers" "$prefix/etc/allowed_signers"
   chmod 0644 "$prefix/etc/allowed_signers"
 }
-# --- provision only selected resources; dry-run follows these same functions (ADR 0052) ---------
+# --- provision only selected resources; dry-run follows these same functions (implementation note 0052) ---------
 provision_mount() {
   mount_path=$1; volume_size=$2; mount_name=$(mount_unit_name "$mount_path")
   [ ! -e "$mount_path.img" ] || die "The existing volume $mount_path.img will not be overwritten."
   [ -d "$(dirname "$mount_path")" ] || step "install -d -m 0755 $(dirname "$mount_path")"
   step "fallocate -l $volume_size $mount_path.img"
   step "chmod 0600 $mount_path.img"
-  step "mkfs.ext4 -q -m 0 -L zero-state $mount_path.img"
+  step "mkfs.ext4 -q -m 0 -L thetis-state $mount_path.img"
   step "install -d -m 0700 $mount_path"
   write_unit state.mount "/etc/systemd/system/$mount_name"
   step 'systemctl daemon-reload'
@@ -584,7 +678,7 @@ provision_user() {
 
 resolve_service() {
   case "$service" in
-    system) unit_directory=/etc/systemd/system; credential_path=/etc/zero/master.key ;;
+    system) unit_directory=/etc/systemd/system; credential_path="/etc/$service_name/master.key" ;;
     user)
       case "$HOME" in *[!A-Za-z0-9_./-]*|'') die 'The user home must be a canonical absolute path.' ;; esac
       [ "$(realpath -m "$HOME")" = "$HOME" ] || die 'The user home must be canonical.'
@@ -596,7 +690,7 @@ resolve_service() {
 
 provision_key() {
   [ ! -e "$credential_path" ] || die 'An existing master key will not be overwritten.'
-  if [ "$service" = system ]; then step 'install -d -o root -g root -m 0700 /etc/zero'; fi
+  if [ "$service" = system ]; then step "install -d -o root -g root -m 0700 /etc/$service_name"; fi
   if [ "$key_store" = tpm2 ]; then
     step "head -c 32 /dev/urandom | systemd-creds encrypt --with-key=tpm2 --name=master - $credential_path"
   else
@@ -611,24 +705,25 @@ write_unit() {
   if [ "$dry_run" = 1 ]; then printf 'write %s\n' "$target"; return 0; fi
   unit_state=${mount_path:-$state}
   unit_text "$1" | sed -e "s#@PREFIX@#$prefix#g" -e "s#@STATE@#$unit_state#g" -e "s#@USER@#$service_user#g" > "$target"
-  if [ "$1" = zero.service ]; then
+  if [ "$1" = thetis.service ]; then
     if [ "$service" = system ] && [ "$state_layout" = split ] && [ "$no_mount" = 0 ]; then
       sed -i "s#^RequiresMountsFor=.*#RequiresMountsFor=$state $state/kernel $state/supervisor $state/g#" "$target"
     fi
-    sed -i "s#LoadCredential=master:/etc/zero/master.key#LoadCredential=master:$credential_path#" "$target"
+    sed -i "s#LoadCredential=master:/etc/thetis/master.key#LoadCredential=master:$credential_path#" "$target"
     if [ "$key_store" = tpm2 ]; then sed -i 's/^LoadCredential=/LoadCredentialEncrypted=/' "$target"; fi
   fi
   if [ "$service" = user ] && [ "$1" != state.mount ]; then
-    sed -i '/^User=/d; /^Group=/d; /^ProtectHome=/d; /^ProtectSystem=/d; /^DeviceAllow=/d; /^ReadWritePaths=/d; s/^WantedBy=multi-user.target$/WantedBy=default.target/' "$target"
+    sed -i '/^User=/d; /^Group=/d; /^ProtectHome=/d; /^ProtectSystem=/d; /^TemporaryFileSystem=/d; /^DeviceAllow=/d; /^ReadWritePaths=/d; s/^WantedBy=multi-user.target$/WantedBy=default.target/' "$target"
   fi
   chmod 0644 "$target"
+  sed -i "s#thetis.service#$service_name.service#g; s#thetis-update.service#$service_name-update.service#g" "$target"
 }
 
 install_units() {
   [ "$service" != none ] || return 0
   step "install -d -m 0755 $unit_directory"
   mount_path=$state
-  for unit in zero.service zero-update.service zero-update.timer; do write_unit "$unit" "$unit_directory/$unit"; done
+  for unit in thetis.service thetis-update.service thetis-update.timer; do write_unit "$unit" "$unit_directory/$service_name${unit#thetis}"; done
   manager='systemctl'
   if [ "$service" = user ]; then
     manager='systemctl --user'
@@ -641,21 +736,22 @@ install_units() {
 
 start_units() {
   [ "$service" != none ] || return 0
-  step "$manager enable --now zero.service"
-  step "$manager enable --now zero-update.timer"
+  step "$manager enable --now $service_name.service"
+  step "$manager enable --now $service_name-update.timer"
   [ "$dry_run" = 1 ] && return 0
   attempt=0
-  until "$prefix/bin/zero" status >/dev/null 2>&1; do
+  until "$prefix/bin/thetis" status >/dev/null 2>&1; do
+    if $manager is-failed --quiet "$service_name.service"; then die "The service failed; run journalctl -u $service_name.service for its startup error."; fi
     attempt=$((attempt + 1))
-    [ "$attempt" -lt 120 ] || die 'The service did not become ready; inspect zero.service in the journal before rerunning installation.'
+    [ "$attempt" -lt 120 ] || die "The service did not become ready; run journalctl -u $service_name.service before rerunning installation."
     sleep 1
   done
 }
 # --- cgroup ------------------------------------------------------------------------------------
 resolve_cgroup() {
   case "$service" in
-    system) cgroup_path="/sys/fs/cgroup/system.slice/zero.service" ;;
-    user) cgroup_path="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/app.slice/zero.service" ;;
+    system) cgroup_path="/sys/fs/cgroup/system.slice/$service_name.service" ;;
+    user) cgroup_path="/sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/app.slice/$service_name.service" ;;
     none)
       suffix=$(sed -n 's/^0::\(.*\)$/\1/p' /proc/self/cgroup 2>/dev/null | head -n1)
       if [ -d /cgroup ]; then cgroup_path=/cgroup
@@ -666,16 +762,20 @@ resolve_cgroup() {
 }
 
 print_next_steps() {
-  say "Zero $release is installed at $prefix."
+  display_complete
+  say "Thetis $release is installed at $prefix."
   say "Its state volume is $state and its control socket is $state/supervisor.sock."
-  say "Point your reviewed TLS endpoint at the stable socket paths zero status prints under $state/live."
+  say "Chat now: $([ "$service" = system ] && printf 'sudo ')$prefix/bin/thetis chat --message \"Hello\""
+  say "For browser access, configure your TLS proxy using the stable socket paths from $prefix/bin/thetis status."
+  say "Trusted kernel origin: $kernel_origin (keep it separate from package pages)."
   [ "$service" = none ] && say "Its master key is $credential_path; pass it to the supervisor as --credential."
 
-  say "Sign in at $origin/login as $operator_id"
+  say "After configuring the proxy, sign in at $origin/login as $operator_id"
+  if [ "$demo" = 1 ]; then say 'Demo mode: replies are scripted. No real model is connected.'; fi
 }
-# --- uninstall uses recorded resources, preserving state and keys unless purged (ADR 0052) ------
+# --- uninstall uses recorded resources, preserving state and keys unless purged (implementation note 0052) ------
 recorded_uninstall() {
-  [ -f "$prefix/etc/install.json" ] || die "There is no Zero installation at $prefix."
+  [ -f "$prefix/etc/install.json" ] || die "There is no Thetis installation at $prefix."
   node_bin="$prefix/node/current/bin/node"
   [ -x "$node_bin" ] || die 'The installed Node is missing; inspect this incomplete installation before removing it.'
   # JSON is decoded as data. Each shell-bound field is validated before it reaches a command.
@@ -686,7 +786,10 @@ if (value.prefix !== prefix || !["system","user","none"].includes(value.service)
 for (const key of ["state","service","serviceUser","stateLayout","noMount","keyStore","credential","unitDirectory","lingerCreated","userCreated"]) {
  const item = value[key]; if (item === undefined || !/^[A-Za-z0-9_./-]*$/.test(String(item))) process.exit(1);
  process.stdout.write(String(item)+"\n");
-}' "$prefix") || die 'The installation lacks valid recorded provisioning choices; inspect its units and volumes before uninstalling.'
+}
+const name = value.serviceName ?? "thetis";
+if (!/^[a-z][a-z0-9_-]{0,31}$/.test(name)) process.exit(1);
+process.stdout.write(name+"\n");' "$prefix") || die 'The installation lacks valid recorded provisioning choices; inspect its units and volumes before uninstalling.'
   state=$(printf '%s\n' "$recorded" | sed -n '1p')
   service=$(printf '%s\n' "$recorded" | sed -n '2p')
   service_user=$(printf '%s\n' "$recorded" | sed -n '3p')
@@ -697,6 +800,7 @@ for (const key of ["state","service","serviceUser","stateLayout","noMount","keyS
   unit_directory=$(printf '%s\n' "$recorded" | sed -n '8p')
   linger_created=$(printf '%s\n' "$recorded" | sed -n '9p')
   user_created=$(printf '%s\n' "$recorded" | sed -n '10p')
+  service_name=$(printf '%s\n' "$recorded" | sed -n '11p')
   validate_paths
   case "$state_layout" in one|split) ;; *) die 'The recorded state layout is invalid.' ;; esac
   case "$no_mount" in true|false) ;; *) die 'The recorded mount choice is invalid.' ;; esac
@@ -715,13 +819,13 @@ run_uninstall() {
   recorded_uninstall
   if [ "$service" != none ]; then
     manager='systemctl'; [ "$service" != user ] || manager='systemctl --user'
-    step "$manager disable --now zero-update.timer zero.service"
-    step "$manager stop zero-update.service"
-    for unit in zero.service zero-update.service zero-update.timer; do step "rm -f $unit_directory/$unit"; done
+    step "$manager disable --now $service_name-update.timer $service_name.service"
+    step "$manager stop $service_name-update.service"
+    for unit in "$service_name.service" "$service_name-update.service" "$service_name-update.timer"; do step "rm -f $unit_directory/$unit"; done
     step "$manager daemon-reload"
     if [ "$service" = user ] && [ "$linger_created" = true ]; then step "loginctl disable-linger $(id -un)"; fi
   elif [ "$dry_run" = 0 ]; then
-    "$prefix/bin/zero" status >/dev/null 2>&1 && die 'Stop the foreground supervisor before uninstalling.'
+    "$prefix/bin/thetis" status >/dev/null 2>&1 && die 'Stop the foreground supervisor before uninstalling.'
   fi
   if [ "$purge_state" = 0 ] && [ "$service" != system ]; then
     step "cp -p $credential_path $state/retained-master.key"
@@ -738,17 +842,17 @@ run_uninstall() {
     else
       step "rm -rf --one-file-system $state"
     fi
-    if [ "$service" = system ]; then step 'rm -f /etc/zero/master.key'; fi
+    if [ "$service" = system ]; then step "rm -f $credential_path"; fi
     if [ "$user_created" = true ]; then step "userdel $service_user"; fi
   fi
   step "rm -rf $prefix"
-  say "Zero is uninstalled from $prefix."
+  say "Thetis is uninstalled from $prefix."
 }
 # --- installation changes the destination only after complete verification (ADR 0048) -----------
 existing_install() {
   if [ -f "$prefix/etc/install.json" ]; then
-    [ -f "$prefix/releases/$release/.installed" ] || die 'This prefix already has an installation; use zero update to change its release.'
-    say "Zero $release is already installed at $prefix."
+    [ -f "$prefix/releases/$release/.installed" ] || die 'This prefix already has an installation; use thetis update to change its release.'
+    say "Thetis $release is already installed at $prefix."
     return 0
   fi
   if [ -e "$prefix" ]; then die 'The code prefix already exists without a completed installation; inspect it before continuing.'; fi
@@ -763,7 +867,7 @@ provision_install() {
   if [ "$dry_run" = 1 ]; then
     say 'install verified release and retained seed sources'
     install_node
-    say 'write recipe.json, seed.json and zero launcher'
+    say 'write recipe.json, seed.json and thetis launcher'
     say 'write accounts.json (1 account)'
   else
     state_dirs
@@ -771,12 +875,13 @@ provision_install() {
     [ "$quota_bytes" -le "${state_size:-$DEFAULT_STATE_SIZE}" ] || die 'The existing state filesystem exceeds the declared state size.'
     layout_release "$extracted"
     install_node
-    write_bin_zero
+    write_bin_thetis
     write_installation "$prefix/releases/$release"
     write_accounts "$prefix/releases/$release"
     password_value=''
   fi
   provision_key
+  seal_provider
   install_units
   if [ "$service" = system ]; then
     step "chown -R $service_user:$service_user $state"
@@ -794,23 +899,34 @@ run_install() {
   resolve_service
   if [ "$dry_run" = 1 ]; then provision_install; return 0; fi
   [ ! -e "$credential_path" ] || die 'An existing master key will not be overwritten.'
-  resolve_password
-  tmp=$(mktemp -d "${TMPDIR:-/tmp}/zero-install.XXXXXX")
+  if [ "$service" != none ]; then
+    for unit in "$service_name.service" "$service_name-update.service" "$service_name-update.timer"; do
+      [ ! -e "$unit_directory/$unit" ] && [ ! -L "$unit_directory/$unit" ] || die "An existing unit $unit_directory/$unit will not be overwritten."
+    done
+  fi
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/thetis-install.XXXXXX")
   if [ -n "$allowed_signers" ]; then
     signers=$(realpath "$allowed_signers")
   else
-    signers="$tmp/allowed_signers"; printf '%s\n' "$ZERO_ALLOWED_SIGNERS" > "$signers"
+    signers="$tmp/allowed_signers"; printf '%s\n' "$THETIS_ALLOWED_SIGNERS" > "$signers"
   fi
   staging="$tmp/staging"; extracted="$tmp/extracted"
   mkdir -p "$staging" "$extracted"
+  progress "Downloading Thetis $release"
   fetch_release "$staging"
+  progress 'Checking the release signature and checksums'
   verify_asset_list "$staging"
   verify_signature "$staging"
   verify_hashes "$staging"
   verify_commit "$staging"
+  progress 'Installing the verified Node runtime'
   resolve_node "$staging"
+  progress 'Verifying the extracted application'
   tar -xpzf "$staging/thetis-distribution.tar.gz" --no-same-owner -C "$extracted"
   verify_pins "$staging" "$extracted"
+  resolve_provider
+  resolve_password
+  progress 'Creating your environment'
   provision_install
 }
 
@@ -820,6 +936,8 @@ main() {
   trap 'exit 143' TERM
   parse_args "$@"
   if [ -n "$print_unit" ]; then unit_text "$print_unit"; exit 0; fi
+  init_display
+  banner
   prompt_choices
   validate_args
   validate_paths

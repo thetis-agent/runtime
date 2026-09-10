@@ -1,4 +1,4 @@
-/** Verify handler shutdown, child EOF and retired endpoints across restart; TE-023, ADR 0046. */
+/** Verify handler shutdown, child EOF and retired endpoints across restart; TE-023, implementation note 0046. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, mkdir, writeFile, realpath, readdir, open } from 'node:fs/promises';

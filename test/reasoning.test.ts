@@ -23,7 +23,7 @@ await test('PR-015 model.end records the last usage counters unchanged', async (
   } finally { await fixture.close(); }
 });
 
-await test('ADR-0024 assistant tool calls and reasoning precede results in persisted and replayed history', async () => {
+await test('implementation note 0024 assistant tool calls and reasoning precede results in persisted and replayed history', async () => {
   const fixture = await loopFixture([{
     source: 'test-files@1',
     offer: () => Promise.resolve([{ name: 'read_path', description: 'Read', readOnly: true, endsTurn: false, source: 'test-files@1', schema: { type: 'object' } }]),
@@ -63,7 +63,7 @@ await test('Tool call ids that escape artifact paths are refused before invoking
   } finally { await fixture.close(); }
 });
 
-await test('ADR-0024 endsTurn answers remaining calls without executing them', async () => {
+await test('implementation note 0024 endsTurn answers remaining calls without executing them', async () => {
   const called: string[] = [];
   const fixture = await loopFixture([{
     source: 'test-files@1',

@@ -3,7 +3,7 @@
 **Status:** Accepted · 2026-09-10
 **Deciders:** the operator, on this plan; runtime implementers
 **Amends:** `docs/headless-startup.md`'s launch line and `docs/ci-delivery.md`'s asset list
-**Preserves:** GN-002, GN-007, ADR 0012 §4 and §6, ADR 0018, ADR 0028–0030, ADR 0037
+**Preserves:** GN-002, GN-007, ADR 0012 §4 and §6, ADR 0018, implementation note 0028–0030, ADR 0037
 
 ## Context
 
@@ -40,17 +40,17 @@ installer, an updater or a release; the supervisor and the updater are `lib/`
 code.
 
 **Layout.** Code and configuration under a prefix, state on one bounded volume:
-`/opt/zero/{bin,node/<v>,releases/<tag>,current,etc}` root-owned and read-only to
-the service user; `/var/lib/zero/` owned by `zero` at 0700 holding the seed root,
+`/opt/thetis/{bin,node/<v>,releases/<tag>,current,etc}` root-owned and read-only to
+the service user; `/var/lib/thetis/` owned by `thetis` at 0700 holding the seed root,
 the supervisor's runs, the registry, cache, profile, discovery, spaces,
-`updates/` and the control socket; `/etc/zero/master.key` 0400 root. FHS
+`updates/` and the control socket; `/etc/thetis/master.key` 0400 root. FHS
 separates add-on code from variable state, the state filesystem's enforced
 capacity *is* the declared quota (`lib/sandbox-runner/index.ts` compares
 `statfs` against every `maximumBytes`), and code must not eat that quota.
 `--state` may be pointed inside the prefix for a single-tree install.
 
-**A system service by default.** `zero.service` with `User=zero`,
-`Delegate=yes`, `LoadCredential=master:/etc/zero/master.key`, boot start and
+**A system service by default.** `thetis.service` with `User=thetis`,
+`Delegate=yes`, `LoadCredential=master:/etc/thetis/master.key`, boot start and
 journald logs. `--service user` remains available and `--service none` runs the
 supervisor in the foreground for tests and containers. Debian's `user@.service`
 delegates `memory` and `pids` but not `cpu`, and
@@ -60,7 +60,7 @@ root-written drop-in; a bounded persistent volume needs root regardless.
 well as a `run-*.scope`.
 
 **The master key stays root's.** 32 bytes from `/dev/urandom` at
-`/etc/zero/master.key`, 0400 root, delivered by `LoadCredential=`; the unit's
+`/etc/thetis/master.key`, 0400 root, delivered by `LoadCredential=`; the unit's
 `ExecStart` opens `$CREDENTIALS_DIRECTORY/master` as descriptor 3 and the
 supervisor's `descriptors()` reopens it for every kernel launch, because a
 descriptor's offset advances after the kernel's 32-byte read. The seed says
@@ -89,7 +89,7 @@ existing bounded mountpoint after checking `stat -f` capacity — this is how th
 tests run. `--state-layout split` provisions a second small image for the seed
 root and the supervisor's runs.
 
-**Undo is one command.** `zero undo` reads the supervisor's generation view,
+**Undo is one command.** `thetis undo` reads the supervisor's generation view,
 builds the previous release's `Revision` from its retained `releases/<tag>`
 directory (ADR 0012 §6 keeps the previous binary) and runs the same transaction:
 generation `n+2` whose pins equal `n`'s, invariant 5 of `docs/design/generations.md`.
@@ -97,8 +97,8 @@ The store snapshot travels with the transaction, so state and code return
 together as ADR 0012 §4 requires. Release directories are retained; nothing
 deletes the current or previous release.
 
-**The updater is host-side and never makes a default.** `zero update` in
-`lib/update/*`, driven by `zero-update.timer` → `zero-update.service` under
+**The updater is host-side and never makes a default.** `thetis update` in
+`lib/update/*`, driven by `thetis-update.timer` → `thetis-update.service` under
 `ProtectSystem=strict` with `ReadWritePaths=` limited to `releases/` and
 `updates/`. It checks, stages, verifies and notifies; an administrator applies. The
 `--auto-update fixes|improvements` policy that would let the timer apply is
@@ -117,7 +117,7 @@ A user service avoids root at install time and loses boot start without a logged
 session, systemd credentials at rest, and the `cpu` controller unless root
 intervenes anyway; a bounded persistent volume needs root in either case.
 
-A key file inside the state volume readable by `zero` avoids the credential
+A key file inside the state volume readable by `thetis` avoids the credential
 plumbing and loses the separation that matters: a deployment-scope process that
 escaped its sandbox would read the store's key alongside the store.
 
@@ -147,7 +147,7 @@ the code prefix and the state volume have separate owners and separate quotas.
 
 Bad: the supervisor is one process outside the generation machine, so upgrading
 the supervisor itself is a service restart that stops the kernel with it — it
-therefore holds no policy, stays small, and `zero update` prints that a service
+therefore holds no policy, stays small, and `thetis update` prints that a service
 restart is required rather than performing one (risk R4). Idle RSS gains a second
 Node process. The default layout puts the journal on the same image as the
 spaces, so a space that fills the image also starves `observed.jsonl` — ADR 0012

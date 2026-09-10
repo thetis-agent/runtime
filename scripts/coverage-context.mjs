@@ -1,4 +1,4 @@
-/** Preserve ordinary temporary storage and uninstrumented performance measurements during coverage; ADR 0012, ADR 0041, ADR 0042. */
+/** Preserve ordinary temporary storage and uninstrumented performance measurements during coverage; ADR 0012, implementation note 0041, implementation note 0042. */
 import { stopCoverage } from 'node:v8';
 
 // Node 24.18 marks isolated test children before executing inherited preloads.

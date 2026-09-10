@@ -2,7 +2,7 @@
 
 **Status:** Accepted · 2026-09-09
 **Deciders:** the operator, requesting a storage contract and default package
-**Amends:** ADR 0032's journal mechanism and ADR 0034's storage pool placement
+**Amends:** implementation note 0032's journal mechanism and implementation note 0034's storage pool placement
 **Supersedes:** nothing
 
 ## Context

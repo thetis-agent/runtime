@@ -19,6 +19,7 @@ fetch_bounded() {
 fetch_release() {
   total=0
   for name in $ASSETS; do
+    progress "  $name"
     fetch_one "${release_url%/}/${release}/${name}" "$1/$name"
     bytes=$(stat -c %s "$1/$name"); total=$((total + bytes))
     [ "$total" -le 536870912 ] || die 'The release exceeds its 512 MiB total download limit.'
@@ -41,7 +42,7 @@ verify_asset_list() {
 }
 
 verify_signature() {
-  ( cd "$1" && ssh-keygen -Y verify -f "$signers" -I "$ZERO_SIGNER" -n "$ZERO_NAMESPACE" -s SHA256SUMS.sig < SHA256SUMS >/dev/null 2>&1 ) \
+  ( cd "$1" && ssh-keygen -Y verify -f "$signers" -I "$THETIS_SIGNER" -n "$THETIS_NAMESPACE" -s SHA256SUMS.sig < SHA256SUMS >/dev/null 2>&1 ) \
     || die 'The release SHA256SUMS signature could not be verified against the allowed signer.'
 }
 
@@ -72,6 +73,6 @@ const [allowedSigners, signer, tag, commit] = process.argv.slice(4);
 const verified = await verifyRelease(pins, { allowedSigners, signer, tag: { tag, commit } }, schemas);
 const result = verified.ok ? await verifyPins(root, verified.value.pins) : verified;
 if (!result.ok) { process.stderr.write(`${result.error.message}\n`); process.exitCode = 1; }' \
-    "file://$2/lib/update/verify.ts" "$1" "$2" "$signers" "$ZERO_SIGNER" "$release" "$commit" \
+    "file://$2/lib/update/verify.ts" "$1" "$2" "$signers" "$THETIS_SIGNER" "$release" "$commit" \
     || die 'The extracted release does not match the kernel pin hashes it published.'
 }

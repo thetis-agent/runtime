@@ -1,4 +1,4 @@
-/** Recover serving code and stores only from canonical retained runs and observed epochs; ADR 0052, GN-007. */
+/** Recover serving code and stores only from canonical retained runs and observed epochs; implementation note 0052, GN-007. */
 import { lstat, realpath, readdir, rm, symlink, rename } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { randomUUID } from 'node:crypto';

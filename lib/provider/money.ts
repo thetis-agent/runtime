@@ -1,4 +1,4 @@
-/** Preserve every finite decimal price exactly through admission and settlement; ADR 0044, PR-010. */
+/** Preserve every finite decimal price exactly through admission and settlement; implementation note 0044, PR-010. */
 const precision = 324;
 const units = 10n ** BigInt(precision);
 

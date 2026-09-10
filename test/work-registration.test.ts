@@ -1,4 +1,4 @@
-/** Recapture changed dynamic providers before full matching, then require the real probe; ADR 0045. */
+/** Recapture changed dynamic providers before full matching, then require the real probe; implementation note 0045. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';

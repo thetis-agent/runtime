@@ -1,4 +1,4 @@
-/** Exercise a supervised kernel's control socket, its kernel-resolved maintenance authority and its bounded generation store paths; GN-007, ADR 0048, ADR 0050. */
+/** Exercise a supervised kernel's control socket, its kernel-resolved maintenance authority and its bounded generation store paths; GN-007, ADR 0048, implementation note 0050. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';

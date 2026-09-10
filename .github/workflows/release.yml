@@ -1,37 +1,36 @@
-# ADR 0012, ADR 0018: delivery is separate from the kernel's production act.
+# Delivery reuses successful CI bytes; production activation remains a separate kernel transaction.
 name: Release
 on:
+  push:
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing vMAJOR.MINOR.PATCH tag on this repository's main history
+        description: Existing annotated vMAJOR.MINOR.PATCH tag on main
         required: true
         type: string
       peer_commit:
-        description: Full reviewed packages commit (40 lowercase hexadecimal characters)
-        required: true
+        description: Optional exact packages commit; must match the successful CI candidate
+        required: false
         type: string
 permissions:
   contents: read
 concurrency:
-  group: release-${{ inputs.tag }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 jobs:
   build:
-    name: Assemble release
+    name: Select verified CI delivery
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
     outputs:
       commit: ${{ steps.revision.outputs.commit }}
+      tag: ${{ steps.revision.outputs.tag }}
+      peer: ${{ steps.candidate.outputs.peer }}
     steps:
-      - name: Validate release inputs
-        env:
-          RELEASE_TAG: ${{ inputs.tag }}
-          PEER_COMMIT: ${{ inputs.peer_commit }}
-        run: |
-          [[ "$GITHUB_REF" == refs/heads/main ]]
-          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          [[ "$PEER_COMMIT" =~ ^[a-f0-9]{40}$ ]]
       - name: Check out reviewed runtime history
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -41,59 +40,59 @@ jobs:
           persist-credentials: false
           submodules: false
           lfs: false
-      - name: Resolve the existing tag once
+      - name: Resolve the existing annotated tag
         id: revision
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          PEER_COMMIT: ${{ inputs.peer_commit }}
         working-directory: runtime
         run: |
+          [[ "$GITHUB_EVENT_NAME" == push || "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ -z "$PEER_COMMIT" || "$PEER_COMMIT" =~ ^[a-f0-9]{40}$ ]]
           [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" == tag ]]
           commit=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
           git merge-base --is-ancestor "$commit" refs/remotes/origin/main
-          git checkout --detach "$commit"
-          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
-      - name: Check out the exact reviewed packages commit
+          printf 'commit=%s\ntag=%s\n' "$commit" "$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+      - name: Download the exact successful CI candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.revision.outputs.commit }}
+          PEER_COMMIT: ${{ inputs.peer_commit }}
+        run: |
+          set -euo pipefail
+          runs=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$RELEASE_COMMIT&status=success&per_page=100")
+          run=$(jq -c '[.workflow_runs[] | select(.head_branch == "main" and (.event == "push" or .event == "workflow_dispatch" or .event == "schedule"))][0] // empty' <<< "$runs")
+          if [[ -z "$run" ]]; then
+            printf '::error::No successful main CI run exists for this exact runtime commit. Run CI and publish after it passes.\n'
+            exit 1
+          fi
+          run_id=$(jq -er '.id' <<< "$run")
+          attempt=$(jq -er '.run_attempt' <<< "$run")
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "runtime-candidate-$run_id-$attempt" --dir delivery
+          cd delivery
+          sha256sum --check --strict SHA256SUMS
+          jq -e --arg commit "$RELEASE_COMMIT" --arg peer "$PEER_COMMIT" \
+            '.runtime.commit == $commit and .delivery.mode == "verify" and (.packages.commit | test("^[a-f0-9]{40}$")) and ($peer == "" or .packages.commit == $peer)' provenance.json
+          peer=$(jq -er '.packages.commit' provenance.json)
+          printf 'peer=%s\n' "$peer" >> "$GITHUB_OUTPUT"
+          printf 'Publishing exact candidate from [successful CI](%s/%s/actions/runs/%s). No rebuild or test rerun.\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$run_id" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check the verified peer remains on reviewed main history
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: thetis-agent/packages
-          ref: ${{ inputs.peer_commit }}
+          ref: ${{ steps.candidate.outputs.peer }}
           token: ${{ secrets.THETIS_SOURCE_TOKEN || github.token }}
           fetch-depth: 0
           path: packages
           persist-credentials: false
           submodules: false
           lfs: false
-      - name: Require the peer commit on reviewed main history
-        env:
-          PEER_COMMIT: ${{ inputs.peer_commit }}
-        working-directory: packages
-        run: |
-          [[ "$(git rev-parse HEAD)" == "$PEER_COMMIT" ]]
-          git merge-base --is-ancestor HEAD refs/remotes/origin/main
-      - name: Load runtime release tooling from main
-        env:
-          TOOLING_COMMIT: ${{ github.sha }}
-        run: |
-          tooling="$TOOLING_COMMIT"
-          git -C runtime merge-base --is-ancestor "$tooling" refs/remotes/origin/main
-          mkdir release-tools
-          git -C runtime archive "$tooling" .github | tar -x -C release-tools --strip-components=1
-          printf 'THETIS_TOOLING_COMMIT=%s\n' "$tooling" >> "$GITHUB_ENV"
-          printf 'Release tooling runtime: %s\n' "$tooling" >> "$GITHUB_STEP_SUMMARY"
-      - name: Assemble selected sources
-        uses: ./release-tools/actions/verify
-        with:
-          mode: assemble
-      - name: Retain diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: release-reports-${{ github.run_id }}-${{ github.run_attempt }}
-          path: reports/
-          if-no-files-found: warn
-          retention-days: 30
-      - name: Hand assembled bytes to publication
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - working-directory: packages
+        run: git merge-base --is-ancestor HEAD refs/remotes/origin/main
+      - name: Hand verified bytes to publication
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-delivery-${{ github.run_id }}-${{ github.run_attempt }}
           path: delivery/
@@ -119,7 +118,7 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-          release_key="$RUNNER_TEMP/zero-release-key"
+          release_key="$RUNNER_TEMP/thetis-release-key"
           trap 'rm -f "$release_key"' ERR
           python3 - <<'PYKEY'
           import base64, binascii, os, re, textwrap
@@ -143,7 +142,7 @@ jobs:
               if not decoded.startswith(b"openssh-key-v1\x00"):
                   raise ValueError("invalid OpenSSH payload")
               canonical = "-----BEGIN OPENSSH PRIVATE KEY-----\n" + "\n".join(textwrap.wrap(body, 70)) + "\n-----END OPENSSH PRIVATE KEY-----\n"
-              path = Path(os.environ["RUNNER_TEMP"]) / "zero-release-key"
+              path = Path(os.environ["RUNNER_TEMP"]) / "thetis-release-key"
               with path.open("x", encoding="ascii") as output:
                   output.write(canonical)
           except (ValueError, binascii.Error, UnicodeError, OSError):
@@ -157,7 +156,7 @@ jobs:
           fi
           read -r key_type key_data _ <<< "$public_key"
           printf 'public_key=%s %s\n' "$key_type" "$key_data" >> "$GITHUB_OUTPUT"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-delivery-${{ github.run_id }}-${{ github.run_attempt }}
           path: delivery
@@ -166,9 +165,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_PUBLIC_KEY: ${{ steps.signing_key.outputs.public_key }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
           RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
-          PEER_COMMIT: ${{ inputs.peer_commit }}
+          PEER_COMMIT: ${{ needs.build.outputs.peer }}
         shell: bash
         run: |
           set -euo pipefail
@@ -191,15 +190,15 @@ jobs:
             exit 1
           fi
           jq -r '"Runtime: " + .runtime.commit, "Packages: " + .packages.commit, "Node: " + .node.version, "Assembly: " + .run' provenance.json > "$RUNNER_TEMP/release-notes.md"
-          printf '\nOffline delivery assembled from reviewed main history (ADR 0055). Production activation requires the deployment evaluator and the kernel confirmation transaction (ADR 0014, ADR 0018).\n' >> "$RUNNER_TEMP/release-notes.md"
-          # ADR 0052: no candidate execution has access to the release signing key.
+          printf '\nExact delivery verified by the linked successful CI run. Production activation requires the deployment evaluator and the kernel confirmation transaction (ADR 0014, ADR 0018).\n' >> "$RUNNER_TEMP/release-notes.md"
+          # No candidate execution has access to the release signing key.
           umask 077
-          release_key="$RUNNER_TEMP/zero-release-key"
+          release_key="$RUNNER_TEMP/thetis-release-key"
           trap 'rm -f "$release_key"' EXIT
           allowed="release@thetis-agent namespaces=\"zero-release\" $RELEASE_PUBLIC_KEY"
           printf '%s\n' "$allowed" > allowed_signers
           # These are the only delivery bytes changed after verification: the installer's public trust root, tag and asset URL.
-          sed -i "s|^ZERO_ALLOWED_SIGNERS=.*|ZERO_ALLOWED_SIGNERS='$allowed'|; s|^ZERO_TAG=.*|ZERO_TAG='$RELEASE_TAG'|; s|^ZERO_RELEASE_URL=.*|ZERO_RELEASE_URL='https://github.com/$GITHUB_REPOSITORY/releases/download'|" install.sh
+          sed -i "s|^THETIS_ALLOWED_SIGNERS=.*|THETIS_ALLOWED_SIGNERS='$allowed'|; s|^THETIS_TAG=.*|THETIS_TAG='$RELEASE_TAG'|; s|^THETIS_RELEASE_URL=.*|THETIS_RELEASE_URL='https://github.com/$GITHUB_REPOSITORY/releases/download'|" install.sh
           sha256sum thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt kernel-pins.json install.sh > SHA256SUMS
           ssh-keygen -Y sign -n zero-release -f "$release_key" SHA256SUMS
           rm -f "$release_key"
@@ -216,4 +215,4 @@ jobs:
       - name: Remove temporary signing key
         if: ${{ always() }}
         shell: bash
-        run: rm -f "$RUNNER_TEMP/zero-release-key"
+        run: rm -f "$RUNNER_TEMP/thetis-release-key"

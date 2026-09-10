@@ -4,7 +4,7 @@ import { createReadStream } from 'node:fs';
 import { failure } from '@/lib/schema/index.ts';
 import type { Result } from '@/lib/schema/index.ts';
 
-export const passwordLimits = { bytes: 1024, minimumLength: 12 };
+export const passwordLimits = { bytes: 1024, minimumLength: 6 };
 
 async function bounded(stream: AsyncIterable<Buffer | string>): Promise<Result<string>> {
   const chunks: string[] = []; let bytes = 0;

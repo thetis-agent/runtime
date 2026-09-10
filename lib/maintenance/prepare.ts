@@ -12,7 +12,7 @@ export type Capture = (source: string, destination: string) => Promise<Result<st
 export const prepareLimits = { pins: 256, configurationBytes: 1048576 };
 const inside = (path: string): boolean => path !== '' && path !== '..' && !path.startsWith('../') && !isAbsolute(path);
 
-/** A generation's private store may sit in a short sibling root: nesting it under the run workspace exceeds the 107-byte unix socket path for any target endpoint (ADR 0050). */
+/** A generation's private store may sit in a short sibling root: nesting it under the run workspace exceeds the 107-byte unix socket path for any target endpoint (implementation note 0050). */
 export async function prepare(root: string, sourceState: string, revision: Revision, capture: Capture, stateRoot?: string): Promise<Result<Prepared>> {
   if (!Object.keys(revision.pins).length || Object.keys(revision.pins).length > prepareLimits.pins || !inside(revision.entry)) return failure('invalid-args', 'The kernel maintenance code pins or entry are invalid.');
   try {

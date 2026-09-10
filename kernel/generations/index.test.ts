@@ -113,7 +113,7 @@ await test('ADR-0025 switching intent is durable before repointing and requires 
   } finally { await driver.close(); }
 });
 
-await test('ADR-0028 failed reset is authorized, observed and restores into a fresh fenced epoch', async () => {
+await test('implementation note 0028 failed reset is authorized, observed and restores into a fresh fenced epoch', async () => {
   const driver = await generationDriver();
   try {
     await driver.advance(3); await driver.move({ event: 'failed', reason: 'apply failed' });
@@ -145,7 +145,7 @@ for (const step of [0, 1, 2, 3, 4, 5, 6, 7]) await test(`ADR-0030 restart at tra
   } finally { await driver.close(); }
 });
 
-await test('ADR-0043 a serving crash requires an observed exit and exposes authorized reset', async () => {
+await test('implementation note 0043 a serving crash requires an observed exit and exposes authorized reset', async () => {
   const driver = await generationDriver();
   try {
     const input: Input = { event: 'crashed', reason: 'unexpected exit' };
@@ -159,7 +159,7 @@ await test('ADR-0043 a serving crash requires an observed exit and exposes autho
   } finally { await driver.close(); }
 });
 
-await test('ADR-0043 recovery reserves only the next healthy epoch and restoration adopts that exact reservation', async () => {
+await test('implementation note 0043 recovery reserves only the next healthy epoch and restoration adopts that exact reservation', async () => {
   const driver = await generationDriver();
   try {
     await driver.move({ event: 'crashed', reason: 'process exited', exited: true });

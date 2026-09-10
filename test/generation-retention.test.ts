@@ -1,4 +1,4 @@
-/** Exercise workspace reclamation through real sandboxed switching and undo; GN-002, ADR 0046. */
+/** Exercise workspace reclamation through real sandboxed switching and undo; GN-002, implementation note 0046. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, readFile, readdir } from 'node:fs/promises';

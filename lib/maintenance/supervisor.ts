@@ -22,7 +22,7 @@ import schema from './schema.json' with { type: 'json' };
 import type { Control } from './types.ts';
 import { authorizeRelease } from '@/lib/update/authorize.ts';
 
-// A target endpoint costs 76 bytes after the kernel root and a generation store name costs up to 13, against the 107-byte unix limit (ADR 0050).
+// A target endpoint costs 76 bytes after the kernel root and a generation store name costs up to 13, against the 107-byte unix limit (implementation note 0050).
 export const supervisorLimits = { commandBytes: 65536, commands: 256, stateRootBytes: 18 };
 export const supervisorService = { connections: 4, probeMs: 10000, exchangeMs: 600000, drainMs: 30000 };
 // The supervised child advertises this one client major (kernel/maintenance-main.ts), so the probe must ask for it.
@@ -132,7 +132,6 @@ class ControlEndpoint {
 }
 
 async function serve(args: Arguments, config: Configuration, administrator: string, schemas: Schemas, authority: Authority): Promise<Result<void>> {
-  if (args.delegated) { const delegated = await delegate(config.cgroup); if (!delegated.ok) return delegated; }
   const places = roots(args, config.root); if (!places.ok) return places;
   const { supervisor, stores, control } = places.value;
   await mkdir(supervisor, { recursive: true, mode: 0o700 }); await mkdir(stores, { recursive: true, mode: 0o700 });
@@ -179,6 +178,9 @@ export async function supervise(argv: readonly string[], authority: Authority): 
   const administrator = trusted?.administrator ?? config.value.identity.people.find(person => person.role === 'admin')?.id;
   if (administrator === undefined) return failure('invalid-args', 'A supervised deployment names an administrator in its trusted block or its identity.');
   if (trusted && (trusted.keyFd !== 4 || args.value.credential === undefined)) return failure('invalid-args', 'A supervised trusted kernel reads its master key from a reopened credential on descriptor 4, after the maintenance control channel.');
+  // Delegation requires a single process; acquire the deployment lock only after moving this
+  // supervisor to its leaf, because flock and its pipe keeper are child processes.
+  if (args.value.delegated) { const delegated = await delegate(config.value.cgroup); if (!delegated.ok) return delegated; }
   const lock = await exclusive(config.value.root, clock); if (!lock.ok) return lock;
   const served = await serve(args.value, config.value, administrator, schemas, authority);
   const released = await lock.value.close();

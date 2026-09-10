@@ -1,4 +1,4 @@
-/** Ensure history projection cannot mutate an observed snapshot before journal commit; ADR 0033, GN-005. */
+/** Ensure history projection cannot mutate an observed snapshot before journal commit; implementation note 0033, GN-005. */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { project } from './projection.ts';
@@ -12,7 +12,7 @@ await test('GN-005 projection preserves prior snapshot bytes while replacing can
   assert.equal(restored.current.n, 4); assert.equal(restored.candidate, undefined); assert.equal(restored.committed, undefined);
 });
 
-await test('ADR-0043 the healthy candidate retains its migrated snapshot without replacing the undo snapshot', () => {
+await test('implementation note 0043 the healthy candidate retains its migrated snapshot without replacing the undo snapshot', () => {
   const current = { n: 1, pins: { package: 'old' }, stateSnapshot: 'before-migration', prefixRenderer: '1', at: 0 };
   const view: View = { state: 'PROBING', current, candidate: { ...current, n: 2, pins: { package: 'new' } }, since: 0 };
   const healthy = project(view, 'SWITCHING', { event: 'healthy', snapshot: 'after-migration' }, 1);

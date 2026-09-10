@@ -1,4 +1,4 @@
-/** Keep root imports bound to relocated revisions and verified worker graphs; ADR 0047, GN-002. */
+/** Keep root imports bound to relocated revisions and verified worker graphs; implementation note 0047, GN-002. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -34,7 +34,7 @@ async function fixture(root: string): Promise<void> {
   }
 }
 
-await test('ADR 0047 source and verified workers resolve aliases in their own relocated installation', async () => {
+await test('implementation note 0047 source and verified workers resolve aliases in their own relocated installation', async () => {
   const temporary = await mkdtemp('/tmp/root-imports-'); const original = join(temporary, 'original');
   try {
     await fixture(original);
@@ -53,7 +53,7 @@ await test('ADR 0047 source and verified workers resolve aliases in their own re
   } finally { await rm(temporary, { recursive: true, force: true }); }
 });
 
-await test('ADR 0047 traversal and URL escapes cannot leave the alias root', async () => {
+await test('implementation note 0047 traversal and URL escapes cannot leave the alias root', async () => {
   const root = await mkdtemp('/tmp/root-imports-');
   try {
     await fixture(root);

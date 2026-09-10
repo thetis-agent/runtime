@@ -50,7 +50,9 @@ is opaque to the door and keyed by the provider's name.
 
 A deployment-scope provider also reports each call's final `usage`
 counters to the kernel with the caller's run token (`usage.report` on
-the kernel socket); the kernel appends them uninterpreted. The core turns `delta.text` into `token`, keeps `delta.reasoning` as a
+the kernel socket); the kernel appends them uninterpreted. Final attribution and
+budget settlement finish before `stop` or an in-flight `error` reaches the client,
+which may close its socket immediately on either terminal event. The core turns `delta.text` into `token`, keeps `delta.reasoning` as a
 `reasoning` content in history and returns its `opaque` in later
 `message` events, assembles
 `delta.tool_call` into `call` requests, and closes the iteration on

@@ -1,4 +1,4 @@
-/** Reclaim ephemeral identities without weakening persistent generation fences; KS-008, ADR 0046. */
+/** Reclaim ephemeral identities without weakening persistent generation fences; KS-008, implementation note 0046. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Identity } from '@/kernel/identity/index.ts';

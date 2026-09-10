@@ -20,7 +20,7 @@ export async function generateSupport(check: boolean): Promise<boolean> {
   for (const [source, output] of [['aliases.ts', 'aliases.mjs'], ['source-loader.ts', 'source.mjs']] satisfies [string, string][]) {
     outputs.push([output, stripTypeScriptTypes(await readFile(new URL(source, import.meta.url), 'utf8'), { mode: 'strip' })]);
   }
-  outputs.push(['aliases.d.mts', "/** Generated resolution types; ADR 0047. Do not edit. */\nexport { rootImport } from './aliases.ts';\n"]);
+  outputs.push(['aliases.d.mts', "/** Generated resolution types; implementation note 0047. Do not edit. */\nexport { rootImport } from './aliases.ts';\n"]);
   outputs.push(['verify.mjs', stripTypeScriptTypes(await readFile(new URL('./verify.ts', import.meta.url), 'utf8'), { mode: 'strip' })],
     ['verify.d.mts', "/** Generated bootstrap types; ADR 0037. Do not edit. */\nexport { verified, limits } from './verify.ts';\n"]);
   let fresh = true;

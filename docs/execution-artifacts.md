@@ -43,7 +43,7 @@ the appropriate preload without passing authority through the environment.
 
 [TypeScript paths](https://www.typescriptlang.org/tsconfig/paths.html) describe
 the checker mapping; [Node module hooks](https://nodejs.org/docs/latest-v24.x/api/module.html#customization-hooks)
-provide execution-time resolution. [ADR 0047](adr/0047-root-relative-module-imports.md)
+provide execution-time resolution. [Root imports](implementation.md#0047--root-imports)
 records the decision and the package-boundary requirements.
 
 ## Activation

@@ -1,4 +1,4 @@
-/** Keep verified immutable pins independent of disposable run workspaces; GN-002, ADR 0046. */
+/** Keep verified immutable pins independent of disposable run workspaces; GN-002, implementation note 0046. */
 import { lstat, mkdir, readdir, realpath, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';

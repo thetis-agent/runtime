@@ -4,6 +4,26 @@ import assert from 'node:assert/strict';
 import { MockProvider } from '@/packages/provider-mock/index.ts';
 import { failure } from '@/lib/schema/index.ts';
 import { providerFixture, collect, request, stream } from '@/test/provider-fixture.ts';
+import type { ResponseEvent } from '@/contracts/provider/types.ts';
+
+for (const terminal of ['error', 'stop'] as const) await test(`PR-011 ${terminal} is delivered only after final attribution and settlement`, async () => {
+  const script: ResponseEvent[] = terminal === 'error'
+    ? [{ type: 'error', code: 'auth', message: 'Rejected.' }]
+    : [{ type: 'usage', counters: { cost: 0.004 } }, { type: 'stop', reason: 'end' }];
+  const f = providerFixture([script]);
+  let saved = 0;
+  const checkpoint = f.budgets.checkpoint.bind(f.budgets);
+  f.budgets.checkpoint = async () => { const result = await checkpoint(); saved++; return result; };
+  let ended = false;
+  for await (const event of f.provider.run(stream(request()), f.token, new AbortController().signal)) {
+    if (event.type !== terminal) continue;
+    assert.equal(f.reports.length, 1, 'the final report must exist when the client receives its terminal event');
+    assert.equal(saved, 2, 'both reservation and settlement must be persisted before the client can start another call');
+    ended = true;
+    break;
+  }
+  assert.ok(ended);
+});
 
 await test('PR-011 early vendor errors report the conservative reservation exactly once', async () => {
   const f = providerFixture([[{ type: 'error', code: 'auth', message: 'Rejected.' }]]);

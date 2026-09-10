@@ -1,4 +1,4 @@
-/** Exercise work discovery with real pinned processes and no external provider; ADR 0045, GN-001. */
+/** Exercise work discovery with real pinned processes and no external provider; implementation note 0045, GN-001. */
 import assert from 'node:assert/strict';
 import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';

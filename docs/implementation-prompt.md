@@ -1,5 +1,10 @@
 # Implementation prompt for /opt/zero
 
+> Historical design input, preserved verbatim below. Its machine-specific paths,
+> development instructions and superseded limits are not current defaults. Use
+> [the installation guide](install.md), [house rules](../AGENTS.md) and
+> [design clarifications](decisions-taken.md) for current instructions.
+
 You are implementing Thetis, the successor to Thetis Legacy (/opt/thetis), in the empty
 directory `/opt/zero`. Thetis is a self-modifying, multi-user AI agent
 harness: one small trusted kernel, one unprivileged loop, and everything

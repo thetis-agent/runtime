@@ -1,4 +1,4 @@
-/** Recover checkpoint failures and observed exits through real generation effects; ADR 0043, KS-019. */
+/** Recover checkpoint failures and observed exits through real generation effects; implementation note 0043, KS-019. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile, rename, unlink } from 'node:fs/promises';
@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path';
 import { processGeneration, person, endpointVersion } from '@/test/process-generation.ts';
 import { atomicWrite } from '@/lib/files/atomic.ts';
 
-for (const phase of ['QUIESCING', 'FROZEN']) await test(`ADR-0043 a ${phase} checkpoint failure restores admission and permits another switch`, async () => {
+for (const phase of ['QUIESCING', 'FROZEN']) await test(`implementation note 0043 a ${phase} checkpoint failure restores admission and permits another switch`, async () => {
   let refused = false;
   const f = await processGeneration('healthy', (view, prepared) => {
     const deny = view.state === phase && !refused; refused ||= deny;
@@ -24,7 +24,7 @@ for (const phase of ['QUIESCING', 'FROZEN']) await test(`ADR-0043 a ${phase} che
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 repeated checkpoint failures stop the target and storage repair permits reset', async () => {
+await test('implementation note 0043 repeated checkpoint failures stop the target and storage repair permits reset', async () => {
   let failed = false;
   const f = await processGeneration('healthy', (view, prepared) => {
     failed ||= view.state === 'FROZEN';
@@ -40,7 +40,7 @@ await test('ADR-0043 repeated checkpoint failures stop the target and storage re
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 a serving crash records FAILED and reset restores its migrated healthy snapshot', async () => {
+await test('implementation note 0043 a serving crash records FAILED and reset restores its migrated healthy snapshot', async () => {
   const f = await processGeneration();
   try {
     assert.ok((await f.driver.switch(f.next, 1, person)).ok);
@@ -61,7 +61,7 @@ await test('ADR-0043 a serving crash records FAILED and reset restores its migra
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 a crash during an open transaction is settled by that transaction before supervision', async () => {
+await test('implementation note 0043 a crash during an open transaction is settled by that transaction before supervision', async () => {
   const f = await processGeneration();
   try {
     assert.ok((await f.driver.quiesce(f.next, 1, person)).ok);
@@ -74,7 +74,7 @@ await test('ADR-0043 a crash during an open transaction is settled by that trans
   } finally { await f.close(); }
 });
 
-for (const migrate of ['stop', 'shared'] satisfies ('stop' | 'shared')[]) await test(`ADR-0043 a ${migrate} LIVE checkpoint failure retains the committed pins and permits reset`, async () => {
+for (const migrate of ['stop', 'shared'] satisfies ('stop' | 'shared')[]) await test(`implementation note 0043 a ${migrate} LIVE checkpoint failure retains the committed pins and permits reset`, async () => {
   let refused = false;
   const f = await processGeneration('healthy', (view, prepared) => {
     const deny = view.state === 'LIVE' && view.current.n === 2 && !refused; refused ||= deny;
@@ -94,7 +94,7 @@ for (const migrate of ['stop', 'shared'] satisfies ('stop' | 'shared')[]) await 
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 a reset checkpoint refusal returns to FAILED and a later reset succeeds', async () => {
+await test('implementation note 0043 a reset checkpoint refusal returns to FAILED and a later reset succeeds', async () => {
   let refuse = false;
   const f = await processGeneration('healthy', (view, prepared) => {
     const deny = refuse && view.state === 'ROLLING_BACK'; if (deny) refuse = false;
@@ -108,7 +108,7 @@ await test('ADR-0043 a reset checkpoint refusal returns to FAILED and a later re
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 a failed recovery reserves its epoch before fencing and a retry uses a higher epoch', async () => {
+await test('implementation note 0043 a failed recovery reserves its epoch before fencing and a retry uses a higher epoch', async () => {
   const f = await processGeneration();
   try {
     assert.ok(f.driver.process.running.process.kill('SIGKILL')); assert.ok((await f.driver.exited).ok);
@@ -124,7 +124,7 @@ await test('ADR-0043 a failed recovery reserves its epoch before fencing and a r
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 a restored LIVE checkpoint refusal adopts the restored generation before failing it', async () => {
+await test('implementation note 0043 a restored LIVE checkpoint refusal adopts the restored generation before failing it', async () => {
   let refuse = false;
   const f = await processGeneration('healthy', (view, prepared) => {
     const deny = refuse && view.state === 'LIVE'; if (deny) refuse = false;
@@ -140,7 +140,7 @@ await test('ADR-0043 a restored LIVE checkpoint refusal adopts the restored gene
   } finally { await f.close(); }
 });
 
-await test('ADR-0043 promotion accepts a stopped private probe that removed its own socket', async () => {
+await test('implementation note 0043 promotion accepts a stopped private probe that removed its own socket', async () => {
   const f = await processGeneration('healthy', async (view, prepared) => {
     if (view.state === 'SWITCHING') {
       const candidate = view.candidate; assert.ok(candidate);

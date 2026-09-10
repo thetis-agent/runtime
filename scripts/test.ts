@@ -35,7 +35,7 @@ if (!process.argv.includes('--delegated')) {
 // OpenSSH tools fatal on getpwuid before doing any work, so release-signature tests need one synthetic account inside the sealed namespace (ADR 0048).
 async function accounts(): Promise<string> {
   const directory = await mkdtemp('/tmp/thetis-accounts-'); const path = join(directory, 'passwd');
-  await writeFile(path, `thetis:x:${String(process.getuid?.() ?? 0)}:${String(process.getgid?.() ?? 0)}::/tmp:/bin/sh\n`);
+  await writeFile(path, `thetis-test-runner:x:${String(process.getuid?.() ?? 0)}:${String(process.getgid?.() ?? 0)}::/tmp:/bin/sh\n`);
   return path;
 }
 

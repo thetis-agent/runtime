@@ -60,11 +60,19 @@ export class ProviderEngine implements Provider {
       if (!persisted.ok) { this.#fault = persisted; reservation.value(0); yield { type: 'error', code: 'budget', message: 'The provider cannot persist its reservation; the vendor was not called.' }; return; }
     }
     const state = { counters: { cost: estimate } satisfies Counters, measured: false, reported: false };
-    try { yield* this.#exchange(collected.value, begin, token, signal, state); }
+    let terminal: ResponseEvent | undefined;
+    try {
+      for await (const event of this.#exchange(collected.value, begin, token, signal, state)) {
+        // Socket clients close on stop/error; their next call must see durable accounting.
+        if (event.type === 'stop' || event.type === 'error') { terminal = event; break; }
+        yield event;
+      }
+    }
     finally {
       if (!state.reported) { const report = await this.#authority.report(token, begin.id, state.counters); if (!report.ok) this.#fault = report; }
       if (reservation?.ok) { reservation.value(state.counters.cost); const saved = await this.#budgets.checkpoint(); if (!saved.ok) this.#fault = saved; }
     }
+    if (terminal) yield terminal;
   }
 
   async *#exchange(request: RequestEvent[], begin: Begin, token: string, signal: AbortSignal, state: { counters: Counters; measured: boolean; reported: boolean }): AsyncGenerator<ResponseEvent> {

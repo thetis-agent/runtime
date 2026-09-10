@@ -13,12 +13,14 @@ import { writeDeployment } from '@/lib/profile/orchestrate.ts';
 import { releaseDigest } from '@/lib/deployment/release.ts';
 import type { Layer, Recipe } from '@/lib/profile/types.ts';
 import type { Deployment, Target } from '@/lib/deployment/types.ts';
+import { readProvider } from './provider-setup.ts';
+import type { ProviderSetup } from './provider-setup.ts';
 
 export const seedLimits = { quotaBytes: 536870912, layers: 256 };
 /** The example recipe's second account and the placeholder person the installer renames. */
 const example = { person: 'alice', dropped: ['bob', 'bob-cli', 'bob-web'], paths: '/var/lib/thetis', cgroup: '/sys/fs/cgroup/thetis' };
 
-export interface Options { release: string; state: string; prefix: string; cgroup: string; operator: string; origin: string; quotaBytes: number }
+export interface Options { release: string; state: string; prefix: string; cgroup: string; operator: string; origin: string; quotaBytes: number; providerConfig?: string; kernelOrigin?: string }
 
 /** Every declared capacity becomes the state volume's real size, because `lib/sandbox-runner` compares it against `statfs`. */
 function bounded(value: unknown, quotaBytes: number): unknown {
@@ -56,7 +58,23 @@ export async function installedRecipe(options: Options, schemas: Schemas): Promi
   }
   const recipe = bounded({ ...renamed, identity: operatorIdentity(options.operator), targets }, options.quotaBytes);
   const check = await validator<Recipe>(schemas, 'recipe');
-  return check(recipe) ? { ok: true, value: recipe } : failure('invalid-args', 'The installed recipe does not match the recipe contract.');
+  if (!check(recipe)) return failure('invalid-args', 'The installed recipe does not match the recipe contract.');
+  if (options.providerConfig) configureProvider(recipe, await readProvider(options.providerConfig, schemas));
+  return { ok: true, value: recipe };
+}
+
+function configureProvider(recipe: Recipe, provider: ProviderSetup): void {
+  const packageName = 'provider-openai-compatible';
+  recipe.discovery.selection = [...new Set(recipe.discovery.selection.map(name => name === 'provider-mock' ? packageName : name))];
+  for (const target of recipe.targets) {
+    if (target.id === 'provider') {
+      target.package = packageName;
+      target.selection = target.selection.map(name => name === 'provider-mock' ? packageName : name);
+      target.profile = { rule: { name: 'daily-model-budget', cost: provider.dailyBudget, requests: 1000, windowMs: 86400000 },
+        settings: { endpoint: provider.endpoint, models: [provider.model] } };
+    }
+    if (target.environment && isObject(target.profile.runtime)) target.profile.runtime.model = provider.model.id;
+  }
 }
 
 function operatorIdentity(operator: string): object {
@@ -99,7 +117,7 @@ export function deployment(options: Options, seed: Target): Deployment {
     targets: [seed],
     bootstrap: { recipe: join(options.prefix, 'etc/recipe.json'), registry: 'registry', cache: join(options.state, 'cache'),
       output: join(options.state, 'deployment.json'), profile: join(options.state, 'profile'), discoveryRoot: join(options.state, 'discovery') },
-    trusted: { origin: options.origin, socket: join(options.state, 'kernel/origin.sock'), keyFd: 4, administrator: options.operator,
+    trusted: { origin: options.kernelOrigin ?? options.origin.replace('https://', 'https://kernel.'), socket: join(options.state, 'kernel/origin.sock'), keyFd: 4, administrator: options.operator,
       baseline: 1, digest: releaseDigest([seed]), releases: [], plans: [] } };
 }
 
@@ -127,7 +145,9 @@ function options(argv: readonly string[]): Result<Options> {
   const quota = Number(flags.get('quota'));
   if (!Number.isSafeInteger(quota) || quota <= 0) return failure('invalid-args', 'The seed writer needs a positive --quota in bytes.');
   return { ok: true, value: { release: flags.get('release') ?? '', state: flags.get('state') ?? '', prefix: flags.get('prefix') ?? '',
-    cgroup: flags.get('cgroup') ?? '', operator: flags.get('operator') ?? '', origin: flags.get('origin') ?? '', quotaBytes: quota } };
+    cgroup: flags.get('cgroup') ?? '', operator: flags.get('operator') ?? '', origin: flags.get('origin') ?? '', quotaBytes: quota,
+    ...flags.has('provider-config') ? { providerConfig: flags.get('provider-config') ?? '' } : {},
+    ...flags.has('kernel-origin') ? { kernelOrigin: flags.get('kernel-origin') ?? '' } : {} } };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

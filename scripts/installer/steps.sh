@@ -1,4 +1,4 @@
-# --- provisioning commands share the same call sites in dry-run and execution (ADR 0052) ---------
+# --- provisioning commands share the same call sites in dry-run and execution (implementation note 0052) ---------
 step() {
   if [ "$dry_run" = 1 ]; then printf '%s\n' "$1"; else eval "$1"; fi
 }

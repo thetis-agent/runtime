@@ -1,5 +1,5 @@
 [Unit]
-Description=Zero update check
+Description=Thetis update check
 
 [Timer]
 OnCalendar=hourly

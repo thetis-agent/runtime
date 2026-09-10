@@ -1,4 +1,4 @@
-/** Preserve numeric checkpoints and legacy run spend without guessing a retirement date; ADR 0044. */
+/** Preserve numeric checkpoints and legacy run spend without guessing a retirement date; implementation note 0044. */
 import type { Checkpoint, Ledger } from './types.ts';
 import { decimal, money } from './money.ts';
 

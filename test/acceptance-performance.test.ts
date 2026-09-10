@@ -1,4 +1,4 @@
-/** Bound the actual trusted process and one idle sandbox under the approved ceiling; ADR 0041. */
+/** Bound the actual trusted process and one idle sandbox under the approved ceiling; implementation note 0041. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -20,7 +20,7 @@ async function resident(pid: number, descendants: boolean): Promise<number> {
   return bytes;
 }
 
-await test('ADR 0041 kernel plus one actual idle environment uses at most 512 MB RSS', async () => {
+await test('implementation note 0041 kernel plus one actual idle environment uses at most 512 MB RSS', async () => {
   const fixture = await runtimeFixture();
   try {
     const environment = await fixture.environment('alice'); assert.ok((await fixture.runtime.close()).ok);

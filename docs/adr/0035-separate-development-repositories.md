@@ -7,7 +7,7 @@
 ## Context
 
 The operator moved package sources to an independent git repository and wants
-the runtime checkout beside it, with `/opt/zero` reserved for installation.
+the runtime checkout beside it, separate from the configurable installation prefix.
 Package imports already target the installed `packages/`, `lib/` and
 `contracts/` layout. Absolute development imports would enter published bytes,
 and linking host directories would make sandbox grants depend on host paths.

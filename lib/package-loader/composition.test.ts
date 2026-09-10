@@ -1,4 +1,4 @@
-/** Keep replacement registrations from retaining removed capabilities; KS-009, ADR 0045. */
+/** Keep replacement registrations from retaining removed capabilities; KS-009, implementation note 0045. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { compose } from './composition.ts';
