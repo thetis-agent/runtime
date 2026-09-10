@@ -8,7 +8,7 @@ export const controlLimits = { deadlineMs: 900000 };
 export interface View { state: string; current: { n: number; pins: Readonly<Record<string, string>> } }
 export interface Report { view: View; release: string; previous: string | null; endpoint: string; state: string }
 
-export async function ask(path: string, method: 'status' | 'update' | 'undo' | 'stop', extra: Readonly<Record<string, unknown>> = {}): Promise<Result<unknown>> {
+export async function ask(path: string, method: 'status' | 'update' | 'undo' | 'stop' | 'prune', extra: Readonly<Record<string, unknown>> = {}): Promise<Result<unknown>> {
   const socket = await connect(path);
   if (!socket.ok) return failure('io', 'The supervisor control socket is not accepting connections.');
   socket.value.setTimeout(controlLimits.deadlineMs, () => { socket.value.destroy(); });

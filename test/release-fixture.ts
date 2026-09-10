@@ -1,6 +1,6 @@
 /** Assemble a complete, signed, offline release fixture from the local workspace; ADR 0048, GN-002. */
 import assert from 'node:assert/strict';
-import { mkdir, cp, readFile, writeFile, stat } from 'node:fs/promises';
+import { mkdir, cp, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { catalog } from '@/lib/profile/catalog.ts';
@@ -8,8 +8,8 @@ import { snapshot } from '@/lib/snapshots/index.ts';
 import { run } from '@/lib/update/tool.ts';
 
 const fixtureLimits = { archiveBytes: 134217728, toolDeadlineMs: 30000, toolOutputBytes: 4194304 };
-/** The eight assets a GitHub Release carries, in the order `docs/ci-delivery.md` lists them. */
-export const releaseAssets = ['thetis-distribution.tar.gz', 'package.json', 'profile.lock.json', 'registry.json', 'registry.bundle', 'provenance.json', 'platform.txt', 'kernel-pins.json'] as const;
+/** The nine assets a GitHub Release carries, in the order `docs/ci-delivery.md` lists them. */
+export const releaseAssets = ['thetis-distribution.tar.gz', 'package.json', 'profile.lock.json', 'registry.json', 'registry.bundle', 'provenance.json', 'platform.txt', 'kernel-pins.json', 'install.sh'] as const;
 /** The kernel code pins `test/maintenance.test.ts` hashes, plus `packages`; ADR 0048's `kernel-pins.json`. */
 export const kernelPinDirectories = ['kernel', 'lib', 'contracts',
   ...['ajv', 'semver', 'ws', 'yaml', 'fast-uri', 'fast-deep-equal', 'json-schema-traverse', 'require-from-string'].map(name => `node_modules/${name}`), 'packages'];
@@ -17,12 +17,12 @@ const testCommit = 'deadbeef'.repeat(5);
 const testPackagesCommit = 'cafef00d'.repeat(5);
 const signerPrincipal = 'release@thetis-agent';
 
-export interface Fixture { dir: string; tag: string; commit: string; allowedSigners: string; signer: string }
+export interface Fixture { dir: string; tag: string; commit: string; allowedSigners: string; signer: string; nodeUrl: string }
 
 async function signingKey(parent: string): Promise<{ path: string; allowedSigners: string }> {
   const path = join(parent, 'release-key');
-  const generated = await run('/usr/bin/ssh-keygen', ['-t', 'ed25519', '-N', '', '-C', 'zero-release', '-f', path],
-    { cwd: parent, deadlineMs: fixtureLimits.toolDeadlineMs, outputBytes: fixtureLimits.toolOutputBytes });
+  const generated = await stat(path).then(() => ({ ok: true }), () => run('/usr/bin/ssh-keygen', ['-t', 'ed25519', '-N', '', '-C', 'zero-release', '-f', path],
+    { cwd: parent, deadlineMs: fixtureLimits.toolDeadlineMs, outputBytes: fixtureLimits.toolOutputBytes }));
   assert.ok(generated.ok, JSON.stringify(generated));
   const publicKey = (await readFile(`${path}.pub`, 'utf8')).trim();
   const allowedSigners = join(parent, 'allowed_signers');
@@ -56,7 +56,7 @@ async function kernelPins(workspace: string): Promise<Record<string, string>> {
  * (default `/workspace`), in the installed layout `scripts/distribution.ts` produces. Every test
  * calling this builds `destination` under `/assembly`; the signing key and staging tree land in
  * `destination`'s parent directory, which the caller must already have created (e.g. `mkdtemp`). */
-export async function buildRelease(destination: string, options: { tag: string; commit?: string; workspace?: string }): Promise<Fixture> {
+export async function buildRelease(destination: string, options: { tag: string; commit?: string; workspace?: string; nodeArchive?: boolean }): Promise<Fixture> {
   const workspace = options.workspace ?? '/workspace';
   const commit = options.commit ?? testCommit;
   const parent = dirname(destination);
@@ -66,6 +66,7 @@ export async function buildRelease(destination: string, options: { tag: string; 
   for (const name of ['package.json', 'profile.lock.json', 'registry.json', 'registry.bundle']) {
     await cp(join(workspace, 'profiles', 'default', name), join(destination, name));
   }
+  await cp(join(workspace, 'install.sh'), join(destination, 'install.sh'));
   await writeFile(join(destination, 'platform.txt'), 'tar (fixture)\ngzip (fixture)\nssh-keygen (fixture)\nsha256sum (fixture)\n');
   await writeFile(join(destination, 'kernel-pins.json'),
     `${JSON.stringify({ entry: 'kernel/maintenance-main.ts', pins: await kernelPins(workspace) }, null, 2)}\n`);
@@ -73,7 +74,7 @@ export async function buildRelease(destination: string, options: { tag: string; 
     version: 1,
     runtime: { repository: 'https://github.com/thetis-agent/runtime', commit },
     packages: { repository: 'https://github.com/thetis-agent/packages', commit: testPackagesCommit },
-    node: { version: process.version, sha256: { 'linux-x64': createHash('sha256').update('thetis-fixture-node-linux-x64').digest('hex') } },
+    node: { version: process.version, sha256: { [`linux-${process.arch}`]: options.nodeArchive ? await nodeArchive(parent) : createHash('sha256').update('thetis-fixture-node').digest('hex') } },
     generator: 'node:stripTypeScriptTypes:strip', workflow: 'test/release-fixture.ts', run: 'local://release-fixture'
   };
   await writeFile(join(destination, 'provenance.json'), `${JSON.stringify(provenance, null, 2)}\n`);
@@ -83,5 +84,19 @@ export async function buildRelease(destination: string, options: { tag: string; 
   const signed = await run('/usr/bin/ssh-keygen', ['-Y', 'sign', '-n', 'zero-release', '-f', key.path, 'SHA256SUMS'],
     { cwd: destination, deadlineMs: fixtureLimits.toolDeadlineMs, outputBytes: fixtureLimits.toolOutputBytes });
   assert.ok(signed.ok, JSON.stringify(signed));
-  return { dir: destination, tag: options.tag, commit, allowedSigners: key.allowedSigners, signer: signerPrincipal };
+  return { dir: destination, tag: options.tag, commit, allowedSigners: key.allowedSigners, signer: signerPrincipal, nodeUrl: `file://${join(parent, 'node')}` };
+}
+
+/** Only installer tests need a Node payload; the test runtime is archived and its real digest signed. */
+async function nodeArchive(parent: string): Promise<string> {
+  const name = `node-${process.version}-linux-${process.arch}`;
+  const root = join(parent, 'node'); const version = join(root, process.version); const source = join(root, name);
+  const archive = join(version, `${name}.tar.xz`);
+  if (await stat(archive).then(() => true, () => false)) return createHash('sha256').update(await readFile(archive)).digest('hex');
+  await mkdir(join(source, 'bin'), { recursive: true }); await mkdir(version, { recursive: true });
+  await cp(process.execPath, join(source, 'bin/node'));
+  const tarred = await run('/usr/bin/tar', ['--use-compress-program=xz -0', '-cf', archive, '-C', root, name],
+    { cwd: root, deadlineMs: fixtureLimits.toolDeadlineMs, outputBytes: fixtureLimits.toolOutputBytes });
+  assert.ok(tarred.ok, JSON.stringify(tarred)); await rm(source, { recursive: true });
+  return createHash('sha256').update(await readFile(archive)).digest('hex');
 }

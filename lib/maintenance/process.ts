@@ -8,9 +8,9 @@ import { failure } from '@/lib/schema/index.ts';
 import type { Result, Schemas } from '@/lib/schema/index.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Command, Principal, Ready, Reply, Status } from './types.ts';
-import { sourceFlags } from '@/lib/artifacts/index.ts';
+import { flags } from '@/lib/artifacts/index.ts';
 
-export const processLimits = { outputBytes: 65536, frameBytes: 65536, messages: 256, freezePolls: 128, deadlineMs: 10000 };
+export const processLimits = { outputBytes: 65536, frameBytes: 65536, pending: 1, freezePolls: 128, deadlineMs: 10000, startupMs: 120000, shutdownMs: 90000, heapMiB: 32 };
 export interface Launch { entry: string; configuration: string; endpoint: string; administrator: string; mode: 'probe' | 'serve'; descriptors?: readonly number[] }
 export class KernelProcess {
   readonly process: ChildProcess; readonly endpoint: string;
@@ -18,38 +18,40 @@ export class KernelProcess {
   readonly #pending = new Map<string, (result: Result<unknown>) => void>();
   readonly #ready = Promise.withResolvers<Result<void>>();
   readonly #exited: Promise<void>;
-  #closed = false; #counter = 0; #bytes = 0;
+  #closed = false; #bytes = 0;
   private constructor(child: ChildProcess, endpoint: string, schemas: Schemas, clock: Clock) {
     this.process = child; this.endpoint = endpoint; this.#schemas = schemas; this.#clock = clock;
     this.#exited = new Promise(resolve => { child.once('exit', () => { this.#closed = true; this.#fail(); resolve(); }); child.once('error', () => { this.#closed = true; this.#fail(); resolve(); }); });
     const ready = schemas.compile<Ready>({ ...schema, $id: 'thetis://internal/maintenance/ready', $ref: '#/$defs/ready' });
     const reply = schemas.compile<Reply>({ ...schema, $id: 'thetis://internal/maintenance/reply', $ref: '#/$defs/reply' });
     child.on('message', (value: unknown) => {
-      if (++this.#counter > processLimits.messages || Buffer.byteLength(JSON.stringify(value)) > processLimits.frameBytes) { child.kill('SIGKILL'); this.#fail(); return; }
+      if (Buffer.byteLength(JSON.stringify(value)) > processLimits.frameBytes) { child.kill('SIGKILL'); this.#fail(); return; }
       if (ready(value) && value.endpoint === endpoint) this.#ready.resolve({ ok: true, value: undefined });
       else if (reply(value)) { this.#pending.get(value.id)?.(value.ok ? { ok: true, value: value.value } : value); this.#pending.delete(value.id); }
       else { child.kill('SIGKILL'); this.#fail(); }
     });
-    for (const stream of [child.stdout, child.stderr]) stream?.on('data', (bytes: Buffer) => { this.#bytes += bytes.length; if (this.#bytes > processLimits.outputBytes) { child.kill('SIGKILL'); this.#fail(); } });
+    // Retain bounded startup diagnostics in the service journal so a failed installed boot is actionable.
+    for (const stream of [child.stdout, child.stderr]) stream?.on('data', (bytes: Buffer) => { this.#bytes += bytes.length; if (this.#bytes > processLimits.outputBytes) { child.kill('SIGKILL'); this.#fail(); } else process.stderr.write(bytes); });
   }
   static async start(input: Launch, schemas: Schemas, clock: Clock): Promise<Result<KernelProcess>> {
     let child: ChildProcess;
-    try { child = spawn(process.execPath, [...sourceFlags(), input.entry, input.configuration, input.endpoint, input.mode, input.administrator], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', ...input.descriptors ?? []] }); }
+    try { child = spawn(process.execPath, [`--max-old-space-size=${String(processLimits.heapMiB)}`, '--max-semi-space-size=1', ...flags(), input.entry, input.configuration, input.endpoint, input.mode, input.administrator], { env: { PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', ...input.descriptors ?? []] }); }
     catch { return failure('io', 'The trusted kernel process could not be launched.'); }
     const kernel = new KernelProcess(child, input.endpoint, schemas, clock); const timer = new AbortController();
     try {
-      const ready = await Promise.race([kernel.#ready.promise, clock.wait(processLimits.deadlineMs, timer.signal).then(() => failure('deadline', 'The candidate kernel did not become ready.'))]);
+      const ready = await Promise.race([kernel.#ready.promise, clock.wait(input.mode === 'serve' ? processLimits.startupMs : processLimits.deadlineMs, timer.signal).then(() => failure('deadline', 'The candidate kernel did not become ready.'))]);
       if (!ready.ok) { await kernel.kill(); return ready; }
       return { ok: true, value: kernel };
     } finally { timer.abort(); }
   }
   async call(method: Command['method'], session?: string): Promise<Result<unknown>> {
     if (this.#closed) return failure('io', 'The trusted kernel process is stopped.');
-    if (this.#pending.size) return failure('budget', 'The trusted kernel control pool is full.');
+    if (this.#pending.size >= processLimits.pending) return failure('budget', 'The trusted kernel control pool is full.');
     const id = randomUUID(); const timer = new AbortController();
     const reply = new Promise<Result<unknown>>(resolve => { this.#pending.set(id, resolve); });
     this.process.send({ id, method, ...session === undefined ? {} : { session } }, error => { if (error) this.#pending.get(id)?.(failure('io', 'The trusted kernel command could not be sent.')); });
-    try { return await Promise.race([reply, this.#clock.wait(processLimits.deadlineMs, timer.signal).then(() => failure('deadline', 'The trusted kernel command exceeded its deadline.'))]); }
+    const deadline = method === 'activate' ? processLimits.startupMs : method === 'pause' || method === 'stop' ? processLimits.shutdownMs : processLimits.deadlineMs;
+    try { return await Promise.race([reply, this.#clock.wait(deadline, timer.signal).then(() => failure('deadline', 'The trusted kernel command exceeded its deadline.'))]); }
     finally { timer.abort(); this.#pending.delete(id); }
   }
   async clients(): Promise<Result<readonly string[]>> {

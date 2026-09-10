@@ -549,3 +549,44 @@ export THETIS_NODE=/home/bitmuse/.nvm/versions/node/v24.18.0/bin/node
 Use `THETIS_PACKAGES` only for a non-sibling package checkout. The shell's default
 Node 20 cannot run this project's TypeScript directly. Required sandbox or cgroup
 failures are errors, never permission to run tests without their boundary.
+
+
+## Installer and update completion · 2026-09-10
+
+ADRs 0052–0053 supersede the earlier installer lifecycle limitations. The generated
+standalone installer bootstraps the Node archive bound by signed provenance,
+retains seed source paths, renders the selected service mode, enables its check
+timer and records provisioning choices for uninstall. Release signing is confined
+to protected publication jobs. Check and administrator apply independently verify
+release signatures, annotated runtime tags, code pins and execution artifacts.
+
+The installed default deployment has passed a complete local lifecycle with the
+shipped `zero` launcher: install without Node on PATH, start at generation 1,
+check and repeat verification, authenticate and apply at generation 2, undo to the
+previous code/store at generation 3, restart from retained state at generation 4,
+prune and purge. Its public paths stay under `<state>/live`. Whole deployment
+exports have a separate 65,536-entry bound; individual code trees remain capped
+at 10,000. Retirement preserves the live and previous stores.
+
+System/user/foreground and TPM2 modes have provisioning and rendering coverage;
+external manager commands are controlled test edges. No privileged installation
+on this host, TPM2 enrollment, public signed release or external TLS-proxy
+acceptance is claimed. Automatic apply remains refused under Proposed ADR 0049.
+Node or supervisor changes require an explicit service migration. The unchanged
+kernel inventory remains 1,423 counted lines against 1,300, blocking public
+release delivery until corrected. Historical measurements above remain records
+of their earlier revisions.
+
+ShellCheck 0.9.0 reports no warnings for the generated installer and the three
+CI shell scripts. CI runner provisioning now installs ShellCheck explicitly; the
+local check wrapper reports its absence on PATH, so this lint was also run from
+a temporary extracted package without changing the host installation.
+
+The completion run passes **554/554 tests** in **687.97 seconds**, with no skipped
+or cancelled tests. It measures kernel plus one idle environment at
+**160,018,432 bytes** against 512,000,000 and edit-to-serve at **1,740.21 ms**
+against 2,000. All 106 named conformance ids have enabled tests; the package-name
+scan finds no kernel matches. The installed lifecycle takes 207.25 seconds in
+that run. The final split-volume boot-order adjustment also receives focused
+service-rendering validation. These results do not waive the kernel-size gate
+or replace privileged host acceptance.

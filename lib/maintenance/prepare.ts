@@ -6,7 +6,7 @@ import { failure } from '@/lib/schema/index.ts';
 import type { Result } from '@/lib/schema/index.ts';
 import type { Deployment } from '@/lib/deployment/types.ts';
 
-export interface Revision { pins: Readonly<Record<string, { source: string; hash: string }>>; entry: string; configuration: Deployment }
+export interface Revision { pins: Readonly<Record<string, { source: string; hash: string }>>; entry: string; configuration: Deployment; release?: string }
 export interface Prepared { root: string; entry: string; state: string; configuration: string; endpoint: string; hash: string }
 export type Capture = (source: string, destination: string) => Promise<Result<string>>;
 export const prepareLimits = { pins: 256, configurationBytes: 1048576 };

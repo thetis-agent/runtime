@@ -58,6 +58,8 @@ successor repository as `docs/adr/` on day one.
 | [0049](0049-pre-authorised-kernel-updates.md) | Pre-authorised kernel updates for fixes and improvements | Proposed: stops for the operator |
 | [0050](0050-short-generation-store-roots.md) | Short generation store roots for a supervised kernel | Accepted |
 | [0051](0051-exclude-imports-and-whitespace-from-kernel-size.md) | Exclude imports and whitespace from kernel size | Accepted |
+| [0052](0052-installed-service-recovery-and-provisioning.md) | Installed service recovery and provisioning | Accepted |
+| [0053](0053-bounded-deployment-store-exports.md) | Bounded deployment store exports | Accepted |
 
 ## Decisions in the register that still need a record
 

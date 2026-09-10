@@ -1,5 +1,5 @@
 /** Publish what the host updater found in one bounded file the deployment may only read; ADR 0048, ADR 0029. */
-import { mkdir } from 'node:fs/promises';
+import { chmod, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { atomicWrite } from '@/lib/files/atomic.ts';
 import { readBounded } from '@/lib/files/read-bounded.ts';
@@ -24,7 +24,8 @@ export async function writeStatus(path: string, value: Status): Promise<Result<v
   const bytes = Buffer.from(`${JSON.stringify(value)}\n`);
   if (bytes.length > statusLimits.fileBytes) return failure('budget', 'The update status exceeds its byte budget.');
   try { await mkdir(dirname(path), { recursive: true, mode: 0o755 }); } catch { return failure('io', 'The update status directory could not be created.'); }
-  return atomicWrite(path, bytes);
+  const written = await atomicWrite(path, bytes); if (!written.ok) return written;
+  try { await chmod(path, 0o644); return written; } catch { return failure('io', 'The update notice could not be made readable by the service.'); }
 }
 
 /** An absent file is not a refusal: the timer may simply not have run yet. */

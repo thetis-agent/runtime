@@ -5,6 +5,7 @@ import type { Result } from '@/lib/result/index.ts';
 import { limits } from './tree.ts';
 import { flags, sourceFlags } from '@/lib/artifacts/index.ts';
 type Slot = { worker: Worker; pending?: (result: Result<string>) => void; fault?: string };
+type Operation = 'snapshot' | 'diff' | 'export' | 'verify' | 'store-hash';
 function complete(slot: Slot, result: Result<string>): void {
   const pending = slot.pending; delete slot.pending; slot.worker.unref(); pending?.(result);
 }
@@ -29,7 +30,7 @@ export class Workers {
     slot.worker.once('exit', () => { this.#workers.splice(this.#workers.indexOf(slot), 1); complete(slot, failure('io', slot.fault ?? 'The snapshot worker exited.')); });
     slot.worker.unref(); return slot;
   }
-  perform(path: string, destination: string | undefined, operation: 'snapshot' | 'diff' | 'export' | 'verify'): Promise<Result<string>> {
+  perform(path: string, destination: string | undefined, operation: Operation): Promise<Result<string>> {
     try {
       const slot = this.#workers.find(slot => !slot.pending && !slot.fault) ?? (this.#workers.length < limits.workers ? this.#create() : undefined);
       if (!slot) return Promise.resolve(failure('budget', 'The snapshot worker pool is full.'));
@@ -38,4 +39,4 @@ export class Workers {
   }
 }
 const pool = new Workers();
-export const perform = (path: string, destination: string | undefined, operation: 'snapshot' | 'diff' | 'export' | 'verify'): Promise<Result<string>> => pool.perform(path, destination, operation);
+export const perform = (path: string, destination: string | undefined, operation: Operation): Promise<Result<string>> => pool.perform(path, destination, operation);

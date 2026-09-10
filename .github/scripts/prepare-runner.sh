@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${GITHUB_ACTIONS:-} == true && ${RUNNER_ENVIRONMENT:-} == github-hosted ]]
 [[ $(uname -s) == Linux && $(uname -m) == x86_64 ]]
 sudo apt-get update
-sudo apt-get install --yes --no-install-recommends bubblewrap slirp4netns util-linux dbus-user-session jq tar gzip
+sudo apt-get install --yes --no-install-recommends bubblewrap slirp4netns util-linux dbus-user-session jq tar gzip xz-utils openssh-client shellcheck
 
 # Ubuntu's host policy otherwise denies nested unprivileged namespaces. This VM
 # is discarded after the job; bubblewrap's grants and isolation remain mandatory.

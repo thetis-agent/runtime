@@ -8,7 +8,7 @@ export interface Tag { tag: string; commit: string }
 
 type Code = 'invalid-args' | 'budget';
 
-const releaseTag = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
+export const releaseTag = /^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/u;
 const refLine = /^([0-9a-f]{40}) (.+)$/u;
 const serviceHeader = '# service=git-upload-pack\n';
 
@@ -65,6 +65,7 @@ export function parseTags(advertisement: Buffer): Result<readonly Tag[], Code> {
   if (advertisement.length > refsLimits.advertisementBytes) return failure('budget', 'The reference advertisement exceeds its byte limit.');
   const lines = collect(advertisement); if (!lines.ok) return lines;
   const commits = new Map<string, string>();
+  const peeled = new Set<string>();
   const seen = new Set<string>();
   for (const payload of lines.value) {
     const match = refLine.exec(body(payload));
@@ -73,13 +74,14 @@ export function parseTags(advertisement: Buffer): Result<readonly Tag[], Code> {
     if (name === 'capabilities^{}') continue;
     if (name.endsWith('^{}')) {
       const base = name.slice(0, -'^{}'.length);
-      if (commits.has(base)) commits.set(base, sha);
+      if (peeled.has(base)) return failure('invalid-args', 'The reference advertisement peels the same tag twice.');
+      if (commits.has(base)) { commits.set(base, sha); peeled.add(base); }
       continue;
     }
     if (seen.has(name)) return failure('invalid-args', 'The reference advertisement names the same ref twice.');
     seen.add(name);
     if (name.startsWith('refs/tags/') && releaseTag.test(name.slice('refs/tags/'.length))) commits.set(name, sha);
   }
-  const tags = [...commits.entries()].map(([name, commit]) => ({ tag: name.slice('refs/tags/'.length), commit }));
+  const tags = [...commits.entries()].filter(([name]) => peeled.has(name)).map(([name, commit]) => ({ tag: name.slice('refs/tags/'.length), commit }));
   return { ok: true, value: tags.sort((a, b) => a.tag.localeCompare(b.tag)) };
 }

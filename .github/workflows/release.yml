@@ -47,6 +47,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         working-directory: runtime
         run: |
+          [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" == tag ]]
           commit=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
           git merge-base --is-ancestor "$commit" refs/remotes/origin/main
           git checkout --detach "$commit"
@@ -105,6 +106,7 @@ jobs:
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
           RELEASE_TAG: ${{ inputs.tag }}
           RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
           PEER_COMMIT: ${{ inputs.peer_commit }}
@@ -112,13 +114,12 @@ jobs:
         run: |
           set -euo pipefail
           cd delivery
-          # ADR 0048: the signature is checked again in the job that holds the write token.
-          ssh-keygen -Y verify -f allowed_signers -I release@thetis-agent -n zero-release -s SHA256SUMS.sig < SHA256SUMS
           sha256sum --check --strict SHA256SUMS
           jq -e --arg release "$RELEASE_COMMIT" --arg peer "$PEER_COMMIT" \
             '.runtime.commit == $release and .packages.commit == $peer' provenance.json
           # Dereference annotated tags through the API; refuse a tag moved since build.
           ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG")
+          [[ "$(jq -r '.object.type' <<< "$ref")" == tag ]]
           for ((depth=0; depth<4; depth++)); do
             [[ "$(jq -r '.object.type' <<< "$ref")" == tag ]] || break
             object=$(jq -er '.object.sha' <<< "$ref")
@@ -132,11 +133,26 @@ jobs:
           fi
           jq -r '"Runtime: " + .runtime.commit, "Packages: " + .packages.commit, "Node: " + .node.version, "Checks: " + .run' provenance.json > "$RUNNER_TEMP/release-notes.md"
           printf '\nVerified offline delivery. Production activation requires the deployment evaluator and the kernel confirmation transaction (ADR 0014, ADR 0018).\n' >> "$RUNNER_TEMP/release-notes.md"
+          # ADR 0052: no candidate execution has access to the release signing key.
+          : "${RELEASE_SIGNING_KEY:?Configure RELEASE_SIGNING_KEY in the protected release environment.}"
+          umask 077
+          release_key="$RUNNER_TEMP/zero-release-key"
+          trap 'rm -f "$release_key"' EXIT
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > "$release_key"
+          public_key=$(ssh-keygen -y -f "$release_key")
+          allowed="release@thetis-agent namespaces=\"zero-release\" $public_key"
+          printf '%s\n' "$allowed" > allowed_signers
+          # These are the only delivery bytes changed after verification: the installer's public trust root, tag and asset URL.
+          sed -i "s|^ZERO_ALLOWED_SIGNERS=.*|ZERO_ALLOWED_SIGNERS='$allowed'|; s|^ZERO_TAG=.*|ZERO_TAG='$RELEASE_TAG'|; s|^ZERO_RELEASE_URL=.*|ZERO_RELEASE_URL='https://github.com/$GITHUB_REPOSITORY/releases/download'|" install.sh
+          sha256sum thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt kernel-pins.json install.sh > SHA256SUMS
+          ssh-keygen -Y sign -n zero-release -f "$release_key" SHA256SUMS
+          rm -f "$release_key"
+          ssh-keygen -Y verify -f allowed_signers -I release@thetis-agent -n zero-release -s SHA256SUMS.sig < SHA256SUMS
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
             --draft --title "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md" \
             thetis-distribution.tar.gz package.json profile.lock.json registry.json \
             registry.bundle provenance.json platform.txt kernel-pins.json \
-            SHA256SUMS SHA256SUMS.sig allowed_signers
+            SHA256SUMS SHA256SUMS.sig allowed_signers install.sh
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false
           url=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
           printf 'url=%s\n' "$url" >> "$GITHUB_OUTPUT"

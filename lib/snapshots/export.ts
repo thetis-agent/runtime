@@ -6,6 +6,7 @@ import { failure } from '@/lib/result/index.ts';
 import type { Result } from '@/lib/result/index.ts';
 
 interface Budget { entries: number; bytes: number }
+export const exportLimits = { entries: 65536 };
 async function copy(root: string, source: string, destination: string, budget: Budget, depth: number): Promise<Result<void>> {
   if (depth > limits.depth) return failure('budget', 'The durable store exceeds its depth budget.');
   await mkdir(destination, { mode: 0o700 });
@@ -34,7 +35,7 @@ export async function exportStore(source: string, destination: string): Promise<
   try {
     const root = await realpath(source);
     if (root !== source || destination === root || destination.startsWith(`${root}/`)) return failure('outside-roots', 'The durable store export requires separate canonical roots.');
-    const copied = await copy(root, root, destination, { entries: limits.entries, bytes: limits.bytes }, 0);
-    return copied.ok ? await hashTree(destination) : copied;
+    const copied = await copy(root, root, destination, { entries: exportLimits.entries, bytes: limits.bytes }, 0);
+    return copied.ok ? await hashTree(destination, exportLimits.entries) : copied;
   } catch { return failure('io', 'The stopped durable store could not be exported.'); }
 }

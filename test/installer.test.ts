@@ -1,80 +1,14 @@
-/** Refuse an unsigned or altered release before any file exists under the prefix, and lay out a supervised deployment that validates; ADR 0048, ADR 0049, ADR 0050, GN-002. */
+/** Verify bootstrap refusal, retained configuration and removal against signed releases; ADR 0048, ADR 0052, GN-002. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, open, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Schemas, isObject } from '@/lib/schema/index.ts';
 import { configuration } from '@/lib/deployment/index.ts';
 import { readInstall } from '@/lib/update/install.ts';
-import { buildRelease } from '@/test/release-fixture.ts';
-import { git } from '@/lib/registry/git.ts';
-import type { Fixture } from '@/test/release-fixture.ts';
-
-const script = fileURLToPath(new URL('../install.sh', import.meta.url));
+import { command, install, places, flags, discard, password, remote } from './installer-fixture.ts';
 const units = fileURLToPath(new URL('../units/', import.meta.url));
-const password = 'installer test password';
-const limits = { outputBytes: 262144, deadlineMs: 600000 };
-
-interface Run { status: number; stdout: string; stderr: string }
-
-async function install(args: readonly string[], withPassword = true): Promise<Run> {
-  const secret = await mkdtemp('/tmp/pw-'); const path = join(secret, 'password');
-  await writeFile(path, `${password}\n`, { mode: 0o600 });
-  const handle = withPassword ? await open(path, 'r') : undefined;
-  try {
-    return await new Promise<Run>((resolve, reject) => {
-      const child = spawn('/bin/sh', [script, ...args], { env: { PATH: '/runtime/bin:/usr/bin:/bin', TMPDIR: '/tmp', HOME: secret },
-        stdio: ['ignore', 'pipe', 'pipe', ...handle ? [handle.fd] : []] });
-      let stdout = ''; let stderr = '';
-      for (const [stream, sink] of [[child.stdout, 'out'], [child.stderr, 'err']] satisfies [typeof child.stdout, string][]) {
-        stream?.on('data', (chunk: Buffer) => {
-          const text = chunk.toString('utf8');
-          if (sink === 'out') { if (stdout.length < limits.outputBytes) stdout += text; }
-          else if (stderr.length < limits.outputBytes) stderr += text;
-        });
-      }
-      child.once('error', reject);
-      child.once('close', status => { resolve({ status: status ?? 1, stdout, stderr }); });
-    });
-  } finally { await handle?.close(); await rm(secret, { recursive: true, force: true }); }
-}
-
-interface Places { prefix: string; state: string; published: string; remote: string; roots: string[]; fixture: Fixture }
-
-const identity = { GIT_AUTHOR_NAME: 'release', GIT_AUTHOR_EMAIL: 'release@thetis-agent', GIT_AUTHOR_DATE: '@0 +0000',
-  GIT_COMMITTER_NAME: 'release', GIT_COMMITTER_EMAIL: 'release@thetis-agent', GIT_COMMITTER_DATE: '@0 +0000' };
-
-/** `lib/registry/git.ts` runs against a git directory, so the tag the installer resolves is built with plumbing. */
-async function remote(path: string, content: string): Promise<{ path: string; commit: string }> {
-  const text = (result: Awaited<ReturnType<typeof git>>): string => { assert.ok(result.ok, JSON.stringify(result)); return result.value.toString('utf8').trim(); };
-  assert.ok((await git(path, ['init', '--bare', '--quiet'])).ok);
-  const blob = text(await git(path, ['hash-object', '-w', '--stdin'], Buffer.from(`${content}\n`)));
-  const tree = text(await git(path, ['mktree'], Buffer.from(`100644 blob ${blob}\tREADME.md\n`)));
-  const commit = text(await git(path, ['commit-tree', tree], Buffer.from(`${content}\n`), identity));
-  const annotated = text(await git(path, ['mktag'], Buffer.from(`object ${commit}\ntype commit\ntag v0.1.0\ntagger release <release@thetis-agent> 0 +0000\n\nv0.1.0\n`)));
-  assert.ok((await git(path, ['update-ref', 'refs/tags/v0.1.0', annotated])).ok);
-  return { path, commit };
-}
-
-/** The state root must stay short: `<state>/g` above 18 bytes would push a target endpoint past the socket path limit (ADR 0050). */
-async function places(tag: string): Promise<Places> {
-  const state = await mkdtemp('/assembly/');
-  const work = await mkdtemp('/assembly/w'); const published = join(work, 'published');
-  await mkdir(published, { recursive: true });
-  const built = await remote(join(work, 'runtime.git'), 'release remote');
-  const fixture = await buildRelease(join(published, tag), { tag, commit: built.commit });
-  return { prefix: join(work, 'opt'), state, published, remote: built.path, roots: [state, work], fixture };
-}
-
-function flags(at: Places, remoteOverride = at.remote): string[] {
-  return ['--prefix', at.prefix, '--state', at.state, '--no-mount', '--service', 'none',
-    '--release', at.fixture.tag, '--release-url', `file://${at.published}`, '--remote', `file://${remoteOverride}`,
-    '--allowed-signers', at.fixture.allowedSigners, '--operator', 'op', '--password-fd', '3', '--origin', 'https://zero.test', '--yes'];
-}
-
-async function discard(at: Places): Promise<void> { for (const root of at.roots) await rm(root, { recursive: true, force: true }); }
 
 await test('the installer refuses an update policy no record has accepted, and a state root that would break a target endpoint', async () => {
   const refused = await install(['--auto-update', 'fixes', '--origin', 'https://zero.test', '--dry-run'], false);
@@ -191,9 +125,28 @@ await test('ADR 0048 a fresh install lays out a supervised deployment whose seed
     assert.equal(again.status, 0, again.stderr);
     assert.match(again.stdout, /^Zero v0\.1\.0 is already installed at /mu);
 
-    const removed = await install([...flags(at), '--uninstall']);
+    const status = await command(join(prefix, 'bin/zero'), ['status'], false);
+    assert.equal(status.status, 1, 'A stopped installation must not pretend that zero status succeeded.');
+    assert.match(status.stderr, /not accepting connections/u);
+    const planned = await install(['--prefix', prefix, '--uninstall', '--dry-run']);
+    assert.equal(planned.status, 0, planned.stderr); assert.ok((await stat(prefix)).isDirectory());
+    const removed = await install(['--prefix', prefix, '--uninstall']);
     assert.equal(removed.status, 0, removed.stderr);
     assert.equal(await stat(prefix).then(() => true, () => false), false, '--uninstall left the prefix in place.');
     assert.ok((await stat(join(state, 'login-state/accounts.json'))).isFile(), '--uninstall removed state without --purge-state.');
+    assert.equal((await stat(join(state, 'retained-master.key'))).mode & 0o777, 0o600);
+  } finally { await discard(at); }
+});
+
+await test('ADR 0052 a tampered Node archive is refused before the installer writes its prefix', async () => {
+  const at = await places('v0.1.0');
+  try {
+    const directory = fileURLToPath(`${at.fixture.nodeUrl}/${process.version}`);
+    const archives = await readdir(directory); const archive = archives.find(name => name.endsWith('.tar.xz'));
+    assert.ok(archive); const path = join(directory, archive); const original = await readFile(path);
+    await writeFile(path, Buffer.concat([original, Buffer.from('tampered')]));
+    const refused = await install(flags(at));
+    assert.equal(refused.status, 1); assert.match(refused.stderr, /Node archive does not match/u);
+    assert.equal(await stat(at.prefix).then(() => true, () => false), false);
   } finally { await discard(at); }
 });

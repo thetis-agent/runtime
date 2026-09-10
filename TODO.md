@@ -96,7 +96,7 @@ Record any further architectural extraction before implementation.
   tested offline against a signed local `file://` release under ADR 0048; the
   privileged first install on a real host has **not** been run. The
   copy-pasteable procedure and what to observe are in
-  [docs/install.md](docs/install.md) under "First install on this host"; the
+  [docs/install.md](docs/install.md); the
   operator runs it and records the measurements. Idle RSS must be re-measured
   because a supervised deployment adds a second Node process.
 - `docs/milestone-a.md` remains deliberately absent until acceptance passes.
@@ -104,10 +104,10 @@ Record any further architectural extraction before implementation.
 ## 4. Follow-up integration and testing
 
 - Audit every clause, schema-coded boundary error, matcher branch and generation
-  guard rather than treating the 97 named ids as complete proof.
+  guard rather than treating the 106 named ids as complete proof.
 - Verify remaining lifecycle cases such as attachment handling and background
   notices through the session API. Do not infer coverage from a nearby test name.
-- Complete persistent-volume provisioning for an actual installation. Enforced
+- Validate persistent-volume provisioning on a deployment host. Enforced
   storage capacities and fail-closed root checks already exist; unbounded host
   directories are not a permissible shortcut.
 - Keep future OpenRouter checks opt-in and separately budgeted. The authorized
@@ -117,20 +117,10 @@ Record any further architectural extraction before implementation.
 - Compatibility tests use the local green transport baseline
   `d8aa0d1200c7c24a0fa7f671c41eece204b377fe`, not a previously deployed release.
   Preserve/fetch that revision in CI; tests do not fetch from the network.
-- Pending: `install.sh` does not download the release's own Node tarball and
-  check it against `provenance.node.sha256`; it refuses a Node whose version
-  differs from `provenance.node.version` and copies the matching host Node into
-  the prefix, printing that it did so. Closing this needs an offline-testable
-  download path.
-- Pending: a `Deployment.endpoints` root so a target's public socket path stops
-  moving with the kernel's generation. ADR 0050 records why the supervised
-  layout needs it, why the workaround (a short per-generation store root) was
-  taken instead, and that the operator's TLS endpoint must be repointed after
-  every kernel update until it exists. It needs kernel lines the installer work
-  did not have.
-- Pending: retention for maintenance generation stores under `<state>/g`.
-  ADR 0046 retires target run workspaces; nothing retires a superseded kernel
-  generation's store, and `zero prune-releases` deliberately does not touch it.
+- ADR 0052 implements verified Node archive bootstrap, mode-specific provisioning,
+  recorded uninstall choices, durable supervisor recovery, stable proxy paths
+  through `<state>/live`, and maintenance store retirement. The installed lifecycle
+  suite is the acceptance gate for these paths; see `docs/install.md`.
 - Pending: the browser acceptance for ADR 0038 — sign in at `GET /login`
   through the operator's proxy, `POST /login`, redirect to `/<person>/`, and
   complete a turn over `/ws` for each of two sandboxed people, then record the
@@ -154,21 +144,10 @@ listed here as wholly unimplemented.
 Three findings from the ADR 0048 installer and update work. Each is handled for
 now; each needs a person to confirm the handling is the one we want.
 
-1. **A supervised kernel's public socket paths move with the generation.**
-   `lib/maintenance/prepare.ts` gives every generation its own private store, so
-   under the supervisor the live kernel's root — and therefore every target's
-   `targets/<digest>/runs/public/current.sock` — changes on each update. Nesting
-   that store under `runs/<n>-<uuid>/state` also pushed the path past the
-   107-byte `sockaddr_un` limit `lib/socket/endpoint.ts` enforces, so a
-   supervised deployment with any public-socket target could not have started,
-   let alone updated. ADR 0050 records the workaround (an optional short
-   `stateRoot`, off by default; `<state>/g` bounded to 18 bytes) and the residual
-   cost: **the operator's TLS endpoint must be repointed after every kernel
-   update.** To confirm: whether a `Deployment.endpoints` root is the right fix,
-   what it costs in kernel lines, and whether the socket path formula in
-   `docs/headless-startup.md` should change with it. Until then, verify on a real
-   host that `zero status` prints a root the proxy can be pointed at, and that
-   nothing else in the product assumes a stable target socket path.
+1. **Stable supervised public sockets and retained stores.** ADR 0052 supersedes
+   the operational cost in ADR 0050 with a synced host alias at `<state>/live`.
+   The kernel still uses private generation stores. The supervisor's lifecycle
+   test checks update, state undo, restart and retention through this alias.
 
 2. **A refusal could kill the serving kernel.** `lib/maintenance/schema.json`'s
    reply enum does not contain identity's codes, and the supervisor SIGKILLs a

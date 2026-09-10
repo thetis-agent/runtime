@@ -69,7 +69,8 @@
             "status",
             "update",
             "undo",
-            "stop"
+            "stop",
+            "prune"
           ]
         },
         "session": {

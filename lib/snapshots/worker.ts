@@ -5,13 +5,14 @@ import { hashTree } from './tree.ts';
 import { failure, isObject } from '@/lib/result/index.ts';
 import type { Result } from '@/lib/result/index.ts';
 import { differences } from './differences.ts';
-import { exportStore } from './export.ts';
+import { exportStore, exportLimits } from './export.ts';
 import { verifyTree } from '@/lib/artifacts/verify-tree.ts';
 
 async function run(input: unknown): Promise<Result<string>> {
   if (!isObject(input) || typeof input['path'] !== 'string') return failure('invalid-args', 'The snapshot worker requires a source path.');
   if (input['operation'] === 'verify') return verifyTree(input['path']);
   if (input['operation'] === 'export' && typeof input['destination'] === 'string') return exportStore(input['path'], input['destination']);
+  if (input['operation'] === 'store-hash') return hashTree(input['path'], exportLimits.entries);
   if (input['operation'] === 'diff' && typeof input['destination'] === 'string') return differences(input['path'], input['destination']);
   const initial = await hashTree(input['path']); if (!initial.ok) return initial;
   if (input['destination'] === undefined) return initial;

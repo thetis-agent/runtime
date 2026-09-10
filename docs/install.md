@@ -1,340 +1,233 @@
-# Install Zero
+# Install and update Zero
 
-One command stands up a working deployment: a supervised kernel, a bounded state
-volume, an administrator account, and an updater that watches the runtime
-library's release tags. This document is the operator's reference for that
-command, for `zero status`, `zero update`, `zero undo`, recovery and removal.
+The installer creates a supervised kernel, bounded persistent storage, an
+administrator account and an hourly update check. It downloads and verifies the
+release's exact Node runtime; Node and npm are not installation prerequisites.
+The host still needs the Linux boundary tools listed below.
 
-**There is no published release yet.** No `v*` tag has ever been cut, and none
-can be published while the kernel-size gate is red — 1,387 counted lines against
-a 1,300-line budget at the time of writing (`TODO.md` §2, `docs/ci-delivery.md`);
-run `scripts/size.ts` for the current figure. Until the first green
-`v0.1.0`, install from a local `file://` release built from
-`scripts/release.ts` + `scripts/distribution.ts` output with a throwaway signing
-key; the "First install on this host" section below does exactly that. The
-public one-liner is written here so its shape is reviewable, not because it
-resolves today.
+**The public installation path requires a published, signed runtime release.**
+The kernel size gate is still above its 1,300-line budget. Local signed fixtures
+exercise installation and updates without publishing a release or bypassing that
+gate. The commands below describe the published asset once that gate is green
+and the protected release environment has its signing key configured.
 
-## The one-liner
+## Install
 
-```sh
-curl -fsSL https://get.thetis-agent.dev/install.sh | sh
-```
-
-Read it before you run it — that is the point of a short script:
+Download the release installer and review it, then run it as root for a system
+service:
 
 ```sh
-curl -fsSL https://get.thetis-agent.dev/install.sh -o install.sh
+curl -fsSL https://github.com/thetis-agent/runtime/releases/latest/download/install.sh -o install.sh
 less install.sh
-sh install.sh
+sudo sh install.sh --allow-root
 ```
 
-Whoever controls that URL controls the trust root, as with every `curl | sh`
-installer. What the script itself guarantees is that the *bytes it downloads*
-are the reviewed ones: it embeds the release signing key's `allowed_signers`
-line and the exact Node tarball hashes, so a swapped download fails
-verification instead of installing (ADR 0048, risk R2).
-
-## What it asks
-
-Every prompt has a flag, `--yes` takes the defaults, and `--dry-run` prints each
-privileged step instead of running it.
-
-| Prompt | Default | Flag |
-| --- | --- | --- |
-| Code prefix | `/opt/zero` | `--prefix <dir>` |
-| State volume | `/var/lib/z` | `--state <dir>` |
-| State size | `4G` | `--state-size <size>` |
-| State layout | `one` | `--state-layout one\|split` |
-| Use an existing bounded mountpoint | provision a loop image | `--no-mount` |
-| Service | `system` | `--service system\|user\|none` |
-| Service account | `zero` | `--user <name>` |
-| Administrator account id | `admin` | `--operator <id>` |
-| Administrator password | *asked twice, echo off* | `--password-fd <n>` |
-| Public origin | *asked* | `--origin https://…` |
-| Update policy | `none` | `--auto-update none` |
-| Key store | `file` | `--key-store file\|tpm2` |
-| Version | the script's pinned tag | `--release <tag>` |
-| Release base URL | GitHub Releases | `--release-url <url>` |
-
-Also: `--remote <url>` (where release tags are read from, `https://` or
-`file:///`), `--allowed-signers <path>` (overriding the line embedded in the
-script), `--print-unit <name>` (print one systemd unit exactly as it will be
-installed), `--allow-root`, `--purge-state`, `--uninstall`, `--dry-run`,
-`--yes`, `--help`.
-
-Two honest limits of the current script, both printed rather than silent:
-
-- It **checks** that the Node on `PATH` is the exact version the release's
-  `provenance.json` names and refuses any other, then copies that Node into the
-  prefix. It does not yet download the release's own Node tarball and check it
-  against `provenance.node.sha256`. Install Node 24.18.0 first.
-- `--service none` keeps its master key at `<prefix>/etc/master.key` mode 0600
-  instead of `/etc/zero/master.key` mode 0400, because a foreground install has
-  no separate service account for the root-only file to protect it from. Use
-  `--service system` for anything real.
-
-The administrator's password is read from the terminal with echo off and
-confirmed twice, or from `--password-fd <n>`. It is refused if empty or under
-twelve characters. `--yes` with no password source is an error — there is no
-default password. The plaintext reaches only `credential(id, password)` and the
-resulting `login-state/accounts.json`, which holds a salted scrypt record and
-nothing else; it never appears on a command line, in `install.json`, in the
-seed, in the journal or on the terminal. `--dry-run` shows that step as
-`write accounts.json (1 account)`, without the id.
-
-`--auto-update` accepts only `none`. Any other value is refused with one
-sentence naming **ADR 0049**, which is Proposed: it states what a policy that
-let the timer press the maintenance command would cost, and waits for the
-operator's decision. The policy's code path is built and tested; nothing in the
-shipped default behaves as if that record were accepted.
-
-## What it needs from the host
-
-The script checks all of this and refuses with one sentence per failure:
-
-- `x86_64` or `aarch64` Linux, `/bin/sh` = dash, systemd ≥ 252.
-- bubblewrap with unprivileged user namespaces enabled, and `bwrap --unshare-user true` working.
-- cgroup v2 unified hierarchy, with `cpu memory pids` delegable to the service's cgroup.
-- `/dev/net/tun` and `/usr/bin/slirp4netns` for any egress target.
-- `git`, `flock`, `cat`, `tar`, `gzip`, `sha256sum`, `ssh-keygen`, and `fallocate` + `mkfs.ext4` unless `--no-mount`.
-- Root, once, for six named steps, each printed before it runs and all shown by `--dry-run`.
-
-Versions and hashes are in [platform-dependencies.md](platform-dependencies.md).
-Node is installed under the prefix at exactly the version the release's
-`provenance.json` names — never the distribution's Node, because
-`lib/artifacts/verify.ts` refuses any other (ADR 0037).
-
-## The layout it creates
-
-```
-/opt/zero/                       code · root-owned, read-only to the service account
-├── bin/zero                     the operator command
-├── node/v24.18.0/ · node/current
-├── releases/v0.1.0/             the extracted distribution and its release assets
-├── current → releases/v0.1.0    what the supervisor was last told to serve
-└── etc/  install.json  seed.json  recipe.json  allowed_signers  zero.service
-/var/lib/z/                      state · one bounded volume, owned by the service account, 0700
-├── kernel/                      the seed store the first generation is copied from
-├── supervisor/                  runs/<n>-<uuid>/{code,configuration.json,kernel.sock}  observed.jsonl
-├── g/                           each generation's private store (ADR 0050)
-├── registry/ cache/ profile/ discovery/ deployment.json
-├── initial/ spaces/<operator>/ login-state/accounts.json
-├── updates/status.json          the only thing the deployment may read about updates
-└── supervisor.sock              0600, the operator command's only way in
-/etc/zero/master.key             0400 root:root, 32 bytes
-```
-
-`--state` defaults to `/var/lib/z`, not `/var/lib/zero`, and the installer
-refuses a longer one. That is not tidiness: the live kernel's root is a
-per-generation store under `<state>/g`, and every target's public socket sits
-76 bytes below that root, against the 107-byte Linux socket path limit. ADR 0050
-explains it and records the cost.
-
-## Sign in
-
-The kernel serves unix sockets; the operator puts a reviewed TLS endpoint in
-front of them. The installer prints the three paths and a proxy snippet. They
-follow the formula in [headless-startup.md](headless-startup.md), rooted at the
-**live generation's** store:
-
-```
-/login   → <state>/g/<generation>/targets/<sha256-base64url("login")>/runs/public/current.sock
-/<id>/   → <state>/g/<generation>/targets/<sha256-base64url("<id>-web")>/runs/public/current.sock
-kernel   → <state>/kernel/origin.sock         (its own origin, its own __Host-thetis cookie)
-```
-
-**The generation is in the path, so those rules change after every kernel
-update.** `zero status` prints the current root; repointing the proxy is
-mechanical, and removing the need for it is the follow-up ADR 0050 names.
-
-Then sign in at `https://<origin>/login` as the id you chose.
-
-## Update
+The equivalent piped form is:
 
 ```sh
-zero status                       # state, generation, release, socket root, policy
-zero update --check               # read the tags, stage, verify, write updates/status.json
-zero update --apply --release v0.1.1
-zero undo
-zero prune-releases
+curl -fsSL https://github.com/thetis-agent/runtime/releases/latest/download/install.sh | sudo sh -s -- --allow-root
 ```
 
-`zero-update.timer` runs `zero update --check` hourly with a randomised delay.
-Checking is all it does: it reads the runtime library's tags from the git
-reference advertisement (bounded to 1 MiB, no API token, no JSON), stages the
-highest greater version into `releases/.staging.<tag>`, and promotes it only
-after the signature, the checksums, the provenance-to-tag binding, the published
-kernel pin hashes and every execution artifact have verified. Then it writes
-`updates/status.json` and stops. Nothing changes until a person runs
-`zero update --apply`.
+The installer prompts on the terminal for the prefix (default `/opt/zero`), state
+root (default `/var/lib/z`), service mode (default `system`), public HTTPS origin,
+administrator id (default `admin`) and a password entered twice with echo off.
+The code prefix's parent must exist. Code and state must be separate canonical
+paths without symlinks, spaces, shell metacharacters or overlapping roots.
 
-`--apply` asks for the administrator's password, exchanges it for a session at
-the login target, and sends one command to `supervisor.sock`. From there it is
-the kernel's own maintenance transaction (GN-007): drain, freeze, export the
-stopped store, copy and hash-verify every code pin, launch the candidate in
-probe mode with no writers, probe it against every connected client major, stop
-the old kernel, activate, repoint. If anything fails before the old kernel
-stops, the old kernel keeps serving. If it fails after, the transaction
-re-prepares from the captured snapshot; if that also fails the target is `FAILED`
-and `reset` is the documented edge (ADR 0028, ADR 0043) — `zero status` says so
-and `zero undo` refuses.
+A release's installer embeds that release's tag and public signing identity.
+It verifies the signed asset list, all asset hashes and the annotated tag's
+runtime commit. It downloads the exact Node archive from `nodejs.org`, verifies
+its digest against signed provenance before executing it, and verifies every
+kernel pin and execution artifact before creating the installation. The checkout
+installer has a placeholder trust root; local fixtures supply `--allowed-signers`.
 
-`zero undo` runs the same transaction with the previous release's revision:
-generation `n+2` whose pins equal `n`'s, with the store travelling alongside, as
-ADR 0012 §4 requires. The previous release directory is kept; nothing removes
-the current or previous release, and `zero prune-releases` retires only the
-others.
+For a noninteractive installation, provide `--yes`, `--origin`, and an already
+open password descriptor via `--password-fd`. There is no default password.
+Passwords must have at least twelve characters. Only the salted scrypt account
+record is stored; passwords never enter arguments, environment variables, the
+seed, installation choices or logs.
 
-Two things to know before you rely on this:
+## Choices
 
-- **A session does not survive a kernel switch.** Identity sessions live in the
-  kernel's memory, and `--apply` replaces the kernel process. `zero undo` after
-  an `--apply` asks for the password again. This is correct — the supervisor asks
-  the *live* kernel who you are on every command, and never caches a principal.
-- **When a release changes the supervisor itself** (`lib/maintenance` in
-  `kernel-pins.json`), `zero update` says so and does nothing else: applying it
-  needs a service restart, which stops the kernel with it. The supervisor is the
-  one process outside the generation machine (ADR 0048, risk R4); it never
-  restarts itself.
-
-Inside the product, `packages/autoupdate` shows the same notice on the `status`
-page. It reads `updates/status.json` from a read-only mount, has no egress, and
-can apply nothing — a package cannot write the code prefix, reach
-`supervisor.sock`, or start or stop a process. That is the boundary, not a
-missing feature.
-
-## Recover
-
-| Symptom | What to do |
+| Flag | Meaning and default |
 | --- | --- |
-| `zero status` says `FAILED` | The kernel stopped mid-transaction. Reset the target through the generation table (ADR 0028); `zero undo` is refused until then. |
-| `zero status` cannot reach the socket | The service is down. `systemctl status zero`, then `journalctl -u zero`. The supervisor holds the deployment lock, so a second one is refused rather than admitted. |
-| The proxy 502s after an update | The socket root moved with the generation. Read `zero status` and repoint. |
-| A staged version will not verify | Nothing was installed. `updates/status.json` records `verified: false`; the signature, the tag binding or the artifacts refused it. |
-| The master key is lost | The sealed secrets are unrecoverable. The installer prints this once, at install time: back up `/etc/zero/master.key`. |
+| `--prefix <path>` | Code directory, `/opt/zero` |
+| `--state <path>` | Short state root, `/var/lib/z`; `<state>/g` must fit in 18 bytes |
+| `--state-size <bytes>` | State capacity ceiling, `4294967296`; decimal bytes, at least 64 MiB |
+| `--state-layout one\|split` | One state volume, or reserved volumes: `kernel` 256 MiB, `supervisor` 1 GiB and `g` 2 GiB; at least 4 GiB total |
+| `--no-mount` | Use an existing directory on a filesystem whose enforced capacity fits the declared ceiling |
+| `--service system\|user\|none` | Dedicated system service, current account's user service, or foreground setup |
+| `--user <name>` | System service account, `zero` |
+| `--operator <id>` | Administrator id |
+| `--password-fd <n>` | Read the administrator password from this descriptor |
+| `--origin <https-origin>` | Public origin, without a path |
+| `--key-store file\|tpm2` | Master key storage; TPM2 requires a system service and usable TPM2 |
+| `--auto-update none` | Check and stage automatically; administrator applies |
+| `--release <vMAJOR.MINOR.PATCH>` | Override the installer's pinned tag |
+| `--release-url <base>` | Assets at `<base>/<tag>/<asset>`; HTTPS or `file://` |
+| `--remote <url>` | Runtime git remote providing annotated release tags |
+| `--node-url <base>` | Verified Node archive mirror; HTTPS or `file://` |
+| `--allowed-signers <file>` | Explicit release trust root for a local or private delivery |
+| `--dry-run` | Print the actual selected provisioning path without writes or password input |
+| `--yes` | Use defaults without prompting; still requires origin and password source |
+| `--uninstall` | Remove resources recorded for this prefix |
+| `--purge-state` | Also remove recorded volumes, state and key |
+| `--print-unit <name>` | Print an embedded unit template for review |
+| `--allow-root` | Allow installation under sudo from a login shell |
 
-## Remove
+A completed install rerun is a no-op. Another version must go through `zero
+update`. An incomplete prefix, nonempty state directory or existing master key
+is refused for inspection; the installer does not overwrite accounts, format
+an existing image or replace a key.
 
-```sh
-sh install.sh --uninstall
-sh install.sh --uninstall --purge-state
-```
+## Host and service modes
 
-Without `--purge-state` the state volume and `/etc/zero/master.key` are left
-alone, so a reinstall finds its store and its secrets. With it, the volume is
-unmounted and removed and the key is deleted.
+The installer requires Linux x64 or arm64, working unprivileged bubblewrap user
+namespaces, unified cgroup v2, `/dev/net/tun`, `slirp4netns`, `unshare`, git,
+flock, GNU tar, gzip, xz, sha256sum, ssh-keygen, coreutils and a POSIX shell. HTTPS
+downloads use curl or wget. Provisioned volumes additionally require fallocate,
+mkfs.ext4 and systemd. Service credentials require systemd 252 or newer.
+Writable deployment filesystems must have enforced capacity; a directory on an
+unbounded host filesystem does not satisfy the sandbox quota check.
 
-## What is tested, and what is not
+System mode creates a dedicated account and installs `zero.service`,
+`zero-update.service`, `zero-update.timer` and the required mount units. Split
+mode makes the supervisor depend on all reserved mounts before it starts. It gives
+`zero.service` `Delegate=yes`, writes root-owned code and configuration, and
+hands the root-only `/etc/zero/master.key` to the supervisor with
+`LoadCredential=`. TPM2 mode uses `LoadCredentialEncrypted=`. The supervisor
+reopens the credential for each kernel launch; the kernel reads descriptor 4.
+Back up that key: losing it loses access to sealed secrets.
 
-`test/installer.test.ts` runs this script inside the mandatory sandbox with
-`--prefix <tmp> --state <tmp> --no-mount --service none --yes` and a signed
-`file://` release built by `test/release-fixture.ts`. It pins: the ADR 0049
-refusal; the state-root limit; `--dry-run`'s exact privileged-step list against a
-golden file, and that a dry run writes nothing; that every embedded unit is
-byte-identical to its copy under `units/`; that a missing signature, a forged
-signature, an altered asset and a tag that resolves to another commit each stop
-the install **before any file exists under the prefix**; that a fresh install's
-seed validates against the deployment contract with `keyFd: 4` and a registry
-seed target; that `accounts.json` validates against the login authority's own
-schema and holds exactly one record; that neither the password nor the id
-reaches the installer's output; that a rerun is a no-op; and that `--uninstall`
-leaves the state alone without `--purge-state`.
+The release staging directory permits the service account to add candidates.
+Its sticky bit protects root-owned activated releases from rename or removal
+by that account. Applying a system-service release requires the host operator
+using sudo; it makes the candidate root-owned before activation. The timer
+has no write access to the serving link, installation configuration or Node.
 
-What is **not** tested here, because this host allows no privileged action:
-provisioning and mounting the loop image, creating the service account, writing
-`/etc/zero/master.key`, installing units, `systemctl`, and starting the service.
-Those are the section below, for the operator. A supervised kernel actually
-starting, updating and undoing *is* tested, separately, by
-`lib/maintenance/supervisor.test.ts`.
+User mode requires `--no-mount` and an existing delegation with cpu, memory and
+pids controllers available to the user's systemd manager. It installs units in
+`~/.config/systemd/user`, removes system-only account and filesystem settings,
+and enables both the service and timer through `systemctl --user`. It enables
+linger when needed and records whether it did so. A user service's credential
+is private to that user at `<prefix>/etc/master.key`; it does not provide the
+separation of a root-held system credential. TPM2 is refused in this mode.
 
-## First install on this host
-
-**This section is for the operator to run. Nothing in it has been executed** —
-this host allows no privileged action, no `/opt` or `/etc` writes, no real
-`systemctl`, and no `zero` account, so every automated test runs with
-`--prefix <tmp> --state <tmp> --no-mount --service none`. What follows is the
-real, privileged path, against a local release rather than a published one.
-
-Build the release and serve it, as your ordinary user, from the runtime checkout:
-
-```sh
-cd /tank/data/Dev/thetis-agent/runtime
-export THETIS_NODE=/home/bitmuse/.nvm/versions/node/v24.18.0/bin/node
-
-# 1 · the offline registry and profile, then the distribution archive
-"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/release.ts
-"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/distribution.ts /tmp/zero-release/v0.1.0
-
-# 2 · a throwaway release signing key (a real release uses the operator's key in CI)
-mkdir -p /tmp/zero-release/v0.1.0
-ssh-keygen -t ed25519 -N '' -C zero-release -f /tmp/zero-release/release-key
-printf 'release@thetis-agent namespaces="zero-release" %s\n' \
-  "$(cat /tmp/zero-release/release-key.pub)" > /tmp/zero-release/allowed_signers
-
-# 3 · the remaining assets, then the signed manifest
-cp profiles/default/{package.json,profile.lock.json,registry.json,registry.bundle} /tmp/zero-release/v0.1.0/
-"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/kernel-pins.ts > /tmp/zero-release/v0.1.0/kernel-pins.json
-# provenance.json and platform.txt: copy the shapes CI writes (.github/scripts/verify.sh),
-# with runtime.commit set to the commit you are installing and node.version to v24.18.0.
-cd /tmp/zero-release/v0.1.0
-sha256sum thetis-distribution.tar.gz package.json profile.lock.json registry.json \
-  registry.bundle provenance.json platform.txt kernel-pins.json > SHA256SUMS
-ssh-keygen -Y sign -n zero-release -f /tmp/zero-release/release-key SHA256SUMS
-
-# 4 · serve it on the loopback, in another terminal
-cd /tmp/zero-release && python3 -m http.server 8123 --bind 127.0.0.1
-```
-
-Then install, as root, from the runtime checkout's `install.sh`:
+Foreground mode writes the same verified installation without starting a
+service. Start it inside a delegated cgroup, supplying the private credential:
 
 ```sh
-sudo sh /tank/data/Dev/thetis-agent/runtime/install.sh \
-  --prefix /opt/zero --state /var/lib/z --state-size 4G \
-  --service system --user zero \
-  --operator admin --origin https://zero.example \
-  --release v0.1.0 --release-url http://127.0.0.1:8123 \
-  --allowed-signers /tmp/zero-release/allowed_signers \
-  --key-store file --auto-update none --allow-root --dry-run
+/opt/zero/node/current/bin/node --no-experimental-strip-types \
+  --import /opt/zero/current/lib/artifacts/register.mjs \
+  /opt/zero/current/kernel/supervisor-main.ts /opt/zero/etc/seed.json \
+  --release /opt/zero/current --state /var/lib/z --installation /opt/zero \
+  --credential /opt/zero/etc/master.key
 ```
 
-Read the printed privileged steps. There should be six, and no file should yet
-exist under `/opt/zero`. Then run the same command **without** `--dry-run`, and
-answer the two prompts: the administrator id (`admin`) and its password, typed
-twice, echo off.
+## Layout and proxy
 
-What to observe, in order:
+Code lives under `<prefix>/{bin,node,releases,etc}`. `current` selects the host
+operator tools and supervisor release. Each release retains signed assets under
+`.release/`, separately from its extracted code. The two different `package.json`
+files are therefore both preserved. The seed references retained release files.
 
-1. Preflight prints nothing and exits into the prompts. A failure is one
-   sentence naming the missing thing; fix it and rerun.
-2. Verification order in the log: signature, then checksums, then
-   `provenance.runtime.commit` equals the tag's commit, then extraction, then
-   pins and artifacts. **Nothing under `/opt/zero` before the signature passes.**
-3. `/var/lib/z.img` is created, `mkfs.ext4` runs once, and
-   `systemctl status var-lib-z.mount` is active before `zero.service` starts.
-   `stat -f -c '%S %b' /var/lib/z` should report a capacity equal to the
-   `quotaBytes` written into `/opt/zero/etc/recipe.json`.
-4. `journalctl -u zero` shows the supervisor's
-   `{"ok":true,"value":{"ready":true,…}}` line with its control socket path,
-   then the kernel's own `{"ok":true,"value":{"ready":true}}` row.
-5. `zero status` answers with `state LIVE generation 1 release …`, the socket
-   root, `update policy none`, and the sign-in line.
-6. `zero update --check` reports `Zero v0.1.0 is the newest version.` and writes
-   `/var/lib/z/updates/status.json`.
-7. Sign in through your TLS endpoint at `https://zero.example/login` as `admin`,
-   using the proxy rules the installer printed, and complete one turn.
-8. `systemctl stop zero` and `systemctl start zero`. The supervisor replays
-   observed generation records and probes recovered targets before printing
-   ready (ADR 0030). `zero status` should return to `LIVE`.
-9. Record the measurements in `docs/implementation-status.md`. **Idle RSS now
-   includes the supervisor**, a second Node process with the same heap flags as
-   the kernel, so the ADR 0041 figure must be re-measured rather than carried
-   over.
-10. Strike the "reproducible installation path to `/opt/zero`" item in
-    `TODO.md` §3 with the evidence line.
+State includes `kernel`, `supervisor`, `g`, `registry`, `cache`, `profile`,
+`discovery`, `initial`, person spaces, `login-state` and `updates`. The supervisor
+owns `<state>/supervisor.sock` mode 0600 and records its serving run in
+`supervisor/serving.json` beside its observed generation journal.
 
-To publish a second version and exercise the update path end to end, repeat
-steps 1–3 into `/tmp/zero-release/v0.1.1` with a bumped tag, then
-`zero update --check` and `zero update --apply --release v0.1.1`, then
-`zero undo`. Expect to sign in again for the undo, and to repoint the proxy
-after each — both are recorded above.
+`zero status` prints exact login, web and kernel-origin socket paths. Configure
+an HTTPS reverse proxy to route `/login` to the login socket and the person's
+path to their web socket, including WebSocket upgrades. Keep the trusted kernel
+origin on its separately reviewed origin. See [headless startup](headless-startup.md)
+for the proxy boundary and origin checks.
+
+Public target sockets use `<state>/live/targets/<digest>/runs/public/current.sock`.
+`live` is an atomically replaced host alias to the serving private store. These
+proxy paths stay stable through update, undo and restart (ADR 0052). Actual
+private stores remain short per-generation directories under `g` (ADR 0050).
+Whole deployment exports have a separate 65,536-entry bound; individual code
+pins keep their 10,000-entry limit (ADR 0053).
+
+## Update and undo
+
+Use the absolute launcher path unless you have added `<prefix>/bin` to PATH:
+
+```sh
+/opt/zero/bin/zero status
+/opt/zero/bin/zero update --check
+sudo /opt/zero/bin/zero update --apply
+sudo /opt/zero/bin/zero undo
+sudo /opt/zero/bin/zero prune-releases
+```
+
+User and foreground installations run these commands as their owning account.
+`--password-fd` supplies credentials noninteractively for apply or undo.
+`update --apply --release v0.1.1` selects an explicit release. Without that flag,
+apply selects the version recorded by the most recent check.
+
+The hourly timer discovers annotated runtime tags, selects a newer release
+within the current major, downloads bounded assets, verifies them, and writes
+`updates/status.json`. An existing staged directory is reverified. A competing
+staging operation is reported as unverified. The default `autoupdate` package
+reads the notice through a read-only mount; it has no network or apply authority.
+
+Apply rechecks the tag, signature, assets and code at the supervisor boundary,
+authenticates through the installed login target, and asks the running kernel
+to resolve the administrator's session. GN-007 drains and freezes writers,
+captures state, probes the candidate and every connected client major, then
+promotes through the generation machine. A failed candidate restores the serving
+kernel. Undo takes the machine's undo edge and restores the previous stopped
+store and code in a fresh generation. Restart recovers the serving checkpoint
+against observed history instead of returning to the original seed.
+
+`prune-releases` retains live and previous code and stores. It retires obsolete
+maintenance workspaces and snapshots under transaction exclusion and coordinates
+release deletion with applying updates.
+
+A release changing Node or `lib/maintenance` requires an explicit service
+migration; hot apply reports that requirement and leaves the kernel serving.
+For a supervisor-only change with the same Node, review and verify the staged
+release, stop the service, switch the host `current` link to that release, and
+start the service. Recovery keeps the last serving kernel; authenticate and apply
+the new kernel after the supervisor is ready. Cross-Node migration requires a
+separately reviewed Node installation and compatible retained execution artifacts.
+The timer never restarts the service.
+
+Unattended apply policies `fixes` and `improvements` remain refused by
+[ADR 0049](adr/0049-pre-authorised-kernel-updates.md). That record is Proposed;
+accepting it requires the operator's explicit policy decision and implementation
+of its authority. Default-profile promotion remains a separate reviewer act.
+
+## Removal and recovery
+
+```sh
+sudo sh install.sh --allow-root --prefix /opt/zero --uninstall --dry-run
+sudo sh install.sh --allow-root --prefix /opt/zero --uninstall
+```
+
+Uninstall reads the recorded service mode, account, unit directory, key and
+volume choices. It stops the correct manager's service and timer. It preserves
+state and keys unless `--purge-state` is provided. User/foreground keys are copied
+to `<state>/retained-master.key` before their code prefix is removed. Mount units
+remain when their retained state volume remains. Purging stops and removes those
+mount units and images; only installer-created accounts and linger are removed.
+An externally supplied mount stays mounted when purged; its contents are removed.
+Stop a foreground supervisor before uninstalling it.
+
+A failed install leaves its incomplete prefix for inspection. Read the service
+journal before changing files. A missing or invalid serving checkpoint is a
+recovery error, not permission to boot the initial seed. Restore the retained
+checkpoint and observed journal together from backup. A `FAILED` generation
+requires a reviewed recovery reset; `undo` cannot bypass that state.
+
+## Verification
+
+Automated tests use mandatory bubblewrap, delegated cgroups, bounded temporary
+filesystems, signed local release repositories and test-only keys. They exercise
+bootstrap without Node on PATH, tamper refusal, installation choices, service
+rendering, uninstall, the real installed launcher, administrator authentication,
+update, undo, restart and retention. System manager commands and TPM provisioning
+are external edges in mode tests. Actual privileged host provisioning and an
+external TLS proxy are separate acceptance steps; automated fixture results do
+not claim that this host was installed or a public release was published.

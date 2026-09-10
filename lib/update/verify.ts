@@ -11,8 +11,8 @@ import type { Tag } from './refs.ts';
 
 export const verifyLimits = { sumsBytes: 65536, provenanceBytes: 65536, pinsBytes: 65536, assetBytes: 134217728, deadlineMs: 60000, pins: 64 };
 
-/** The eight assets a GitHub Release for this repository carries, matching docs/ci-delivery.md. */
-const releaseAssets = ['thetis-distribution.tar.gz', 'package.json', 'profile.lock.json', 'registry.json', 'registry.bundle', 'provenance.json', 'platform.txt', 'kernel-pins.json'] as const;
+/** The nine assets a GitHub Release for this repository carries, matching docs/ci-delivery.md. */
+const releaseAssets = ['thetis-distribution.tar.gz', 'package.json', 'profile.lock.json', 'registry.json', 'registry.bundle', 'provenance.json', 'platform.txt', 'kernel-pins.json', 'install.sh'] as const;
 
 export interface Provenance {
   version: 1;
@@ -86,7 +86,7 @@ async function verifiedPins(root: string, schemas: Schemas): Promise<Result<Pins
 }
 
 /** Verify a locally staged release directory against an embedded `allowed_signers` file and the
- * commit the release tag peeled to. `dir` holds the eight assets named in `releaseAssets` plus
+ * commit the release tag peeled to. `dir` holds the nine assets named in `releaseAssets` plus
  * `SHA256SUMS.sig`; the caller resolves the tag and downloads the assets. */
 export async function verifyRelease(dir: string, options: VerifyOptions, schemas: Schemas): Promise<Result<Verified>> {
   let root: string;
@@ -95,13 +95,25 @@ export async function verifyRelease(dir: string, options: VerifyOptions, schemas
   const signed = await run('/usr/bin/ssh-keygen', ['-Y', 'verify', '-f', options.allowedSigners, '-I', options.signer, '-n', 'zero-release', '-s', join(root, 'SHA256SUMS.sig')],
     { cwd: root, input: sums.value, deadlineMs: verifyLimits.deadlineMs, outputBytes: verifyLimits.sumsBytes });
   if (!signed.ok) return toolFailure(signed, 'forbidden', 'The release SHA256SUMS signature could not be verified against the allowed signer.');
+  const names = assetNames(sums.value); if (!names.ok) return names;
   const checked = await run('/usr/bin/sha256sum', ['--check', '--strict', 'SHA256SUMS'], { cwd: root, deadlineMs: verifyLimits.deadlineMs, outputBytes: verifyLimits.sumsBytes });
   if (!checked.ok) return toolFailure(checked, 'hash-mismatch', 'The release assets do not match their signed SHA256SUMS checksums.');
-  const names = assetNames(sums.value); if (!names.ok) return names;
   const provenance = await verifiedProvenance(root, schemas); if (!provenance.ok) return provenance;
   if (provenance.value.runtime.commit !== options.tag.commit) return failure('conflict', `provenance.json's runtime commit does not match tag ${options.tag.tag}.`);
   const pins = await verifiedPins(root, schemas); if (!pins.ok) return pins;
   return { ok: true, value: { provenance: provenance.value, pins: pins.value.pins, entry: pins.value.entry } };
+}
+
+/** Retain signed assets separately: the profile package.json and distribution package.json are different files. */
+export async function verifyInstalled(root: string, options: VerifyOptions, schemas: Schemas): Promise<Result<Verified>> {
+  const verified = await verifyRelease(join(root, '.release'), options, schemas); if (!verified.ok) return verified;
+  if (verified.value.provenance.node.version !== process.version) return failure('unsupported', `This release requires Node ${verified.value.provenance.node.version}; an explicit service migration is required.`);
+  const manifest = await verifiedPins(root, schemas); if (!manifest.ok) return manifest;
+  if (manifest.value.entry !== verified.value.entry || JSON.stringify(manifest.value.pins) !== JSON.stringify(verified.value.pins)) {
+    return failure('hash-mismatch', 'The installed kernel manifest differs from its signed release manifest.');
+  }
+  const pinned = await verifyPins(root, verified.value.pins);
+  return pinned.ok ? verified : pinned;
 }
 
 /** Verify an extracted release tree's kernel code pins and ADR 0037 execution artifacts, after
