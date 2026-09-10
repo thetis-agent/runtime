@@ -10,11 +10,12 @@ import { isObject } from '../lib/schema/index.ts';
 export interface HttpAnswer { status: number; headers: IncomingHttpHeaders; body: string }
 
 /** Perform one plain HTTP request over the gateway's Unix socket, outside the WebSocket wire; ADR 0038 §4. */
-export function httpGet(socketPath: string, urlPath: string, options: { cookie?: string; accept?: string; method?: string } = {}): Promise<HttpAnswer> {
+export function httpGet(socketPath: string, urlPath: string, options: { cookie?: string; accept?: string; method?: string; prefix?: string } = {}): Promise<HttpAnswer> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = {};
     if (options.cookie !== undefined) headers['cookie'] = options.cookie;
     if (options.accept !== undefined) headers['accept'] = options.accept;
+    if (options.prefix !== undefined) headers['x-forwarded-prefix'] = options.prefix;
     const request = httpRequest({ socketPath, path: urlPath, method: options.method ?? 'GET', headers }, response => {
       const chunks: Buffer[] = [];
       response.on('data', (chunk: Buffer) => { chunks.push(chunk); });
