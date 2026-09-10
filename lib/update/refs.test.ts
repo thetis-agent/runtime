@@ -14,7 +14,7 @@ function advertisement(lines: readonly string[]): Buffer {
   return Buffer.from(pkt(`# service=git-upload-pack\n`) + flush + lines.map(pkt).join('') + flush, 'utf8');
 }
 
-await test('A realistic advertisement yields only the two release tags, peeling the annotated one', () => {
+await test('A realistic advertisement admits annotated release tags and ignores lightweight and compatibility tags', () => {
   const head = sha('1'); const tagObject = sha('2'); const commit = sha('3'); const lightweight = sha('4'); const compat = sha('5'); const rc = sha('6');
   const lines = [
     `${head} refs/heads/main\0${capabilities}\n`,
@@ -25,7 +25,7 @@ await test('A realistic advertisement yields only the two release tags, peeling 
     `${rc} refs/tags/v1.0.0-rc.1\n`,
   ];
   const result = parseTags(advertisement(lines));
-  assert.deepEqual(result, { ok: true, value: [{ tag: 'v0.1.0', commit }, { tag: 'v0.1.1', commit: lightweight }] });
+  assert.deepEqual(result, { ok: true, value: [{ tag: 'v0.1.0', commit }] });
 });
 
 await test('An empty repository advertising only capabilities^{} returns no tags', () => {

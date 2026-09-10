@@ -14,12 +14,13 @@ import { exportDeployment } from '@/lib/deployment/store-export.ts';
 import { delegate } from '@/lib/sandbox-runner/cgroup.ts';
 import { Service } from '@/lib/service/lifecycle.ts';
 import { socketFrames, send } from '@/lib/ndjson/socket.ts';
-import type { Generation, Generations } from '@/kernel/generations/index.ts';
+import type { Generation, Generations, View } from '@/kernel/generations/index.ts';
 import type { Journal } from '@/kernel/log/index.ts';
 import { Maintenance } from './index.ts';
 import { kernelRevision } from './pins.ts';
 import schema from './schema.json' with { type: 'json' };
 import type { Control } from './types.ts';
+import { authorizeRelease } from '@/lib/update/authorize.ts';
 
 // A target endpoint costs 76 bytes after the kernel root and a generation store name costs up to 13, against the 107-byte unix limit (ADR 0050).
 export const supervisorLimits = { commandBytes: 65536, commands: 256, stateRootBytes: 18 };
@@ -29,10 +30,10 @@ const kernelMajor = '1';
 
 /** The generation machine and the journal stay kernel authority; the supervisor receives them rather than importing them (AGENTS.md kernel rules). */
 export interface Authority {
-  machine: new (target: string, initial: Generation, journal: Journal, now: () => number) => Generations;
+  machine: new (target: string, initial: Generation, journal: Journal, now: () => number, settings?: undefined, recovered?: View) => Generations;
   journal: { open(path: string, now: () => number): Promise<Result<Journal, 'io'>> };
 }
-export interface Arguments { seed: string; release: string; state?: string; credential?: string; delegated: boolean }
+export interface Arguments { seed: string; release: string; state?: string; credential?: string; installation?: string; delegated: boolean }
 export interface Roots { state: string; supervisor: string; stores: string; control: string }
 
 export function roots(args: Arguments, root: string): Result<Roots> {
@@ -49,13 +50,13 @@ export function parse(argv: readonly string[]): Result<Arguments> {
     if (argument === '--delegate') { delegated = true; continue; }
     if (!argument.startsWith('--')) { positional.push(argument); continue; }
     const value = argv[++index];
-    if (!['--release', '--state', '--credential'].includes(argument) || value === undefined) return failure('invalid-args', `The supervisor does not accept ${argument}.`);
+    if (!['--release', '--state', '--credential', '--installation'].includes(argument) || value === undefined) return failure('invalid-args', `The supervisor does not accept ${argument}.`);
     flags.set(argument, value);
   }
   const seed = positional[0];
   if (!seed || positional.length > 1) return failure('invalid-args', 'The supervisor requires exactly one deployment configuration path.');
   const release = flags.get('--release') ?? dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-  return { ok: true, value: { seed, release, delegated, ...flags.has('--state') ? { state: flags.get('--state') ?? '' } : {}, ...flags.has('--credential') ? { credential: flags.get('--credential') ?? '' } : {} } };
+  return { ok: true, value: { seed, release, delegated, ...flags.has('--state') ? { state: flags.get('--state') ?? '' } : {}, ...flags.has('--credential') ? { credential: flags.get('--credential') ?? '' } : {}, ...flags.has('--installation') ? { installation: flags.get('--installation') ?? '' } : {} } };
 }
 
 /** A descriptor's offset advances after the kernel reads its 32 bytes, so every launch reopens the credential (ADR 0048). */
@@ -75,10 +76,11 @@ function credentials(path: string): { next(): Promise<Result<readonly number[]>>
 class ControlEndpoint {
   readonly #maintenance: Maintenance; readonly #schemas: Schemas; readonly #configuration: Configuration;
   readonly #service: Service; readonly ended = Promise.withResolvers<undefined>();
-  #releases: { current: string; previous?: string }; #commands = 0;
-  constructor(maintenance: Maintenance, schemas: Schemas, config: Configuration, current: string) {
+  readonly #installation: string | undefined;
+  readonly #updates: string;
+  constructor(maintenance: Maintenance, schemas: Schemas, config: Configuration, updates: string, installation?: string) {
     this.#maintenance = maintenance; this.#schemas = schemas; this.#configuration = config;
-    this.#service = new Service(clock, supervisorService, 'io'); this.#releases = { current };
+    this.#service = new Service(clock, supervisorService, 'io'); this.#installation = installation; this.#updates = updates;
   }
   async open(path: string): Promise<Result<void>> {
     const opened = await this.#service.open(path, connection => this.#serve(connection.socket, connection.admitted), result => { if (!result.ok) process.stderr.write(`${JSON.stringify(result)}\n`); });
@@ -90,9 +92,10 @@ class ControlEndpoint {
   async #serve(socket: Socket, admitted: () => void): Promise<Result<void>> {
     const check = this.#schemas.compile<Control>({ ...schema, $id: 'thetis://internal/maintenance/control', $ref: '#/$defs/control' });
     admitted();
+    let commands = 0;
     for await (const row of socketFrames(socket)) {
       if (!row.ok) return row;
-      if (++this.#commands > supervisorLimits.commands) return failure('budget', 'The supervisor control command pool is exhausted.');
+      if (++commands > supervisorLimits.commands) return failure('budget', 'The supervisor connection command budget is exhausted.');
       if (!check(row.value) || Buffer.byteLength(JSON.stringify(row.value)) > supervisorLimits.commandBytes) return failure('invalid-args', 'The supervisor control command is invalid.');
       const command = row.value; const result = await this.#execute(command);
       const sent = await send(socket, { id: command.id, ...result.ok ? { ok: true, value: result.value } : { ok: false, error: result.error } });
@@ -103,9 +106,10 @@ class ControlEndpoint {
   }
   async #execute(command: Control): Promise<Result<unknown>> {
     switch (command.method) {
-      case 'status': return { ok: true, value: { view: this.#maintenance.machine.view, release: this.#releases.current, previous: this.#releases.previous ?? null, endpoint: this.#maintenance.endpoint, state: this.#maintenance.state } };
+      case 'status': return { ok: true, value: { view: this.#maintenance.machine.view, release: this.#maintenance.release, previous: this.#maintenance.previousRelease ?? null, endpoint: this.#maintenance.endpoint, state: this.#maintenance.state } };
       case 'update': return this.#apply(command, command.release);
-      case 'undo': return this.#apply(command, this.#releases.previous);
+      case 'undo': return this.#apply(command, this.#maintenance.previousRelease);
+      case 'prune': return this.#maintenance.prune();
       case 'stop': return { ok: true, value: undefined };
     }
   }
@@ -114,9 +118,15 @@ class ControlEndpoint {
     if (command.session === undefined || command.baseline === undefined) return failure('invalid-args', 'A supervisor update requires an administrator session and the baseline it was prepared against.');
     const caller = await this.#maintenance.whois(command.session); if (!caller.ok) return caller;
     if (caller.value.role !== 'admin') return failure('forbidden', 'Kernel maintenance requires an administrator.');
+    const lock = await exclusive(this.#updates, clock); if (!lock.ok) return lock;
+    try { return await this.#authorized(command, release); } finally { await lock.value.close(); }
+  }
+  async #authorized(command: Control, release: string): Promise<Result<void>> {
+    if (command.baseline === undefined) return failure('invalid-args', 'A maintenance command requires its baseline.');
+    if (this.#installation) { const verified = await authorizeRelease(this.#installation, release, this.#schemas); if (!verified.ok) return verified; }
+    if (command.method === 'undo') return this.#maintenance.undo(command.baseline, true);
     const revision = await kernelRevision(release, this.#configuration, this.#schemas); if (!revision.ok) return revision;
     const applied = await this.#maintenance.upgrade(revision.value, command.baseline, true); if (!applied.ok) return applied;
-    this.#releases = { current: release, previous: this.#releases.current };
     return { ok: true, value: undefined };
   }
 }
@@ -130,7 +140,7 @@ async function serve(args: Arguments, config: Configuration, administrator: stri
   const keys = args.credential === undefined ? undefined : credentials(args.credential);
   const started = await start(args, config, administrator, schemas, authority, { root: supervisor, stores, journal: journal.value, keys });
   if (!started.ok) { await journal.value.close(); await keys?.close(); return started; }
-  const endpoint = new ControlEndpoint(started.value, schemas, config, args.release);
+  const endpoint = new ControlEndpoint(started.value, schemas, config, join(places.value.state, 'updates'), args.installation);
   const opened = await endpoint.open(control);
   if (opened.ok) {
     process.stdout.write(`${JSON.stringify({ ok: true, value: { ready: true, endpoint: started.value.endpoint, control } })}\n`);
@@ -147,8 +157,9 @@ async function start(args: Arguments, config: Configuration, administrator: stri
   const revision = await kernelRevision(args.release, config, schemas); if (!revision.ok) return revision;
   const keys = held.keys;
   return Maintenance.start({
-    root: held.root, stateRoot: held.stores, schemas, clock, administrator, currentMajor: kernelMajor, capture: exportDeployment,
-    machine: initial => new authority.machine('kernel', initial, held.journal, () => Date.now()),
+    root: held.root, stateRoot: held.stores, schemas, clock, administrator, currentMajor: kernelMajor, capture: exportDeployment, durable: true,
+    machine: (initial, recovered) => new authority.machine('kernel', initial, held.journal, () => Date.now(), undefined, recovered),
+    initial: view => held.journal.observed('kernel', 'generation.initial', { snapshot: view }),
     ...keys ? { descriptors: () => keys.next() } : {},
   }, revision.value, config.root);
 }

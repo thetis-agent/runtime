@@ -73,8 +73,8 @@ async function ready(path: string, running: Promise<unknown>): Promise<void> {
 }
 
 async function admin(state: string, stores: string): Promise<string> {
-  const generation = (await readdir(stores)).sort().at(-1); assert.ok(generation, 'The supervised kernel published no generation store.');
-  const endpoint = join(stores, generation, 'targets', createHash('sha256').update('authority').digest('base64url'), 'runs/public/current.sock');
+  assert.ok((await readdir(stores)).length > 0, 'The supervised kernel published no generation store.');
+  const endpoint = join(state, 'live', 'targets', createHash('sha256').update('authority').digest('base64url'), 'runs/public/current.sock');
   assert.ok(Buffer.byteLength(endpoint) <= 107, `${endpoint} exceeds the Linux socket path limit at ${String(Buffer.byteLength(endpoint))} bytes.`);
   const asserted = await authority(endpoint, 'identity.assert', { kind: 'password', id: 'external-admin', evidence: {} });
   assert.equal(asserted['ok'], true, JSON.stringify(asserted)); assert.ok(isObject(asserted['value']));
@@ -132,13 +132,14 @@ await test('GN-007 the supervisor answers status, refuses maintenance without an
   const path = await seed(state); const places = roots({ seed: path, release: releases, state, delegated: false }, join(state, 'k'));
   assert.ok(places.ok, JSON.stringify(places));
   const first = await published(join(releases, 'a')); const second = await published(join(releases, 'b'));
-  const running = supervise([path, '--state', state, '--release', first], held);
+  let running = supervise([path, '--state', state, '--release', first], held);
   try {
     await ready(places.value.control, running);
     const initial = await control(places.value.control, { id: '1', method: 'status' });
     assert.equal(initial['ok'], true, JSON.stringify(initial)); assert.ok(isObject(initial['value'])); assert.ok(isObject(initial['value']['view']));
     assert.equal(initial['value']['view']['state'], 'LIVE'); assert.equal(initial['value']['release'], first); assert.equal(initial['value']['previous'], null);
     assert.ok(isObject(initial['value']['view']['current'])); assert.equal(initial['value']['view']['current']['n'], 1);
+    await writeFile(join(state, 'live/retained-marker'), 'before-update');
     const anonymous = await control(places.value.control, { id: '2', method: 'update', release: second, baseline: 1 });
     assert.equal(anonymous['ok'], false); assert.ok(isObject(anonymous['error'])); assert.equal(anonymous['error']['code'], 'invalid-args');
     const forged = await control(places.value.control, { id: '3', method: 'update', release: second, baseline: 1, session: 'forged' });
@@ -150,15 +151,29 @@ await test('GN-007 the supervisor answers status, refuses maintenance without an
     const promoted = await control(places.value.control, { id: '5', method: 'status' });
     assert.ok(isObject(promoted['value']) && isObject(promoted['value']['view']) && isObject(promoted['value']['view']['current']));
     assert.equal(promoted['value']['view']['state'], 'LIVE'); assert.equal(promoted['value']['view']['current']['n'], 2); assert.equal(promoted['value']['release'], second);
+    assert.equal(await readFile(join(state, 'live/retained-marker'), 'utf8'), 'before-update');
+    await writeFile(join(state, 'live/retained-marker'), 'after-update');
     const undone = await control(places.value.control, { id: '6', method: 'undo', baseline: 2, session: await admin(state, places.value.stores) });
     assert.equal(undone['ok'], true, JSON.stringify(undone));
     const restored = await control(places.value.control, { id: '7', method: 'status' });
     assert.ok(isObject(restored['value']) && isObject(restored['value']['view']) && isObject(restored['value']['view']['current']));
     assert.equal(restored['value']['view']['current']['n'], 3); assert.equal(restored['value']['release'], first);
+    assert.equal(await readFile(join(state, 'live/retained-marker'), 'utf8'), 'before-update', 'Undo must restore the previous stopped store.');
+    await writeFile(join(state, 'live/retained-marker'), 'after-undo');
     const rows = await readFile(join(places.value.supervisor, 'observed.jsonl'), 'utf8');
     assert.equal(rows.split('\n').filter(row => row.includes('"target":"kernel"') && row.includes('"to":"LIVE"')).length, 2);
     assert.equal((await control(places.value.control, { id: '8', method: 'stop' }))['ok'], true);
     const closed = await running; assert.ok(closed.ok, JSON.stringify(closed));
+    running = supervise([path, '--state', state, '--release', first], held);
+    await ready(places.value.control, running);
+    const rebooted = await control(places.value.control, { id: '9', method: 'status' });
+    assert.ok(isObject(rebooted['value']) && isObject(rebooted['value']['view']) && isObject(rebooted['value']['view']['current']));
+    assert.equal(rebooted['value']['view']['current']['n'], 4);
+    assert.equal(rebooted['value']['release'], first); assert.equal(rebooted['value']['previous'], second);
+    assert.equal(await readFile(join(state, 'live/retained-marker'), 'utf8'), 'after-undo', 'A restart discarded the serving store.');
+    assert.ok(await admin(state, places.value.stores));
+    const pruned = await control(places.value.control, { id: '10', method: 'prune' }); assert.equal(pruned['ok'], true, JSON.stringify(pruned));
+    assert.equal((await readdir(places.value.stores)).length, 2, 'Only live and previous stores should remain.');
   } finally {
     await halt(places.value.control); await Promise.race([running, new Promise(resolve => setTimeout(resolve, 30000))]);
     await rm(state, { recursive: true, force: true }); await rm(releases, { recursive: true, force: true });

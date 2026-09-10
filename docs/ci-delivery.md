@@ -26,7 +26,7 @@ The pipeline performs these blocking checks:
 | Locked `npm ci --ignore-scripts` bootstrap | Exact reviewed dependency closure, no lifecycle scripts |
 | Bounded offline artifact build | ADR 0037: sources remain editable; generated JavaScript records source/output hashes and Node version |
 | `scripts/check.ts` | Committed contract types, schema validators and loader freshness; strict TypeScript; zero-warning lint; artifact freshness |
-| `scripts/size.ts` and kernel name scan | 1,300-line kernel budget excluding comment-only lines (ADR 0039), with physical/excluded totals; package ignorance |
+| `scripts/size.ts` and kernel name scan | 1,300-line kernel budget excluding comments, whitespace and static imports (ADR 0051), with physical/excluded totals; package ignorance |
 | Fresh `scripts/release.ts` output | Real immutable registry objects, matching profile pins and bundle checksum |
 | Complete `scripts/test.ts` | All runtime/package tests, conformance inventory, dependants, socket compatibility, evaluator isolation, generation recovery, deployment smoke, latency and RSS limits |
 
@@ -49,7 +49,7 @@ Logs and source provenance are retained on failures. Any failed check blocks
 candidate upload and publishing; tests, size and performance are never allowed
 to fail silently. Existing kernel-size, memory or latency failures must be fixed
 in the product before a release can pass. As of this revision the kernel measures
-1,387 counted lines against the 1,300-line budget at the time of writing, so no release can be published
+1,423 counted lines against the 1,300-line budget at the time of writing, so no release can be published
 until that gate is green. The complete suite already runs the acceptance
 measurements, so CI does not run `bench` a second time.
 
@@ -75,8 +75,10 @@ measurements, so CI does not run `bench` a second time.
 5. Allow the publishing job's `contents: write` permission. Checkout/build jobs
    have read-only tokens and never persist git credentials. The publishing job
    downloads the same run's verified artifact and executes no candidate code.
-6. `RELEASE_SIGNING_KEY` is an operator-held secret naming the private key that
-   signs `SHA256SUMS` (ADR 0048); rotating it ships a new line in the installed
+6. Store the private signing key contents as `RELEASE_SIGNING_KEY` in the protected
+   runtime `release` environment. Only the publication job reads it; CI and
+   candidate execution receive no signing key (ADR 0052). It signs `SHA256SUMS`
+   after the installer receives the reviewed tag and public trust root; rotating it ships a new line in the installed
    `allowed_signers` file in a release signed with the key being retired, never
    by rewriting history.
 
@@ -114,13 +116,16 @@ Each GitHub Release contains:
   revisions, Node identity (version and per-platform release-tarball checksums),
   generator identity, workflow/run link, boundary-tool inventory, checksums and
   the checksum file's `ssh-keygen -Y sign` signature (ADR 0048).
+- `install.sh`: the standalone installer with this release's tag and public signing
+  identity, included in the signed asset list. Source fragments and generated
+  output are checked for freshness before delivery.
 - `kernel-pins.json`: the tree hash of each kernel code pin directory (`kernel`,
   `lib`, `contracts`, the vendored production dependency closure and `packages`),
   checked against the extracted archive before the supervised kernel service
   applies an update (ADR 0048).
 
-The archive normalizes ordering, timestamps and owner metadata. Node and Linux
-boundary tools are platform prerequisites; the archive includes the production
+The archive normalizes ordering, timestamps and owner metadata. Linux boundary tools are platform prerequisites; the installer downloads the exact
+Node archive whose x64 or arm64 digest is in signed provenance; the archive includes the production
 JavaScript dependencies so installation needs no npm network access. GitHub
 Release tags label deliveries; they do not replace per-package immutable registry
 versions, the allowlisted registry, or kernel installation hash checks.
@@ -170,3 +175,10 @@ path itself against a local, offline, signed release fixture assembled directly
 from `scripts/release.ts` and `scripts/distribution.ts` output, signed with a
 throwaway key generated inside the test rather than a real `RELEASE_SIGNING_KEY`
 (`test/release-fixture.ts`, ADR 0048).
+
+Installer publication embeds the publishing repository's asset URL. The runtime
+repository remains the tag authority. A package-repository release therefore
+requires the same annotated version tag in runtime at the reviewed peer commit;
+its build refuses a missing or mismatched runtime tag. Both workflows require
+annotated release tags. The ordinary CI verification job never receives a release
+signing key; only the protected publication job signs the verified delivery.

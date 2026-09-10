@@ -9,6 +9,8 @@ export const installLimits = { fileBytes: 65536 };
 export interface Install {
   version: 1; prefix: string; state: string; release: string; remote: string; releaseUrl: string;
   allowedSigners: string; signer: string; policy: Policy; origin: string; operator: string; login: string; service: 'system' | 'user' | 'none';
+  serviceUser?: string; stateLayout?: 'one' | 'split'; noMount?: boolean; keyStore?: 'file' | 'tpm2';
+  credential?: string; unitDirectory?: string; lingerCreated?: boolean; userCreated?: boolean;
 }
 
 const path = { type: 'string', minLength: 1, maxLength: 4096 } as const;
@@ -19,6 +21,8 @@ const installSchema = {
     remote: path, releaseUrl: path, allowedSigners: path, signer: { type: 'string', minLength: 1, maxLength: 256 },
     policy: { enum: ['none', 'fixes', 'improvements'] }, origin: path, operator: { type: 'string', minLength: 1, maxLength: 128 },
     login: { type: 'string', minLength: 1, maxLength: 128 }, service: { enum: ['system', 'user', 'none'] },
+    serviceUser: path, stateLayout: { enum: ['one', 'split'] }, noMount: { type: 'boolean' }, keyStore: { enum: ['file', 'tpm2'] },
+    credential: path, unitDirectory: { type: 'string' }, lingerCreated: { type: 'boolean' }, userCreated: { type: 'boolean' },
   },
 } as const;
 

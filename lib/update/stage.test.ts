@@ -32,7 +32,7 @@ await test('the release advertisement yields only release tags, with an annotate
   try {
     const built = await remote(root);
     const listed = await tags(`file://${built.path}`); assert.ok(listed.ok, JSON.stringify(listed));
-    assert.deepEqual(listed.value.map(tag => tag.tag), ['v0.1.0', 'v0.1.1']);
+    assert.deepEqual(listed.value.map(tag => tag.tag), ['v0.1.0']);
     for (const tag of listed.value) assert.equal(tag.commit, built.commit);
     const absent = await tags(`file://${join(root, 'missing')}`); assert.equal(absent.ok, false);
   } finally { await rm(root, { recursive: true, force: true }); }
@@ -53,12 +53,27 @@ await test('GN-002 a release is staged beside the serving one, refuses a second 
     assert.ok((await readdir(releases)).every(name => !name.startsWith('.staging.')));
     assert.ok((await readdir(staged.value.path)).includes('kernel'), 'The staged release keeps its extracted tree.');
     const again = await stage(`file://${published}`, tag, options, schemas);
-    assert.equal(again.ok, false); assert.equal(again.error.code, 'conflict');
+    assert.ok(again.ok, JSON.stringify(again));
+    await writeFile(join(staged.value.path, 'lib/update/package.json'), '{}');
+    const tampered = await stage(`file://${published}`, tag, options, schemas);
+    assert.equal(tampered.ok, false); assert.equal(tampered.error.code, 'hash-mismatch');
     await rm(staged.value.path, { recursive: true, force: true });
     const asset = join(fixture.dir, 'registry.json');
     await writeFile(asset, (await readFile(asset, 'utf8')).replace(/[0-9]/u, digit => digit === '9' ? '8' : String(Number(digit) + 1)));
     const refused = await stage(`file://${published}`, tag, options, schemas);
     assert.equal(refused.ok, false); assert.equal(refused.error.code, 'hash-mismatch');
     assert.deepEqual(await readdir(releases), []);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+await test('an in-progress staging directory and a traversal tag never count as a verified release', async () => {
+  const root = await mkdtemp('/tmp/staging-'); const schemas = new Schemas(); await schemas.load();
+  try {
+    const options = { releases: root, allowedSigners: '/unused', signer: 'release@thetis-agent' };
+    await mkdir(join(root, '.staging.v0.1.0'));
+    const busy = await stage('file:///unused', { tag: 'v0.1.0', commit: 'a'.repeat(40) }, options, schemas);
+    assert.equal(busy.ok, false); assert.equal(busy.error.code, 'conflict');
+    const outside = await stage('file:///unused', { tag: '../outside', commit: 'a'.repeat(40) }, options, schemas);
+    assert.equal(outside.ok, false); assert.equal(outside.error.code, 'invalid-args');
   } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -7,9 +7,10 @@ import { sourceFlags } from '@/lib/artifacts/index.ts';
 async function shell(): Promise<number> {
   const scripts = ['install.sh', '.github/scripts/verify.sh', '.github/scripts/kernel-boundary.sh', '.github/scripts/prepare-runner.sh'];
   const parsed = await execute('/bin/sh', ['-n', 'install.sh']);
+  const generated = await execute(process.execPath, [...sourceFlags(), 'scripts/installer.ts', '--check']);
   const available = await execute('/bin/sh', ['-c', 'command -v shellcheck >/dev/null 2>&1']);
-  if (available !== 0) { process.stdout.write('shellcheck is absent; install.sh was parsed but not linted.\n'); return parsed; }
-  return Math.max(parsed, await execute('shellcheck', ['--severity=warning', ...scripts]));
+  if (available !== 0) { process.stdout.write('shellcheck is absent; install.sh was parsed but not linted.\n'); return Math.max(parsed, generated); }
+  return Math.max(parsed, generated, await execute('shellcheck', ['--severity=warning', ...scripts]));
 }
 
 if (!process.argv.includes('--workspace')) {

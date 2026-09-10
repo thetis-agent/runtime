@@ -12,7 +12,7 @@ User=@USER@
 Group=@USER@
 Delegate=yes
 LoadCredential=master:/etc/zero/master.key
-ExecStart=/bin/sh -c 'exec @PREFIX@/node/current/bin/node --max-old-space-size=32 --max-semi-space-size=1 --no-experimental-strip-types --import @PREFIX@/current/lib/artifacts/register.mjs @PREFIX@/current/kernel/supervisor-main.ts @PREFIX@/etc/seed.json --release @PREFIX@/current --state @STATE@ --credential "$CREDENTIALS_DIRECTORY/master" --delegate'
+ExecStart=/bin/sh -c 'exec @PREFIX@/node/current/bin/node --max-old-space-size=32 --max-semi-space-size=1 --no-experimental-strip-types --import @PREFIX@/current/lib/artifacts/register.mjs @PREFIX@/current/kernel/supervisor-main.ts @PREFIX@/etc/seed.json --release @PREFIX@/current --state @STATE@ --installation @PREFIX@ --credential "$CREDENTIALS_DIRECTORY/master" --delegate'
 KillMode=mixed
 TimeoutStopSec=90
 MemoryMax=2G

@@ -49,6 +49,7 @@ async function run(control: string): Promise<void> {
   if (!tests.length) throw new Error('No tests match the requested workspace paths.');
   const passwd = await accounts();
   const args = [...namespace(runtime, 67108864), '--size', '67108864', '--tmpfs', '/packages', '--size', '536870912', '--tmpfs', '/assembly',
+    '--size', '536870912', '--tmpfs', '/installation', '--size', '1073741824', '--tmpfs', '/d',
     '--dev-bind', '/dev/net/tun', '/dev/net/tun', '--dir', '/etc', '--dir', '/run', '--ro-bind', passwd, '/etc/passwd', ...await sourceMounts(root), '--bind', control, '/cgroup', '--chdir', workspace,
     ...seal,
     '--', '/runtime/bin/node', '--import', `${workspace}/lib/artifacts/source.mjs`, '--test', '--test-concurrency=1', ...tests

@@ -43,8 +43,17 @@ export async function installedRecipe(options: Options, schemas: Schemas): Promi
   if (!isObject(parsed) || !Array.isArray(parsed.targets) || !isObject(parsed.identity)) return failure('invalid-args', 'The release example recipe has no identity and targets.');
   const kept = parsed.targets.filter(item => isObject(item) && typeof item.id === 'string' && !example.dropped.includes(item.id));
   const renamed: unknown = JSON.parse(JSON.stringify({ ...parsed, targets: kept }).split(example.person).join(options.operator));
-  if (!isObject(renamed) || !Array.isArray(renamed.targets)) return failure('invalid-args', 'The installed recipe lost its targets.');
-  const targets: unknown[] = [...renamed.targets as unknown[], notice(options)];
+  if (!isObject(renamed) || !Array.isArray(renamed.targets) || !isObject(renamed.discovery) || !Array.isArray(renamed.discovery.selection)) return failure('invalid-args', 'The installed recipe lost its targets or discovery selection.');
+  const sources = await catalog(options.release); if (!sources.ok) return sources;
+  const shared = sources.value.filter(source => source.kind !== 'packages').map(source => source.name);
+  const discovery: unknown[] = renamed.discovery.selection;
+  renamed.discovery.selection = [...new Set([...discovery, ...shared, 'autoupdate'])];
+  const targets: unknown[] = [notice(options, [...shared, 'autoupdate']), ...renamed.targets as unknown[]];
+  for (const target of targets) {
+    if (isObject(target) && target.id === `${options.operator}-cli` && Array.isArray(target.services)) {
+      target.services.push({ id: 'update-status', mount: '/services/update-status' });
+    }
+  }
   const recipe = bounded({ ...renamed, identity: operatorIdentity(options.operator), targets }, options.quotaBytes);
   const check = await validator<Recipe>(schemas, 'recipe');
   return check(recipe) ? { ok: true, value: recipe } : failure('invalid-args', 'The installed recipe does not match the recipe contract.');
@@ -52,13 +61,13 @@ export async function installedRecipe(options: Options, schemas: Schemas): Promi
 
 function operatorIdentity(operator: string): object {
   return { people: [{ id: operator, role: 'admin', projects: [], observeOthers: true }],
-    bindings: [{ kind: 'password', id: `${operator}-login`, person: operator }], authorities: { password: 'login' } };
+    bindings: [{ kind: 'password', id: operator, person: operator }], authorities: { password: 'login' } };
 }
 
 /** The in-product notice reads the host updater's status file and applies nothing (ADR 0048). */
-function notice(options: Options): object {
+function notice(options: Options, selection: string[]): object {
   return { quotaBytes: options.quotaBytes, state: join(options.state, 'initial'), profile: {}, id: 'update-status', owner: '', scope: 'deployment',
-    package: 'autoupdate', entry: 'service.ts', spawn: 'status', selection: ['autoupdate'],
+    package: 'autoupdate', entry: 'service.ts', spawn: 'status', selection,
     mounts: [{ source: join(options.state, 'updates'), path: '/updates', mode: 'ro' }] };
 }
 
@@ -86,7 +95,7 @@ export async function seedTarget(options: Options, schemas: Schemas): Promise<Re
 export function deployment(options: Options, seed: Target): Deployment {
   return { version: 1, root: join(options.state, 'kernel'), cgroup: options.cgroup, identity: {
     people: [{ id: options.operator, role: 'admin', projects: [], observeOthers: true }],
-    bindings: [{ kind: 'password', id: `${options.operator}-login`, person: options.operator }], authorities: { password: 'login' } },
+    bindings: [{ kind: 'password', id: options.operator, person: options.operator }], authorities: { password: 'login' } },
     targets: [seed],
     bootstrap: { recipe: join(options.prefix, 'etc/recipe.json'), registry: 'registry', cache: join(options.state, 'cache'),
       output: join(options.state, 'deployment.json'), profile: join(options.state, 'profile'), discoveryRoot: join(options.state, 'discovery') },

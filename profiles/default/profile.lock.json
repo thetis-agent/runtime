@@ -18,8 +18,8 @@
       "pin": {
         "name": "cli",
         "version": "1.0.0",
-        "commit": "4751adb6a19cf7ddb0f68eb8b2dada32da59e1c3",
-        "hash": "sha256:047a65503370cc44fdd3bb94a1184deed6576d0c22b3085bb1cf818e64169618"
+        "commit": "d93a2516302e5ed0ec29398c50a56f710dc9d6f8",
+        "hash": "sha256:88c033edf7745327e33bf4b563561364e94a436aafb8d9d7a1dd421e7f461f05"
       }
     },
     {
@@ -168,8 +168,8 @@
       "pin": {
         "name": "lib/deployment",
         "version": "1.0.0",
-        "commit": "40c98b92a17a3c71c68ad8df8f258b5af050598d",
-        "hash": "sha256:f0190a1bda73a42b4e91c48e351f253cecd41c415f14a7ecaa0c0a455e77607a"
+        "commit": "fd488cc80d13e92fbeacd088c36c20894886ccda",
+        "hash": "sha256:ae2de54730fafb54b4261b0bf3ca525d832ac00df2b2c9a59ec5f13579b818c8"
       }
     },
     {
@@ -228,8 +228,8 @@
       "pin": {
         "name": "lib/maintenance",
         "version": "1.0.0",
-        "commit": "eec59c90131600f63b816f9cc967e1cf46a8ec2c",
-        "hash": "sha256:3b2b716c5644b184d34d4124d493bb16d7fef8ca1f6e4cab870ca3d64dfcac05"
+        "commit": "91c0267198624604d3981baad29e7356720cdc2a",
+        "hash": "sha256:994a1d9a26165d3052ba3909e74455341bc466f28bae87679baae5d7f53818ac"
       }
     },
     {
@@ -318,8 +318,8 @@
       "pin": {
         "name": "lib/schema",
         "version": "1.0.0",
-        "commit": "54aaa91d87ba85ccddfd9019424137c0b5c02753",
-        "hash": "sha256:54a320634ebc25c77de24857dd29b53e7961fb790104cc819fd1d5ed48243067"
+        "commit": "b18c5ddb76988069805cafad2ef18386a037d7c7",
+        "hash": "sha256:781dbaa36999ea03d95d6dc786d9ec7edda589f12b72cd9697a136d17024fc70"
       }
     },
     {
@@ -368,8 +368,8 @@
       "pin": {
         "name": "lib/snapshots",
         "version": "1.0.0",
-        "commit": "7c1404e1696080b3f321eebd5975ad2c1be675f2",
-        "hash": "sha256:21f9f3f0953f31d9aac693f3fae108f071b385b616a278f9b9308b97b21b8923"
+        "commit": "3de2ecdda22d17af745a2413b39ad31c51791741",
+        "hash": "sha256:9d87a10ab505da0458beef8882195a06ca2a61c7c64f9ca931f163eba79bcd5f"
       }
     },
     {
@@ -408,8 +408,8 @@
       "pin": {
         "name": "lib/update",
         "version": "1.0.0",
-        "commit": "0312e1d2b43fb71355e613f1e6a015c5f7114bfe",
-        "hash": "sha256:eb40726bde48e489e6224b4dd927e9ed201b238ce0a002894313668c70d17dbd"
+        "commit": "83db80bcb1cec0e30ceb6b816c8114b2a46e71e5",
+        "hash": "sha256:5dffce9f2b4c17e9e6109caca82fdb2d353db902f2085548c3c6960ad8ec3e75"
       }
     },
     {

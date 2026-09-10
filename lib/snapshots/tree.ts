@@ -29,10 +29,10 @@ export async function paths(path: string): Promise<Result<string[]>> {
   } catch { return failure('io', 'The snapshot entries could not be read.'); }
 }
 
-export async function hashTree(path: string): Promise<Result<string>> {
+export async function hashTree(path: string, maximumEntries = limits.entries): Promise<Result<string>> {
   try {
     if (!(await lstat(path)).isDirectory()) return failure('outside-roots', 'The snapshot root is not a directory.');
-    const entries = await listing(path, '', { entries: limits.entries }, 0); if (!entries.ok) return entries;
+    const entries = await listing(path, '', { entries: maximumEntries }, 0); if (!entries.ok) return entries;
     const hash = createHash('sha256'); let remaining = limits.bytes;
     for (const name of entries.value.sort()) {
       const file = join(path, name); const before = await lstat(file);

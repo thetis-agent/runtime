@@ -7,7 +7,7 @@ import type { Result } from '@/lib/schema/index.ts';
 import type { Checkpoint } from './checkpoint.ts';
 
 export interface Relocation { from: string; to: string }
-export const relocationLimits = { entries: 8, bytes: 65536, pathBytes: 4096 };
+export const relocationLimits = { entries: 512, bytes: 65536, pathBytes: 4096 };
 export async function relocations(root: string): Promise<Result<Relocation[]>> {
   const path = join(root, '.relocation.json');
   try { if (!(await lstat(path)).isFile()) return failure('outside-roots', 'The relocation metadata is not a regular file.'); }

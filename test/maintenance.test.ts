@@ -15,6 +15,7 @@ import { Generations } from '@/kernel/generations/index.ts';
 import { connect } from '@/lib/ndjson/socket.ts';
 import { Peer } from '@/lib/socket/index.ts';
 import type { Revision } from '@/lib/maintenance/index.ts';
+import { buildTree } from '@/lib/artifacts/build.ts';
 const repository = new URL('..', import.meta.url).pathname;
 async function revision(): Promise<Revision> {
   const pins: Record<string, { source: string; hash: string }> = {};
@@ -39,6 +40,7 @@ await test('GN-007 incompatible actual kernel handshake preserves the old connec
     const changed = join(root, 'incompatible'); const source = current.pins['kernel']; assert.ok(source);
     assert.ok((await snapshot(source.source, changed)).ok);
     const entry = join(changed, 'maintenance-main.ts'); await writeFile(entry, (await readFile(entry, 'utf8')).replace("host(start, ['1'])", "host(start, ['2'])"));
+    assert.ok(await buildTree(changed, changed, false), 'The incompatible handshake fixture needs verified execution artifacts.');
     const hash = await snapshot(changed); assert.ok(hash.ok);
     const refused = await upgrade(session.value.sessionToken, { ...current, pins: { ...current.pins, kernel: { source: changed, hash: hash.value } } }, 1);
     assert.equal(refused.ok, false, JSON.stringify(refused)); assert.equal(maintenance.machine.view.state, 'LIVE'); assert.equal(maintenance.machine.view.current.n, 1);

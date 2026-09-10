@@ -35,5 +35,5 @@ export async function kernelRevision(release: string, configuration: Deployment,
       pins[name] = { source, hash };
     }
   } catch { return failure('io', 'The release kernel pin directories could not be inspected.'); }
-  return { ok: true, value: { pins, entry: manifest.value.entry, configuration } };
+  return { ok: true, value: { pins, entry: manifest.value.entry, configuration, release: await realpath(release) } };
 }

@@ -74,7 +74,7 @@ a restart outside the generation machine.
 node --max-old-space-size=32 --max-semi-space-size=1 \
   --no-experimental-strip-types --import ./lib/artifacts/register.mjs \
   kernel/supervisor-main.ts /opt/zero/etc/seed.json \
-  --release /opt/zero/current --state /var/lib/z \
+  --release /opt/zero/current --state /var/lib/z --installation /opt/zero \
   --credential "$CREDENTIALS_DIRECTORY/master" --delegate
 ```
 
@@ -83,13 +83,12 @@ receives the master key after its inherited IPC channel, and the supervisor
 reopens the credential for every kernel launch because a descriptor's offset
 advances after the kernel reads its 32 bytes. The supervisor prints
 `{"ok":true,"value":{"ready":true,...}}` with its control socket path, and the
-kernel prints its own `ready` row as before. Two further consequences to plan
-for, both recorded in ADR 0050: the live kernel's root is a short per-generation
-store under `<state>/g`, so **every target's public socket path contains the
-generation and must be repointed in the reverse proxy after each kernel
-update** (`zero status` prints the current root), and the state root must be
-short enough — `<state>/g` at most 18 bytes — that a target endpoint still fits
-the 107-byte Linux socket path limit. See [install.md](install.md).
+kernel prints its own `ready` row as before. The live kernel's root is a short
+per-generation store under `<state>/g`. ADR 0052 publishes the host alias
+`<state>/live` for stable reverse-proxy socket paths through updates, undo and
+restart; `zero status` prints those paths. The state root must remain short:
+`<state>/g` is at most 18 bytes so a target endpoint fits the 107-byte Linux socket
+path limit. See [install.md](install.md).
 
 Use Node 24.18.0 and run `scripts/build.ts` before launching from a source
 checkout. The preload rejects missing or stale artifacts instead of interpreting
