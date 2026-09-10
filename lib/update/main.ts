@@ -19,29 +19,33 @@ import { adopt } from './adopt.ts';
 import { exclusive } from '@/lib/deployment/exclusive.ts';
 import { clock } from '@/lib/events/index.ts';
 import type { Tag } from './refs.ts';
+import { chat } from './chat.ts';
 
 export const mainLimits = { releases: 64, arguments: 16 };
-export interface Options { prefix: string; release?: string; passwordFd?: number; check: boolean; apply: boolean }
+export interface Options { prefix: string; release?: string; passwordFd?: number; message?: string; conversation?: string; check: boolean; apply: boolean }
 
 export function options(argv: readonly string[]): Result<{ command: string; options: Options }> {
   if (argv.length > mainLimits.arguments) return failure('invalid-args', 'The update command takes at most sixteen arguments.');
   const command = argv[0] ?? '';
-  if (!['status', 'update', 'undo', 'prune-releases'].includes(command)) return failure('invalid-args', 'The commands are status, update, undo and prune-releases.');
+  if (!['status', 'chat', 'update', 'undo', 'prune-releases'].includes(command)) return failure('invalid-args', 'The commands are status, chat --message "...", update, undo and prune-releases.');
   const parsed: Options = { prefix: fileURLToPath(new URL('../..', import.meta.url)), check: false, apply: false };
   for (let index = 1; index < argv.length; index++) {
     const flag = argv[index];
     if (flag === '--check') { parsed.check = true; continue; }
     if (flag === '--apply') { parsed.apply = true; continue; }
     const value = argv[++index];
-    if (value === undefined || !['--prefix', '--release', '--password-fd'].includes(flag ?? '')) return failure('invalid-args', `The update command does not accept ${String(flag)}.`);
+    if (value === undefined || !['--prefix', '--release', '--password-fd', '--message', '--conversation'].includes(flag ?? '')) return failure('invalid-args', `The command does not accept ${String(flag)}.`);
     if (flag === '--prefix') parsed.prefix = value;
     else if (flag === '--release') parsed.release = value;
+    else if (flag === '--message') parsed.message = value;
+    else if (flag === '--conversation') parsed.conversation = value;
     else if (!/^\d{1,3}$/u.test(value)) return failure('invalid-args', 'A password descriptor is a small non-negative integer.');
     else parsed.passwordFd = Number(value);
   }
   if (command === 'update' && parsed.check === parsed.apply) return failure('invalid-args', 'The update command needs exactly one of --check and --apply.');
   if (parsed.release !== undefined && !releaseTag.test(parsed.release)) return failure('invalid-args', 'A release is a vMAJOR.MINOR.PATCH tag.');
   if (command !== 'update' && (parsed.apply || parsed.check || parsed.release !== undefined)) return failure('invalid-args', 'Check, apply and release flags belong to the update command.');
+  if (command !== 'chat' && (parsed.message !== undefined || parsed.conversation !== undefined)) return failure('invalid-args', 'Message and conversation flags belong to chat.');
   return { ok: true, value: { command, options: parsed } };
 }
 
@@ -60,13 +64,13 @@ async function check(install: Install, schemas: Compiler): Promise<Result<string
   const at = Date.now();
   if (!available) {
     const recorded = await writeStatus(statusPath(install), { version: 1, current: install.release, verified: false, checkedAt: at, policy: install.policy });
-    return recorded.ok ? { ok: true, value: `Zero ${install.release} is the newest version.` } : recorded;
+    return recorded.ok ? { ok: true, value: `Thetis ${install.release} is the newest version.` } : recorded;
   }
   const staged = await stage(install.releaseUrl, available, { allowedSigners: install.allowedSigners, signer: install.signer, releases: releases(install) }, schemas);
   const verified = staged.ok;
   const recorded = await writeStatus(statusPath(install), { version: 1, current: install.release, available: available.tag, verified, checkedAt: at, ...verified ? { stagedAt: at } : {}, policy: install.policy });
   if (!recorded.ok) return recorded;
-  return verified ? { ok: true, value: `Version ${available.tag} is available and verified. Run zero update --apply to change the kernel.` } : staged;
+  return verified ? { ok: true, value: `Version ${available.tag} is available and verified. Run thetis update --apply to change the kernel.` } : staged;
 }
 
 async function authorized(install: Install, view: Report, options: Options): Promise<Result<string>> {
@@ -77,12 +81,12 @@ async function authorized(install: Install, view: Report, options: Options): Pro
 async function apply(install: Install, options: Options, method: 'update' | 'undo', schemas: Compiler): Promise<Result<string>> {
   const control = controlPath(install);
   const view = await report(control); if (!view.ok) return view;
-  if (view.value.view.state !== 'LIVE') return failure('conflict', `The kernel is ${view.value.view.state}; read zero status and reset the target before changing its code.`);
+  if (view.value.view.state !== 'LIVE') return failure('conflict', `The kernel is ${view.value.view.state}; read thetis status and reset the target before changing its code.`);
   const notice = await readStatus(statusPath(install), schemas); if (!notice.ok) return notice;
   const selected = options.release ?? notice.value?.available;
   const target = method === 'undo' ? view.value.previous : join(releases(install), selected ?? '');
   if (method === 'undo' && target === null) return failure('invalid-args', 'There is no previous version to undo to.');
-  if (method === 'update' && !selected) return failure('invalid-args', 'Run zero update --check first, or name --release with the version to serve.');
+  if (method === 'update' && !selected) return failure('invalid-args', 'Run thetis update --check first, or name --release with the version to serve.');
   if (method === 'update' && selected) {
     const found = await tags(install.remote); if (!found.ok) return found;
     const bound = found.value.find(tag => tag.tag === selected); if (!bound) return failure('conflict', 'The selected release is absent from the recorded remote.');
@@ -131,7 +135,7 @@ async function status(install: Install): Promise<Result<string>> {
   const view = await report(controlPath(install)); if (!view.ok) return view;
   const lines = [`state ${view.value.view.state} generation ${String(view.value.view.current.n)} release ${view.value.release}`,
     `previous ${view.value.previous ?? 'none'}`, `login socket ${publicSocket(join(install.state, 'live'), install.login)}`,
-    `web socket ${publicSocket(join(install.state, 'live'), `${install.operator}-web`)}`, `kernel origin ${join(install.state, 'kernel/origin.sock')}`,
+    `web socket ${publicSocket(join(install.state, 'live'), `${install.operator}-web`)}`, `kernel origin ${join(view.value.state, 'origin.sock')}`,
     `update policy ${install.policy}`, `sign in at ${install.origin}/login as ${install.operator}`];
   return { ok: true, value: lines.join('\n') };
 }
@@ -142,6 +146,8 @@ export async function run(argv: readonly string[]): Promise<Result<string>> {
   const install = await readInstall(parsed.value.options.prefix, schemas); if (!install.ok) return install;
   switch (parsed.value.command) {
     case 'status': return status(install.value);
+    case 'chat': return chat(install.value, parsed.value.options.message ?? '', parsed.value.options.conversation, schemas,
+      text => new Promise((resolve, reject) => { process.stdout.write(text, error => { if (error) reject(error); else resolve(); }); }));
     case 'update': return parsed.value.options.check ? check(install.value, schemas) : apply(install.value, parsed.value.options, 'update', schemas);
     case 'undo': return apply(install.value, parsed.value.options, 'undo', schemas);
     case 'prune-releases': return prune(install.value);

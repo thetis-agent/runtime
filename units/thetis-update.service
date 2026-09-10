@@ -1,7 +1,7 @@
 # ADR 0048: the timer only checks, stages and verifies; an administrator applies. ADR 0049 holds
 # every update policy but none refused, so this unit never changes the kernel.
 [Unit]
-Description=Zero update check
+Description=Thetis update check
 After=network-online.target
 Wants=network-online.target
 
@@ -9,8 +9,9 @@ Wants=network-online.target
 Type=oneshot
 User=@USER@
 Group=@USER@
-ExecStart=@PREFIX@/bin/zero update --check
+ExecStart=@PREFIX@/bin/thetis update --check
 ProtectSystem=strict
+TemporaryFileSystem=/tmp:rw,nosuid,nodev,size=64M,mode=1777
 ReadWritePaths=@PREFIX@/releases @STATE@/updates
 ProtectHome=yes
 PrivateTmp=yes

@@ -1,4 +1,4 @@
-/** Refuse authentication failures without disclosing partial plaintext; ADR 0034, KS-008. */
+/** Refuse authentication failures without disclosing partial plaintext; implementation note 0034, KS-008. */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { seal, unseal, sealedLimits } from './sealed.ts';

@@ -1,4 +1,4 @@
-/** Keep immutable recovery pins and live state while collecting expired workspaces; GN-002, ADR 0046. */
+/** Keep immutable recovery pins and live state while collecting expired workspaces; GN-002, implementation note 0046. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink } from 'node:fs/promises';

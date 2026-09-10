@@ -1,4 +1,4 @@
-/** Enforce the trusted source budget while reporting excluded documentation, imports and whitespace; ADR 0039, ADR 0051, ADR 0054, proposal §10. */
+/** Enforce the trusted source budget while reporting excluded documentation, imports and whitespace; implementation note 0039, implementation note 0051, implementation note 0054, proposal §10. */
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

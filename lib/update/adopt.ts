@@ -1,4 +1,4 @@
-/** Copy activated system-service code into a private root-owned tree before publication; ADR 0052. */
+/** Copy activated system-service code into a private root-owned tree before publication; implementation note 0052. */
 import { chmod, lstat, readdir, realpath, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -18,7 +18,7 @@ async function protectedTree(path: string, budget: { entries: number }, depth: n
 
 export async function adopt(install: Install, release: string): Promise<Result<void>> {
   if (install.service !== 'system') return { ok: true, value: undefined };
-  if (process.getuid?.() !== 0) return failure('forbidden', 'Applying a system-service release requires the host operator: run sudo zero update --apply.');
+  if (process.getuid?.() !== 0) return failure('forbidden', 'Applying a system-service release requires the host operator: run sudo thetis update --apply.');
   const pending = join(install.prefix, `.adopt-${randomUUID()}`); const previous = join(install.prefix, `.staged-${randomUUID()}`);
   try {
     if (await realpath(release) !== release) return failure('outside-roots', 'The activated release path is not canonical.');

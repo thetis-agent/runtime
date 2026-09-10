@@ -1,4 +1,4 @@
-/** Exercise decimal ceiling boundaries and the full finite numeric range; ADR 0044, PR-010. */
+/** Exercise decimal ceiling boundaries and the full finite numeric range; implementation note 0044, PR-010. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { balance, decimal, money } from './money.ts';

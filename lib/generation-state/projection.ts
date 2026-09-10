@@ -1,4 +1,4 @@
-/** Project immutable generation history without selecting transitions or admitting work; ADR 0033. */
+/** Project immutable generation history without selecting transitions or admitting work; implementation note 0033. */
 import type { Generation as StoredGeneration, View as StoredView } from './types.ts';
 export type Generation = Pick<StoredGeneration, 'n' | 'pins' | 'stateSnapshot' | 'prefixRenderer' | 'at'>;
 export type View = Pick<StoredView, 'state' | 'committed' | 'since'> & { current: Generation; candidate?: Generation; previous?: Generation };

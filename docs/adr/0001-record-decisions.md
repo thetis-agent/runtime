@@ -1,38 +1,9 @@
-# ADR 0001 · Record architecture decisions
+# ADR 0001 · Architecture record scope
 
-**Status:** Accepted · 2026-09-09
-**Deciders:** the operator; this session
-**Supersedes:** nothing
+**Status:** Documentation policy, corrected 2026-09-10 at the project owner's request.
 
-## Context
+Use [the ADR index](README.md) for major architectural changes only: system structure, authority, isolation, execution or persistence with substantial cross-component consequences.
 
-Thetis kept its reasoning in module doc comments and dated design records
-under `docs/plans`. That was enough to write a post-mortem in an
-afternoon, and not enough to stop the same argument from being had
-twice: the successor's design went through seven drafts in one day, and
-three of the reversals (npm as transport, package kinds, gateways as a
-contract) were positions that had already been argued and lost, or won,
-in an earlier round nobody re-read.
+Do not create ADRs for features, fixes, refactors, defaults, CI workflows, dependency updates, line-counting rules or performance budgets. Maintain those details in the appropriate guide and tests. The fact that a question repeats or a change takes a day does not make it architectural.
 
-## Decision
-
-Every architecture decision gets one file in this directory, in this
-format: title, status, deciders, what it supersedes, context, decision,
-alternatives considered with the reason each lost, consequences good and
-bad, and when to revisit. Records are numbered in order of acceptance and
-never edited after acceptance except to change the status line. A
-reversal is a new record that names the one it supersedes.
-
-A record is written when a decision is made that would cost more than a
-day to reverse, or when the same question is asked a second time.
-
-## Consequences
-
-Good: the argument is had once, and the reader who asks "why not X" finds
-the answer under X. Bad: a record is work, and a decision without one
-will sometimes be made anyway; the register in `05-successor.md` is the
-backlog of those.
-
-## Revisit
-
-Never. The format may change; the practice does not.
+An architectural record states the problem, the chosen structure, meaningful alternatives, consequences and when to revisit. Preserve supersession history for actual architectural changes. Correct documentation and consolidate misplaced records without creating another ADR about the cleanup.

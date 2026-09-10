@@ -1,4 +1,4 @@
-/** Authenticate bounded bytes without retaining keys or acquiring scope authority; ADR 0034. */
+/** Authenticate bounded bytes without retaining keys or acquiring scope authority; implementation note 0034. */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { failure, isObject } from '@/lib/schema/index.ts';
 import type { Result } from '@/lib/schema/index.ts';

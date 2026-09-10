@@ -2,10 +2,7 @@
 need() { command -v "$1" >/dev/null 2>&1 || die "This installer needs $1 on PATH."; }
 
 preflight_root() {
-  [ "$allow_root" = 1 ] && return 0
-  if [ "$(id -u)" = 0 ] && [ -n "${SUDO_USER:-}" ]; then
-    die 'Do not run this installer with sudo from a login shell; pass --allow-root if you meant to.'
-  fi
+  # sudo is the ordinary system-install path; --allow-root remains accepted for compatibility.
   return 0
 }
 
@@ -15,7 +12,7 @@ preflight_host() {
   for tool in sh tar gzip xz sha256sum ssh-keygen git flock realpath stat timeout find mountpoint slirp4netns unshare; do need "$tool"; done
   [ "$no_mount" = 1 ] || { need fallocate; need mkfs.ext4; }
   [ "$service" = none ] || need systemctl
-  [ "$service" != system ] || [ "$(id -u)" = 0 ] || die 'Installing a system service requires root; run the reviewed script with sudo sh install.sh --allow-root.'
+  [ "$service" != system ] || [ "$(id -u)" = 0 ] || die 'Installing a system service requires root; run the reviewed script with sudo sh install.sh.'
   [ "$no_mount" = 1 ] || [ "$(id -u)" = 0 ] || die 'Provisioning a bounded volume requires root.'
   [ "$key_store" != tpm2 ] || { need systemd-creds; systemd-creds has-tpm2 >/dev/null || die 'No usable TPM2 is available.'; }
   hierarchy=$( [ "$service" = none ] && printf '%s' "$cgroup_path" || printf '/sys/fs/cgroup' )
@@ -42,6 +39,7 @@ resolve_operator() {
     [ -n "$answer" ] && operator_id=$answer
   fi
   case "$operator_id" in *[!A-Za-z0-9_-]*|'') die 'An administrator account id is letters, digits, underscores and dashes.' ;; esac
+  case "$operator_id" in login|provider|registry|discovery|update-status|default|kernel) die 'That account id is reserved; choose a different administrator id.' ;; esac
 }
 
 read_password_twice() {
@@ -61,7 +59,7 @@ read_password_twice() {
 resolve_password() {
   if [ -n "$password_fd" ]; then
     # dash cannot expand a variable in a redirection target, so the read is built and evaluated.
-    eval "IFS= read -r password_value <&$password_fd" || die 'The administrator password descriptor could not be read.'
+    eval "IFS= read -r password_value <&$password_fd" || [ -n "$password_value" ] || die 'The administrator password descriptor could not be read.'
   elif [ "$assume_yes" = 1 ]; then
     die 'With --yes an administrator password source is required; pass --password-fd. There is no default password.'
   else

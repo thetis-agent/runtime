@@ -1,9 +1,9 @@
-/** Exclude import and formatting lines without hiding executable code or literal contents; ADR 0039, ADR 0051. */
+/** Exclude import and formatting lines without hiding executable code or literal contents; implementation note 0039, implementation note 0051. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sourceLines } from '@/scripts/source-lines.ts';
 
-await test('ADR 0051 excludes comments and whitespace while retaining mixed code lines', () => {
+await test('implementation note 0051 excludes comments and whitespace while retaining mixed code lines', () => {
   const text = '/** Defence.\n * More context.\n\n */\n\nconst value = 1; // explanation\n/* context */ value++;\n// end';
   assert.deepEqual(sourceLines(text), { physicalLines: 8, commentLines: 4, importLines: 0, blankLines: 2, lines: 2 });
   assert.deepEqual(sourceLines(''), { physicalLines: 0, commentLines: 0, importLines: 0, blankLines: 0, lines: 0 });
@@ -12,7 +12,7 @@ await test('ADR 0051 excludes comments and whitespace while retaining mixed code
   assert.deepEqual(sourceLines('// first\r// second\r'), { physicalLines: 2, commentLines: 2, importLines: 0, blankLines: 0, lines: 0 });
 });
 
-await test('ADR 0039 preserves comment markers in strings, regexes and interpolated template bodies', () => {
+await test('implementation note 0039 preserves comment markers in strings, regexes and interpolated template bodies', () => {
   const text = [
     'const url = "https://example.test/*path*/";',
     'const expression = /[/*]foo[//]/;',
@@ -29,7 +29,7 @@ await test('ADR 0039 preserves comment markers in strings, regexes and interpola
   assert.deepEqual(sourceLines(text), { physicalLines: 11, commentLines: 2, importLines: 0, blankLines: 0, lines: 9 });
 });
 
-await test('ADR 0051 excludes complete static imports but counts dynamic imports, re-exports and same-line implementation', () => {
+await test('implementation note 0051 excludes complete static imports but counts dynamic imports, re-exports and same-line implementation', () => {
   const text = [
     '// module defence',
     'import type {',
@@ -51,7 +51,7 @@ await test('ADR 0051 excludes complete static imports but counts dynamic imports
   assert.deepEqual(sourceLines(text), { physicalLines: 16, commentLines: 1, importLines: 9, blankLines: 1, lines: 5 });
 });
 
-await test('ADR 0051 classifies blank import, comment and template lines exactly once across newline styles', () => {
+await test('implementation note 0051 classifies blank import, comment and template lines exactly once across newline styles', () => {
   const text = ['import {', '  ', '  value', '} from "./value.ts";', '/* comment', '\t', '*/', 'const template = `first', '  ', 'last`;', '\t '].join('\n');
   const expected = { physicalLines: 11, commentLines: 2, importLines: 3, blankLines: 4, lines: 2 };
   for (const newline of ['\n', '\r\n', '\r', '\u2028', '\u2029']) {

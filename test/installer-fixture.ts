@@ -1,4 +1,4 @@
-/** Share the signed offline installer fixture and descriptor-only password runner; ADR 0048, ADR 0052. */
+/** Share the signed offline installer fixture and descriptor-only password runner; ADR 0048, implementation note 0052. */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, open, rm, writeFile } from 'node:fs/promises';
@@ -9,7 +9,8 @@ import { git } from '@/lib/registry/git.ts';
 import type { Fixture } from '@/test/release-fixture.ts';
 
 const script = fileURLToPath(new URL('../install.sh', import.meta.url));
-export const password = 'installer test password';
+export const password = 'six-ok';
+export const apiKey = 'fixture-provider-key';
 const limits = { outputBytes: 262144, deadlineMs: 600000 };
 
 interface Run { status: number; stdout: string; stderr: string }
@@ -21,11 +22,13 @@ export function install(args: readonly string[], withPassword = true, environmen
 export async function command(executable: string, args: readonly string[], withPassword = true, environment: Readonly<Record<string, string>> = {}): Promise<Run> {
   const secret = await mkdtemp('/tmp/pw-'); const path = join(secret, 'password');
   await writeFile(path, `${password}\n`, { mode: 0o600 });
+  const keyPath = join(secret, 'api-key'); await writeFile(keyPath, apiKey, { mode: 0o600 });
   const handle = withPassword ? await open(path, 'r') : undefined;
+  const keyHandle = withPassword ? await open(keyPath, 'r') : undefined;
   try {
     return await new Promise<Run>((resolve, reject) => {
       const child = spawn(executable, [...args], { env: { PATH: '/usr/bin:/bin', TMPDIR: '/installation', HOME: secret, ...environment },
-        stdio: ['ignore', 'pipe', 'pipe', ...handle ? [handle.fd] : []] });
+        stdio: ['ignore', 'pipe', 'pipe', ...handle && keyHandle ? [handle.fd, keyHandle.fd] : []] });
       const timer = setTimeout(() => { child.kill('SIGKILL'); }, limits.deadlineMs);
       let stdout = ''; let stderr = '';
       for (const [stream, sink] of [[child.stdout, 'out'], [child.stderr, 'err']] satisfies [typeof child.stdout, string][]) {
@@ -38,7 +41,7 @@ export async function command(executable: string, args: readonly string[], withP
       child.once('error', reject);
       child.once('close', status => { clearTimeout(timer); resolve({ status: status ?? 1, stdout, stderr }); });
     });
-  } finally { await handle?.close(); await rm(secret, { recursive: true, force: true }); }
+  } finally { await handle?.close(); await keyHandle?.close(); await rm(secret, { recursive: true, force: true }); }
 }
 
 export interface Places { prefix: string; state: string; published: string; remote: string; roots: string[]; fixture: Fixture }
@@ -58,7 +61,7 @@ export async function remote(path: string, content: string): Promise<{ path: str
   return { path, commit };
 }
 
-/** The state root must stay short: `<state>/g` above 18 bytes would push a target endpoint past the socket path limit (ADR 0050). */
+/** The state root must stay short: `<state>/g` above 18 bytes would push a target endpoint past the socket path limit (implementation note 0050). */
 export async function places(tag: string): Promise<Places> {
   const state = await mkdtemp('/d/');
   const work = await mkdtemp('/installation/w'); const published = join(work, 'published');
@@ -71,7 +74,7 @@ export async function places(tag: string): Promise<Places> {
 export function flags(at: Places, remoteOverride = at.remote): string[] {
   return ['--prefix', at.prefix, '--state', at.state, '--no-mount', '--service', 'none',
     '--release', at.fixture.tag, '--release-url', `file://${at.published}`, '--remote', `file://${remoteOverride}`, '--node-url', at.fixture.nodeUrl,
-    '--allowed-signers', at.fixture.allowedSigners, '--operator', 'op', '--password-fd', '3', '--origin', 'https://zero.test', '--yes'];
+    '--allowed-signers', at.fixture.allowedSigners, '--operator', 'op', '--password-fd', '3', '--origin', 'https://thetis.test', '--yes', '--demo'];
 }
 
 export async function discard(at: Places): Promise<void> { for (const root of at.roots) await rm(root, { recursive: true, force: true }); }

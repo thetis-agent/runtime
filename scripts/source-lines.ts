@@ -1,4 +1,4 @@
-/** Count implementation without imports, whitespace or documentation; ADR 0039, ADR 0051. */
+/** Count implementation without imports, whitespace or documentation; implementation note 0039, implementation note 0051. */
 import ts from 'typescript';
 
 export function sourceLines(text: string): { lines: number; physicalLines: number; commentLines: number; importLines: number; blankLines: number } {

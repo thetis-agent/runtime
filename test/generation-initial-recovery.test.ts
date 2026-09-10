@@ -1,4 +1,4 @@
-/** Restore an initially migrated generation without repeating its migration; ADR 0043, KS-019. */
+/** Restore an initially migrated generation without repeating its migration; implementation note 0043, KS-019. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -16,7 +16,7 @@ async function initiallyMigrated() {
     const initial = await revision(fixture.root, 'initial', 'healthy', 2, true);
     const entry = initial.pins['entry']; assert.ok(entry);
     await writeFile(join(entry.source, 'migrate.ts'), [
-      '/** Refuse a repeated migration so recovery must restore its recorded result; ADR 0043. */',
+      '/** Refuse a repeated migration so recovery must restore its recorded result; implementation note 0043. */',
       "import { readFile, writeFile } from 'node:fs/promises';",
       "const state = JSON.parse(await readFile('/state/value.json', 'utf8'));",
       "if (state.version !== 1) throw new Error('The initial migration must run exactly once.');",
@@ -39,7 +39,7 @@ async function initiallyMigrated() {
   } catch (error) { await fixture.close(); throw error; }
 }
 
-await test('ADR-0043 crash reset restores the initially migrated healthy snapshot without repeating migration', async () => {
+await test('implementation note 0043 crash reset restores the initially migrated healthy snapshot without repeating migration', async () => {
   const fixture = await initiallyMigrated(); const { driver } = fixture;
   try {
     assert.deepEqual(JSON.parse(await readFile(join(driver.state, 'value.json'), 'utf8')), { version: 2 });
@@ -58,7 +58,7 @@ await test('ADR-0043 crash reset restores the initially migrated healthy snapsho
   } finally { await fixture.close(); }
 });
 
-await test('ADR-0043 supervisor recovery skips a non-idempotent initial migration', async () => {
+await test('implementation note 0043 supervisor recovery skips a non-idempotent initial migration', async () => {
   const fixture = await initiallyMigrated(); let restarted: Driver | undefined;
   try {
     assert.ok((await fixture.driver.process.stop('supervisor stopped')).ok);

@@ -8,7 +8,7 @@
 
 The real kernel plus one idle environment currently measures approximately
 253–258 MB RSS against 120 MB. An actual watched file-tool edit takes roughly
-1.8–1.9 seconds against one second, even with ADR 0036's generation-local cache.
+1.8–1.9 seconds against one second, even with implementation note 0036's generation-local cache.
 Both required launches and the responsive initialization monitor remain intact.
 Startup measurements identify schema compilation and module loading as remaining
 costs. These measurements do not prove that a build step alone meets either limit.

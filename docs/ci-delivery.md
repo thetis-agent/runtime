@@ -26,9 +26,10 @@ CI performs these blocking checks:
 | Locked `npm ci --ignore-scripts` bootstrap | Exact reviewed dependency closure, no lifecycle scripts |
 | Bounded offline artifact build | ADR 0037: sources remain editable; generated JavaScript records source/output hashes and Node version |
 | `scripts/check.ts` | Committed contract types, schema validators and loader freshness; strict TypeScript; zero-warning lint; artifact freshness |
-| `scripts/size.ts` and kernel name scan | 1,500-line kernel budget excluding comments, whitespace and static imports (ADRs 0051, 0054), with physical/excluded totals; package ignorance |
+| `scripts/size.ts` and kernel name scan | 1,500-line kernel budget excluding comments, whitespace and static imports, with physical/excluded totals; package ignorance |
 | Fresh `scripts/release.ts` output | Real immutable registry objects, matching profile pins and bundle checksum |
 | Complete `scripts/test.ts` | All runtime/package tests, conformance inventory, dependants, socket compatibility, evaluator isolation, generation recovery, deployment smoke, latency and RSS limits |
+| Real installed-service smoke | Root provisioning on a bounded loopback volume, dedicated service uid, systemd credential delivery and cgroup delegation, terminal chat, restart, chat again and recorded uninstall |
 
 Build and release commands use mandatory bubblewrap with no network. Tests use
 the existing dedicated systemd user scope, cgroup v2 controllers, bounded tmpfs
@@ -49,7 +50,7 @@ Logs and source provenance are retained on failures. Any failed check blocks
 candidate upload and publishing; tests, size and performance are never allowed
 to fail silently. Kernel-size, memory or latency failures must be fixed before a release can pass.
 The kernel currently counts 1,423 lines against the operator-approved 1,500-line
-ceiling (ADR 0054), so its size gate passes. The complete suite already runs the acceptance
+ceiling (implementation note 0054), so its size gate passes. The complete suite already runs the acceptance
 measurements, so CI does not run `bench` a second time.
 
 ## Coverage reports
@@ -66,7 +67,7 @@ of the quantities those tests measure.
 
 CI uploads a separate `runtime-ci-coverage-*` or `packages-ci-coverage-*`
 artifact, including after a failed test gate, retained for 14 days. Release
-assembly does not run tests or generate new coverage (ADR 0055). Each artifact
+publication reuses CI's verified bytes and does not generate new coverage. Each artifact
 contains `lcov.info`, `summary.json` and `summary.md`; the workflow summary shows
 line, branch and function coverage for runtime, packages and their combined total.
 LCOV source paths start with `runtime/` or `packages/` to match the two checkouts.
@@ -103,7 +104,7 @@ Existing test-path prefixes may follow the coverage directory for a focused run.
    no extra secret. Fork runs without peer access fail; they do not switch to a
    privileged `pull_request_target` execution path. Maintainers can review and
    run accessible coordinated commits through manual CI.
-3. Create the `release` environment in both repositories. Restrict it to `main`
+3. Create the `release` environment in both repositories. Allow `main` dispatches and protected `v*` tags
    and configure required reviewers and bypass policy where the GitHub plan
    supports them. A workflow's environment declaration alone does not create
    protection rules. See [GitHub environment configuration](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
@@ -117,36 +118,33 @@ Existing test-path prefixes may follow the coverage directory for a focused run.
 6. Store the complete unencrypted OpenSSH private key, or base64 of that whole
    file, as `RELEASE_SIGNING_KEY` in the publishing repository's protected
    `release` environment. Only the publication job reads it; CI and
-   candidate execution receive no signing key (ADR 0052). It signs `SHA256SUMS`
+   candidate execution receive no signing key (implementation note 0052). It signs `SHA256SUMS`
    after the installer receives the reviewed tag and public trust root; rotating it ships a new line in the installed
    `allowed_signers` file in a release signed with the key being retired, never
    by rewriting history.
 
 Actions are pinned by full upstream commit hashes. Dependabot proposes weekly
 GitHub Actions updates in both repositories; review and test those updates.
-There is no shared execution cache between principals or generations (ADR 0036).
+There is no shared execution cache between principals or generations (implementation note 0036).
 
 ## Publish a reviewed pair
 
-Merge and review both revisions. Create a new `vMAJOR.MINOR.PATCH` tag on the
-desired commit in the repository that owns this delivery. Run its `Release`
-workflow **from main**, supplying that existing tag and the peer's full
-40-character lowercase commit hash. Both commits must be on their repository's
-`main` history. A coordinated release needs only one delivery publication; both
-repositories can deliver the full pair.
+For runtime, merge and review both revisions and wait for the exact runtime
+commit's main CI run to succeed. Create and push an annotated `vMAJOR.MINOR.PATCH`
+tag on that commit. The tag triggers `Release`; manual dispatch from main remains
+available with an existing tag and an optional exact peer commit assertion.
 
-The **Assemble release** job builds execution artifacts, regenerates the bundle
-and packages that source pair without rerunning strict checks, kernel gates,
-tests or coverage. Those remain in CI. Main-history membership is the operator's
-assurance of prior verification; release does not query CI results (ADR 0055).
+The **Select verified CI delivery** job resolves the annotated tag, requires it
+on main history, downloads the successful main CI candidate for that exact SHA,
+checks its checksums and provenance, and verifies the tested peer commit is on
+packages main. Missing, expired, failed or mismatched candidates block publication.
+It runs no candidate code, does not rebuild the archive and does not rerun tests.
+An expired candidate requires a new successful CI run before release dispatch.
 
-Release orchestration comes from tracked runtime tooling on main, separately
-from the selected source checkouts. Runtime dispatch uses its workflow commit;
-package dispatch records the fetched runtime main commit. Provenance records
-`delivery.mode` and `delivery.toolingRuntime`. Existing tags can therefore use
-repaired tooling without moving the tag. After workflow changes, start a **new
-Run workflow from main** with the same inputs; rerunning an old failed job uses
-its old workflow definition.
+The public signature is produced only after these checks. CI builds pins from the
+actual distribution tree and re-extracts the archive under a restrictive umask to
+verify all hashes and execution artifacts. Checkout-only package files are never
+included in the published package pin.
 
 The `release` environment then controls the publishing job. It rechecks all
 checksums and tag identity, uploads all assets to a draft, and publishes only

@@ -1,4 +1,4 @@
-/** Measure an actual watched edit becoming a scoped tool implementation within two seconds; GN-001, ADR 0042. */
+/** Measure an actual watched edit becoming a scoped tool implementation within two seconds; GN-001, implementation note 0042. */
 import assert from 'node:assert/strict';
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';

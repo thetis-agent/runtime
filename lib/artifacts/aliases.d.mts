@@ -1,2 +1,2 @@
-/** Generated resolution types; ADR 0047. Do not edit. */
+/** Generated resolution types; implementation note 0047. Do not edit. */
 export { rootImport } from './aliases.ts';

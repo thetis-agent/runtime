@@ -1,4 +1,4 @@
-/** Validate recorded formats only within an isolated state root; ADR 0031, GN-002. */
+/** Validate recorded formats only within an isolated state root; implementation note 0031, GN-002. */
 import { readBounded } from './read-bounded.ts';
 import { resolvePath } from './index.ts';
 import { failure } from '@/lib/schema/index.ts';

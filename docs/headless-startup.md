@@ -2,9 +2,8 @@
 
 The shipped recipe is `profiles/examples/two-account.recipe.json`. It runs one
 mock provider, separate Alice and Bob environments with separate writable spaces,
-and a CLI service for each person. Visual gateway assets are deferred. The
-WebSocket gateway implementation is available separately; this recipe needs no
-browser, network or model key.
+and a CLI service for each person. The recipe also includes browser and login gateways; the offline example needs no
+external network or model key.
 
 ## Installation inputs
 
@@ -73,8 +72,8 @@ a restart outside the generation machine.
 ```sh
 node --max-old-space-size=32 --max-semi-space-size=1 \
   --no-experimental-strip-types --import ./lib/artifacts/register.mjs \
-  kernel/supervisor-main.ts /opt/zero/etc/seed.json \
-  --release /opt/zero/current --state /var/lib/z --installation /opt/zero \
+  kernel/supervisor-main.ts /opt/thetis/etc/seed.json \
+  --release /opt/thetis/current --state /var/lib/thetis --installation /opt/thetis \
   --credential "$CREDENTIALS_DIRECTORY/master" --delegate
 ```
 
@@ -84,9 +83,9 @@ reopens the credential for every kernel launch because a descriptor's offset
 advances after the kernel reads its 32 bytes. The supervisor prints
 `{"ok":true,"value":{"ready":true,...}}` with its control socket path, and the
 kernel prints its own `ready` row as before. The live kernel's root is a short
-per-generation store under `<state>/g`. ADR 0052 publishes the host alias
+per-generation store under `<state>/g`. implementation note 0052 publishes the host alias
 `<state>/live` for stable reverse-proxy socket paths through updates, undo and
-restart; `zero status` prints those paths. The state root must remain short:
+restart; `thetis status` prints those paths. The state root must remain short:
 `<state>/g` is at most 18 bytes so a target endpoint fits the 107-byte Linux socket
 path limit. See [install.md](install.md).
 
@@ -186,26 +185,15 @@ cookie, reached directly by the browser only for the act
 (`default.prepare`/`default.set`) and secrets; no package reads or sets it,
 and neither `gateway-web` nor `gateway-login` ever shares its origin.
 
-**Known issue, observed 2026-09-10, not fixed here.** The flow above (a
-direct `GET /login` with no `next`) redirects to `/<person>/` with a trailing
-slash and works. A *second* path exists when `gateway-web` itself redirects
-an unauthenticated request to sign-in
-(`packages/gateway-web/http.ts:39-45`'s `redirectToLogin`, built from the
-`x-forwarded-prefix` header, e.g. `/alice`): that value has **no** trailing
-slash, and `packages/gateway-login/server.ts:52` echoes it back verbatim on
-success instead of normalizing it the way its no-`next` fallback does. The
-browser lands on `/alice` rather than `/alice/`, the SPA's relative asset
-paths (`theme.css`/`app.css`/`app.js`) resolve against the document root
-instead, all three 404, and the page is stuck at "connecting" with no way
-forward short of manually retyping the URL with a trailing slash. Confirmed
-via a live walkthrough (see `docs/implementation-status.md`, "Web surface
-acceptance · 2026-09-10"): the same redirect chain with a trailing-slash
-`next` (e.g. `/login?next=%2Fbob%2F`) lands cleanly.
+The gateway preserves the trailing slash when redirecting an unauthenticated
+account page through sign-in, so relative browser assets resolve under the
+account prefix. Installed lifecycle tests exercise this redirect, authenticated
+assets and a completed WebSocket conversation before and after restart.
 
 ## Password authority and trusted kernel origin
 
-The minimal recipe intentionally has no password authority or privileged origin.
-To enable them, include `gateway-login` as a deployment target with spawn `login`,
+The installer configures password authority and a separate privileged origin.
+For manual assembly, include `gateway-login` as a deployment target with spawn `login`,
 and initialize its state with `accounts.json` containing `{ "version": 1, "accounts": [...] }` with
 salted scrypt records from `packages/gateway-login/password.ts:credential`.
 Only those derived records belong in its state. Read password input from a private
@@ -245,7 +233,7 @@ of USD 0.04. This demonstrates live answers, not real-vendor prefix cache hits.
 It is deliberately excluded from `scripts/test.ts`. To repeat this paid check:
 
 ```sh
-"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/live.ts /opt/thetis/thetis.local.toml
+"$THETIS_NODE" --import ./lib/artifacts/source.mjs scripts/live.ts /path/to/private-provider.toml
 ```
 
 The launcher requires Python 3's standard-library TOML reader, uses only

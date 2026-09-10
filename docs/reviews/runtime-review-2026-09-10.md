@@ -32,7 +32,7 @@ environment) against **512,000,000 bytes**. The actual watched edit serves in
 
 The second review expanded recovery coverage to failed reset attempts, failed LIVE checkpoints, retries after a consumed epoch and non-idempotent initial migrations. Private probes stop before their validated state is captured; initial generations freeze during capture. Recovery uses the current revision's healthy snapshot without replaying its migration.
 
-ADRs [0042](../../docs/adr/0042-allow-two-second-work-edits.md)–[0046](../../docs/adr/0046-retire-generation-resources.md) record the latency approval and implementation decisions. The benchmark asserts at most **2,000 ms** and **512,000,000 bytes**, preserving the measured workload and sandbox. New immutable pins have a separate 1,024-digest budget; already retained digests remain usable at capacity. Legacy pin anchors and immutable state history remain available for recovery.
+ADRs [0042](../../docs/implementation.md#0042--edit-latency)–[0046](../../docs/implementation.md#0046--resource-retirement) record the latency approval and implementation decisions. The benchmark asserts at most **2,000 ms** and **512,000,000 bytes**, preserving the measured workload and sandbox. New immutable pins have a separate 1,024-digest budget; already retained digests remain usable at capacity. Legacy pin anchors and immutable state history remain available for recovery.
 
 Shared requirement composition addresses the senior architect's third recommendation. Transport deduplication and a unified registry-cache interface remain separate architectural follow-ups. The existing kernel-size debt remains: **1,680 counted lines** (1,700 physical minus 20 comment-only) against 1,300. The conformance-name inventory remains **106/106**, with none missing or skipped; this is not a clause-level acceptance audit.
 
@@ -120,7 +120,7 @@ Evidence: work-edit reproduction output (`thetis-runtime-review-work-repro.log`,
 
 ## Original review validation and authorized memory change
 
-The RSS acceptance ceiling is now **512,000,000 bytes, inclusive**, retaining the existing decimal MB convention and the same measured kernel, idle environment and sandbox descendants. [ADR 0041](../../docs/adr/0041-raise-idle-memory-ceiling.md) records the user's explicit approval. [The acceptance test](../../test/acceptance-performance.test.ts#L10), bench documentation and current README/TODO/status records reflect the change. Individual sandbox and heap limits retain their existing values.
+The RSS acceptance ceiling is now **512,000,000 bytes, inclusive**, retaining the existing decimal MB convention and the same measured kernel, idle environment and sandbox descendants. [Memory acceptance](../../docs/implementation.md#0041--memory-acceptance) records the user's explicit approval. [The acceptance test](../../test/acceptance-performance.test.ts#L10), bench documentation and current README/TODO/status records reflect the change. Individual sandbox and heap limits retain their existing values.
 
 Validation completed:
 

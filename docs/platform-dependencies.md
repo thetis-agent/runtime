@@ -18,7 +18,7 @@ or kernel hash verification.
 
 ## Installation and release-verification tools (ADR 0048)
 
-These are used by `install.sh` and by `zero update`, never by package code and
+These are used by `install.sh` and by `thetis update`, never by package code and
 never inside a sandbox. They are already installed; none was added by a package
 installation or a lifecycle script, and none is a new npm dependency.
 

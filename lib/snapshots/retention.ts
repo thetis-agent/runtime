@@ -1,4 +1,4 @@
-/** Release stopped run workspaces without removing immutable recovery anchors; GN-002, ADR 0046. */
+/** Release stopped run workspaces without removing immutable recovery anchors; GN-002, implementation note 0046. */
 import { readdir, realpath, lstat, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { failure, isObject } from '@/lib/schema/index.ts';

@@ -1,4 +1,4 @@
-/** Exercise the root publication boundary inside a nested user namespace without host privileges; ADR 0052. */
+/** Exercise the root publication boundary inside a nested user namespace without host privileges; implementation note 0052. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';

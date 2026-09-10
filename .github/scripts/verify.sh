@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ADR 0002, ADR 0037, ADR 0055: CI verifies; release mode assembles previously reviewed sources.
+# ADR 0002, ADR 0037, implementation note 0055: CI verifies; release mode assembles previously reviewed sources.
 set -euo pipefail
 mode=${1:-verify}
 case "$mode" in verify|assemble) ;; *) printf 'Unknown delivery mode: %s\n' "$mode" >&2; exit 2 ;; esac
@@ -58,7 +58,10 @@ if [[ "$mode" == verify ]]; then
     printf '\nCoverage report unavailable; inspect the test gate log.\n' >> "$GITHUB_STEP_SUMMARY"
   fi
 else
-  printf '\nRelease assembly uses reviewed main history; CI acceptance and coverage are not rerun (ADR 0055).\n' >> "$GITHUB_STEP_SUMMARY"
+  printf '\nRelease assembly uses reviewed main history; CI acceptance and coverage are not rerun (implementation note 0055).\n' >> "$GITHUB_STEP_SUMMARY"
+fi
+if [[ "$mode" == verify ]]; then
+  gate installed-service bash .github/scripts/install-smoke.sh "$workspace/reports"
 fi
 if (( failures != 0 )); then
   printf '::error::%s acceptance gate(s) failed; delivery is blocked.\n' "$failures"
@@ -69,7 +72,7 @@ cp profiles/default/{package.json,profile.lock.json,registry.json,registry.bundl
 cp "$workspace/reports/provenance.json" "$workspace/delivery/"
 cp "$workspace/reports/platform.txt" "$workspace/delivery/"
 cp install.sh "$workspace/delivery/"
-node --import ./lib/artifacts/source.mjs scripts/kernel-pins.ts > "$workspace/delivery/kernel-pins.json"
+# distribution.ts publishes pins from its assembled tree and verifies the archive.
 cd "$workspace/delivery"
 sha256sum thetis-distribution.tar.gz package.json profile.lock.json registry.json registry.bundle provenance.json platform.txt kernel-pins.json install.sh > SHA256SUMS
 sha256sum --check --strict SHA256SUMS

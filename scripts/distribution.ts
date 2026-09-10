@@ -1,26 +1,19 @@
 /** Deliver verified execution sources and the offline dependency closure; ADR 0035, ADR 0037, GN-002. */
-import { cp, mkdir, mkdtemp, realpath } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { catalog } from '@/lib/profile/catalog.ts';
+import { buildDistribution, verifyDistribution } from '@/scripts/distribution-tree.ts';
 import { namespace, seal } from '@/lib/sandbox-runner/namespace.ts';
 import { sourceMounts, execute } from '@/scripts/workspace.ts';
-const limits = { temporaryBytes: 536870912 };
+const limits = { temporaryBytes: 1073741824 };
 
 async function distribution(): Promise<number> {
   const stage = await mkdtemp('/tmp/distribution-');
-  const sources = await catalog('/workspace');
-  if (!sources.ok) throw new Error(sources.error.message);
-  for (const source of sources.value) {
-    await cp(source.source, join(stage, source.kind, source.directory), { recursive: true, errorOnExist: true, force: false });
-  }
-  for (const path of ['kernel', 'profiles', 'docs', 'README.md', 'package.json', 'package-lock.json']) {
-    await cp(join('/workspace', path), join(stage, path), { recursive: true, errorOnExist: true, force: false });
-  }
-  // Stable metadata makes independent archives comparable. The namespace bounds
-  // the staging filesystem and supplies no network, credentials or live state.
-  return execute('tar', ['--sort=name', '--mtime=@0', '--owner=0', '--group=0', '--numeric-owner',
-    '-czf', '/delivery/thetis-distribution.tar.gz', '-C', stage, '.']);
+  try {
+    await buildDistribution('/workspace', join(stage, 'tree'), '/delivery');
+    await verifyDistribution('/delivery', join(stage, 'extracted'));
+    return 0;
+  } finally { await rm(stage, { recursive: true, force: true }); }
 }
 
 if (process.argv.includes('--workspace')) process.exitCode = await distribution();

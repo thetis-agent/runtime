@@ -1,4 +1,4 @@
-/** Recheck installed release authority at the supervisor boundary, including the code it cannot hot-swap; ADR 0048, ADR 0052. */
+/** Recheck installed release authority at the supervisor boundary, including the code it cannot hot-swap; ADR 0048, implementation note 0052. */
 import { realpath } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

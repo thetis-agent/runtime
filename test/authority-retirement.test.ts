@@ -1,4 +1,4 @@
-/** Close real empty authority descriptors without consuming permanent target slots; KS-008, ADR 0046. */
+/** Close real empty authority descriptors without consuming permanent target slots; KS-008, implementation note 0046. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';

@@ -1,30 +1,31 @@
-useradd --system --home-dir /var/lib/z --shell /usr/sbin/nologin zero
+useradd --system --home-dir /var/lib/thetis --shell /usr/sbin/nologin thetis
 install -d -m 0755 /var/lib
-fallocate -l 4294967296 /var/lib/z.img
-chmod 0600 /var/lib/z.img
-mkfs.ext4 -q -m 0 -L zero-state /var/lib/z.img
-install -d -m 0700 /var/lib/z
-write /etc/systemd/system/var-lib-z.mount
+fallocate -l 4294967296 /var/lib/thetis.img
+chmod 0600 /var/lib/thetis.img
+mkfs.ext4 -q -m 0 -L thetis-state /var/lib/thetis.img
+install -d -m 0700 /var/lib/thetis
+write /etc/systemd/system/var-lib-thetis.mount
 systemctl daemon-reload
-systemctl enable --now var-lib-z.mount
-install -d -m 0755 /opt/zero /opt/zero/releases /opt/zero/etc
+systemctl enable --now var-lib-thetis.mount
+install -d -m 0755 /opt/thetis /opt/thetis/releases /opt/thetis/etc
 install verified release and retained seed sources
-install -d -m 0755 /opt/zero/node
+install -d -m 0755 /opt/thetis/node
 install verified Node archive
-write recipe.json, seed.json and zero launcher
+write recipe.json, seed.json and thetis launcher
 write accounts.json (1 account)
-install -d -o root -g root -m 0700 /etc/zero
-head -c 32 /dev/urandom > /etc/zero/master.key
-chmod 0400 /etc/zero/master.key
-Back up /etc/zero/master.key; without it the sealed secrets are unrecoverable.
+install -d -o root -g root -m 0700 /etc/thetis
+head -c 32 /dev/urandom > /etc/thetis/master.key
+chmod 0400 /etc/thetis/master.key
+Back up /etc/thetis/master.key; without it the sealed secrets are unrecoverable.
+seal provider API key in the kernel secret store
 install -d -m 0755 /etc/systemd/system
-write /etc/systemd/system/zero.service
-write /etc/systemd/system/zero-update.service
-write /etc/systemd/system/zero-update.timer
+write /etc/systemd/system/thetis.service
+write /etc/systemd/system/thetis-update.service
+write /etc/systemd/system/thetis-update.timer
 systemctl daemon-reload
-chown -R zero:zero /var/lib/z
-chown root:zero /opt/zero/releases
-chmod 1775 /opt/zero/releases
+chown -R thetis:thetis /var/lib/thetis
+chown root:thetis /opt/thetis/releases
+chmod 1775 /opt/thetis/releases
 write install.json
-systemctl enable --now zero.service
-systemctl enable --now zero-update.timer
+systemctl enable --now thetis.service
+systemctl enable --now thetis-update.timer

@@ -20,7 +20,7 @@ export const maintenanceLimits = { attempts: 128 };
 export interface Configuration {
   root: string; schemas: Schemas; clock: Clock; administrator: string; currentMajor: string;
   capture: Capture;
-  /** A short root for each generation's private store; nesting it under the run workspace exceeds the unix socket path limit for target endpoints (ADR 0050). */
+  /** A short root for each generation's private store; nesting it under the run workspace exceeds the unix socket path limit for target endpoints (implementation note 0050). */
   stateRoot?: string;
   durable?: boolean;
   machine(initial: Generation, recovered?: View): Generations;
@@ -35,7 +35,7 @@ export class Maintenance {
   #live: Live; #next: Live | undefined; #busy = false; #stopped = false; #attempt: string | undefined; #captured: string | undefined; #store: string | undefined; #attempts = 0;
   private constructor(config: Configuration, endpoint: Endpoint, machine: Generations, live: Live) { this.#config = config; this.#endpoint = endpoint; this.machine = machine; this.#live = live; }
   get endpoint(): string { return this.#endpoint.path; }
-  /** The live kernel's root, so an operator tool can name the public socket paths that move with each generation (ADR 0050). */
+  /** The live kernel's root, so an operator tool can name the public socket paths that move with each generation (implementation note 0050). */
   get state(): string { return this.#live.prepared.state; }
   get release(): string | undefined { return this.#live.revision.release; }
   get previousRelease(): string | undefined { return this.#previous?.release; }
@@ -169,7 +169,7 @@ export class Maintenance {
   close(): Promise<Result<void>> { return this.#live.process.stop(); }
 }
 
-/** Names stay short so a copied kernel root still leaves room for its targets' 107-byte endpoint paths (ADR 0050). */
+/** Names stay short so a copied kernel root still leaves room for its targets' 107-byte endpoint paths (implementation note 0050). */
 function store(config: Configuration, n: number, kind = 'g'): string | undefined {
   return config.stateRoot === undefined ? undefined : join(config.stateRoot, `${kind}${String(n)}-${randomUUID().slice(0, 8)}`);
 }

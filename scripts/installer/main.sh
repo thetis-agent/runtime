@@ -1,8 +1,8 @@
 # --- installation changes the destination only after complete verification (ADR 0048) -----------
 existing_install() {
   if [ -f "$prefix/etc/install.json" ]; then
-    [ -f "$prefix/releases/$release/.installed" ] || die 'This prefix already has an installation; use zero update to change its release.'
-    say "Zero $release is already installed at $prefix."
+    [ -f "$prefix/releases/$release/.installed" ] || die 'This prefix already has an installation; use thetis update to change its release.'
+    say "Thetis $release is already installed at $prefix."
     return 0
   fi
   if [ -e "$prefix" ]; then die 'The code prefix already exists without a completed installation; inspect it before continuing.'; fi
@@ -17,7 +17,7 @@ provision_install() {
   if [ "$dry_run" = 1 ]; then
     say 'install verified release and retained seed sources'
     install_node
-    say 'write recipe.json, seed.json and zero launcher'
+    say 'write recipe.json, seed.json and thetis launcher'
     say 'write accounts.json (1 account)'
   else
     state_dirs
@@ -25,12 +25,13 @@ provision_install() {
     [ "$quota_bytes" -le "${state_size:-$DEFAULT_STATE_SIZE}" ] || die 'The existing state filesystem exceeds the declared state size.'
     layout_release "$extracted"
     install_node
-    write_bin_zero
+    write_bin_thetis
     write_installation "$prefix/releases/$release"
     write_accounts "$prefix/releases/$release"
     password_value=''
   fi
   provision_key
+  seal_provider
   install_units
   if [ "$service" = system ]; then
     step "chown -R $service_user:$service_user $state"
@@ -48,23 +49,34 @@ run_install() {
   resolve_service
   if [ "$dry_run" = 1 ]; then provision_install; return 0; fi
   [ ! -e "$credential_path" ] || die 'An existing master key will not be overwritten.'
-  resolve_password
-  tmp=$(mktemp -d "${TMPDIR:-/tmp}/zero-install.XXXXXX")
+  if [ "$service" != none ]; then
+    for unit in "$service_name.service" "$service_name-update.service" "$service_name-update.timer"; do
+      [ ! -e "$unit_directory/$unit" ] && [ ! -L "$unit_directory/$unit" ] || die "An existing unit $unit_directory/$unit will not be overwritten."
+    done
+  fi
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/thetis-install.XXXXXX")
   if [ -n "$allowed_signers" ]; then
     signers=$(realpath "$allowed_signers")
   else
-    signers="$tmp/allowed_signers"; printf '%s\n' "$ZERO_ALLOWED_SIGNERS" > "$signers"
+    signers="$tmp/allowed_signers"; printf '%s\n' "$THETIS_ALLOWED_SIGNERS" > "$signers"
   fi
   staging="$tmp/staging"; extracted="$tmp/extracted"
   mkdir -p "$staging" "$extracted"
+  progress "Downloading Thetis $release"
   fetch_release "$staging"
+  progress 'Checking the release signature and checksums'
   verify_asset_list "$staging"
   verify_signature "$staging"
   verify_hashes "$staging"
   verify_commit "$staging"
+  progress 'Installing the verified Node runtime'
   resolve_node "$staging"
+  progress 'Verifying the extracted application'
   tar -xpzf "$staging/thetis-distribution.tar.gz" --no-same-owner -C "$extracted"
   verify_pins "$staging" "$extracted"
+  resolve_provider
+  resolve_password
+  progress 'Creating your environment'
   provision_install
 }
 
@@ -74,6 +86,8 @@ main() {
   trap 'exit 143' TERM
   parse_args "$@"
   if [ -n "$print_unit" ]; then unit_text "$print_unit"; exit 0; fi
+  init_display
+  banner
   prompt_choices
   validate_args
   validate_paths

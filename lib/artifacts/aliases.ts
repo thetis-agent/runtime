@@ -1,4 +1,4 @@
-/** Resolve repository imports within the importing revision, without changing authority; ADR 0047. */
+/** Resolve repository imports within the importing revision, without changing authority; implementation note 0047. */
 import { createRequire, findPackageJSON } from 'node:module';
 import type { ResolveHookSync } from 'node:module';
 import { basename, dirname } from 'node:path';
