@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "thetis://contract/surface/1",
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    },
+    "asset": {
+      "type": "string",
+      "pattern": "^/surface/[a-z][a-z0-9-]{0,63}/[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9][A-Za-z0-9._-]{0,63})*$",
+      "maxLength": 256,
+      "description": "served path of the entry module; its second segment is the providing package's name"
+    },
+    "panel": {
+      "type": "object",
+      "required": ["id", "label", "entry"],
+      "properties": {
+        "id": { "$ref": "#/$defs/name" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "hint": { "type": "string", "maxLength": 160 },
+        "wide": { "type": "boolean" },
+        "entry": { "$ref": "#/$defs/asset" }
+      },
+      "additionalProperties": true
+    },
+    "renderer": {
+      "type": "object",
+      "required": ["kind", "entry"],
+      "properties": {
+        "kind": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+        "entry": { "$ref": "#/$defs/asset" }
+      },
+      "additionalProperties": true
+    },
+    "surface": {
+      "type": "object",
+      "required": ["v"],
+      "properties": {
+        "v": { "const": "1" },
+        "panels": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/panel" } },
+        "renderers": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/renderer" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$ref": "#/$defs/surface"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@thetis/contract-surface",
+  "version": "1.0.0",
+  "type": "module",
+  "provides": {
+    "contract/surface": "1.0.0"
+  },
+  "exports": "./types.ts"
+}

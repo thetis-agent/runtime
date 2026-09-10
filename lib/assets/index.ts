@@ -65,6 +65,24 @@ export async function load(root: string, manifestPath: string, schemas: Schemas)
   return { ok: true, value: { root: await realpath(root), assets: rows } };
 }
 
+/** Join tables served from one origin, refusing a path two packages both claim; ADR 0006, ADR 0038 §1.
+ *
+ * `respond` matches `path` literally and never reads `root`, so a joined table needs no common root:
+ * each row keeps the absolute file it was canonicalised to under its own package's root. The combined
+ * count is bounded again because `load` only bounds one manifest at a time. */
+export function merge(tables: readonly Table[]): Result<Table, 'invalid-args' | 'budget'> {
+  const seen = new Map<string, string>(); const assets: Asset[] = [];
+  for (const table of tables) {
+    for (const asset of table.assets) {
+      const owner = seen.get(asset.path);
+      if (owner !== undefined) return failure('invalid-args', `${asset.path} is served by both ${owner} and ${table.root}.`);
+      seen.set(asset.path, table.root); assets.push(asset);
+    }
+  }
+  if (assets.length > limits.files) return failure('budget', `The joined asset table lists more than ${String(limits.files)} assets.`);
+  return { ok: true, value: { root: tables[0]?.root ?? '', assets } };
+}
+
 function pathnameOf(url: string | undefined): string | undefined {
   if (!url) return undefined;
   const query = url.indexOf('?'); const raw = query === -1 ? url : url.slice(0, query);
