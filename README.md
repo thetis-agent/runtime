@@ -3,6 +3,41 @@
 A self-modifying, multi-user AI agent harness: one small trusted kernel, one
 unprivileged loop, and everything else as versioned packages from git registries.
 
+## Install and connect
+
+On a Linux host meeting the [installation requirements](docs/install.md#host-and-service-modes),
+install the latest signed release with one command:
+
+```sh
+curl -fsSL https://github.com/thetis-agent/runtime/releases/latest/download/install.sh | sudo sh -s -- --allow-root
+```
+
+**Release availability:** The first public signed release has not been published
+yet, so this download currently returns 404. The command becomes available once
+that release is published.
+
+Follow the prompts for your public HTTPS origin, administrator id (default
+`admin`) and password. The installer downloads Node, installs to `/opt/zero` by
+default, and starts the system service.
+
+To connect:
+
+1. Run `sudo /opt/zero/bin/zero status` to see the login URL and socket paths.
+2. Configure your HTTPS reverse proxy to send `/login` to the login socket and
+   `/admin/` to the web socket, stripping the account prefix and forwarding
+   WebSocket upgrades. Use your chosen administrator id in place of `admin`.
+   Keep the trusted kernel origin on a separate origin; see the
+   [proxy setup](docs/headless-startup.md#chat-through-the-browser).
+3. Open your chosen origin's `/login` URL, for example
+   `https://thetis.example.com/login`, and sign in with the id and password you
+   created. Sign-in takes you to your account's web interface.
+
+See the [installation guide](docs/install.md) for setup options, updates and
+removal, and [provider setup](docs/headless-startup.md#bind-openrouter-and-promote-a-reviewed-release)
+to connect a real model; the initial deployment uses a mock provider.
+
+## Design
+
 One rule shapes everything:
 
 > **The core and the kernel name no package, no service, and no vendor.**
@@ -57,7 +92,7 @@ export THETIS_NODE=/home/bitmuse/.nvm/versions/node/v24.18.0/bin/node
 
 ---
 
-## Quick start
+## Development quick start
 
 ```sh
 git clone <runtime repository> runtime
