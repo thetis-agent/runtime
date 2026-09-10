@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "158d53e2bf8a846f544d584478a20058de09051a",
-        "hash": "sha256:36e179748db686e8f19ec61078f1c320cc725f27a50debabca4d4028efa7d780"
+        "commit": "02b88f9f80766da42ab821284001bcce910336f8",
+        "hash": "sha256:4331347bc4b6338b2dfb7f0842a5b7b0749b08cec4067b2692531cd6c74aeb72"
       }
     },
     {
@@ -108,8 +108,18 @@
       "pin": {
         "name": "retriever-local",
         "version": "1.0.0",
-        "commit": "cef2f146e2f0f1b5e0bfb281c55a98ca1f81435e",
-        "hash": "sha256:6965081fdc77cb3dd8f4436f53ebd545e96bd99cf53344acb4f887d963c4b524"
+        "commit": "20e69106c12ed09f910c22a6fb99987ce3b20817",
+        "hash": "sha256:4d5ab1537c49b52ab27a11e57540e2ad9cd119a14b32831066bdaecef641a700"
+      }
+    },
+    {
+      "kind": "packages",
+      "directory": "skills-core",
+      "pin": {
+        "name": "skills-core",
+        "version": "1.0.0",
+        "commit": "d4397af4cde39c5696a5d643a742d109ae40ac39",
+        "hash": "sha256:b3bd5afb9e9c839ea2d316dae0dba356ccdeaa7145b2c09bc1d8730c85d17877"
       }
     },
     {
@@ -328,8 +338,8 @@
       "pin": {
         "name": "lib/schema",
         "version": "1.0.0",
-        "commit": "1c7a2ad5db3efeb0aae56fba7fc7b5fa9947b325",
-        "hash": "sha256:6480e927da491ea585e68b4d34d63b68113d748ac382f633286b03780ba01d11"
+        "commit": "7fe387977079227421b908fff8dc8afa5c0eb867",
+        "hash": "sha256:8ac82ea743e2be9ce51bf073fca24a8f563bd377635335e9e7cefecc690970d0"
       }
     },
     {
@@ -368,8 +378,8 @@
       "pin": {
         "name": "lib/skills",
         "version": "1.0.0",
-        "commit": "e05777408a0802ee91468db8d6a9477cf3f5e872",
-        "hash": "sha256:457ea9cfbfde8fb2271ee1a59bd07f0b10438de2314f664881fafabc3510389d"
+        "commit": "a7723fa85c017ab3bcc2ef77fe5ccc49648f8f0d",
+        "hash": "sha256:41b54c48cc129f5396cd67e5d4ead015114ec631d3bbfa0cf42295e374100d57"
       }
     },
     {
@@ -488,8 +498,8 @@
       "pin": {
         "name": "contract/skills",
         "version": "1.1.0",
-        "commit": "04dec019116351a83618818a7d5d204e3450448a",
-        "hash": "sha256:ebc2e4efa4973e81a228c6fe5c7017390511287458364ad9e03960ae447bc66b"
+        "commit": "2e5c2b19418a0bd2a195164e64766ee6802c844d",
+        "hash": "sha256:6c78122fd2f2bb384886b5d3f6619c672a32ed26c9e18ca702a213617702b1a2"
       }
     },
     {
