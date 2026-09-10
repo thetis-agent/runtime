@@ -3,8 +3,11 @@ name: Prepare Thetis delivery
 description: Verify in CI or assemble a release from the selected runtime/packages checkout pair
 inputs:
   mode:
-    description: verify runs CI acceptance and coverage; assemble only builds delivery files (implementation note 0055)
+    description: verify runs all checks; gates stages delivery without tests; shard runs a test partition; assemble builds release files
     default: verify
+  shard:
+    description: Test shard index/count, required only in shard mode
+    default: ''
 runs:
   using: composite
   steps:
@@ -26,4 +29,5 @@ runs:
       env:
         ACTION_ROOT: ${{ github.action_path }}
         DELIVERY_MODE: ${{ inputs.mode }}
-      run: bash "$ACTION_ROOT/../../scripts/verify.sh" "$DELIVERY_MODE"
+        TEST_SHARD: ${{ inputs.shard }}
+      run: bash "$ACTION_ROOT/../../scripts/verify.sh" "$DELIVERY_MODE" "$TEST_SHARD"
