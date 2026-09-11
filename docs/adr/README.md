@@ -40,3 +40,4 @@ Features, bug fixes, refactors, defaults, dependency updates, workflows and budg
 | [0048](0048-supervised-kernel-service-and-installed-layout.md) | Supervised kernel service and the installed layout | Accepted by the operator |
 | [0049](0049-pre-authorised-kernel-updates.md) | Pre-authorised kernel updates for fixes and improvements | Proposed: stops for the operator |
 | [0050](0050-the-act-from-a-package-page.md) | The act may be driven from a package page | Accepted by the operator |
+| [0051](0051-a-panel-may-answer.md) | A contributed panel may act, within a declaration | Proposed |

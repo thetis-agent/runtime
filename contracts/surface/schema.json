@@ -24,6 +24,21 @@
       },
       "additionalProperties": true
     },
+    "verb": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "the name of one thing a panel may ask its own package to do"
+    },
+    "command": {
+      "type": "object",
+      "required": ["verb", "label"],
+      "properties": {
+        "verb": { "$ref": "#/$defs/verb" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 64, "description": "what the person is doing when the panel sends it, in their words" },
+        "role": { "enum": ["user", "reviewer", "admin"], "description": "the least role that may send it; absent means any signed-in person" }
+      },
+      "additionalProperties": true
+    },
     "renderer": {
       "type": "object",
       "required": ["kind", "entry"],
@@ -39,7 +54,8 @@
       "properties": {
         "v": { "const": "1" },
         "panels": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/panel" } },
-        "renderers": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/renderer" } }
+        "renderers": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/renderer" } },
+        "commands": { "type": "array", "maxItems": 16, "items": { "$ref": "#/$defs/command" }, "description": "every verb this package's panels may send; anything absent here is refused by the host (ADR 0051)" }
       },
       "additionalProperties": true
     }

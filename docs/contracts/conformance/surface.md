@@ -13,3 +13,6 @@ surface's own tests, in the package repository.
 | SF-002 | An entry path outside `/surface/`, or one that escapes its own segment: validate; refused, so one package can never claim another's served path. |
 | SF-003 | A panel whose id is not a lowercase name, whose label is empty or over 32 characters, or which omits its entry: validate; refused. |
 | SF-004 | More panels or renderers than a surface will host: validate; refused at the declared ceiling rather than at serve time. |
+| SF-005 | A block declaring commands, with and without panels beside them: validate; a declaration stands on its own, because the host reads it from the same block whether or not the package also draws rows (ADR 0051). |
+| SF-006 | A command whose verb is not a lowercase name, whose label is empty or over 64 characters, which omits either, or whose role is not one the kernel knows: validate; refused, so a package's reach cannot be widened by a name nothing checks. |
+| SF-007 | More commands than a surface will forward: validate; refused at the declared ceiling rather than at request time. |
