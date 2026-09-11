@@ -17,7 +17,7 @@ await test('EV-001 registered evaluator submits real loop outcomes and exposes o
       const response = await socketFrames(connection.value).next(); assert.ok(!response.done && response.value.ok);
       assert.ok(isObject(response.value.value) && response.value.value['ok'] === true, JSON.stringify(response.value));
       assert.ok(!JSON.stringify(response.value.value).includes('private-task')); assert.ok(!JSON.stringify(response.value.value).includes('fixture-private-seed'));
-      const prepared = f.act.act.prepare(reviewer, 'kernel', { digest: f.settings.plan.identities.candidate, baseline: 1 }); assert.ok(prepared.ok, JSON.stringify(prepared));
+      const prepared = f.act.act.prepare(reviewer, { digest: f.settings.plan.identities.candidate, baseline: 1 }); assert.ok(prepared.ok, JSON.stringify(prepared));
     } finally { connection.value.destroy(); }
   } finally { await f.close(); }
 });

@@ -105,3 +105,29 @@ await test('GN-002 vendored TypeScript stays data and removing both output sidec
     assert.ok((await verifyTree(root)).ok);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+/* A rename leaves the old artifacts behind, and `verifyTree` reads the source every artifact names —
+ * so one leftover fails a whole pinned tree with `io`. Artifacts are not committed, so the file is
+ * invisible to git and the failure surfaces as a deployment that will not assemble, nowhere near the
+ * rename that caused it. An in-place build owns this directory's artifacts, so it clears them. */
+await test('ADR 0037 a renamed source leaves no artifact behind, and --check calls the tree stale until it is gone', async () => {
+  const root = await mkdtemp('/tmp/artifacts-');
+  try {
+    await writeFile(join(root, 'main.ts'), 'export const value: number = 1;\n');
+    assert.ok(await buildTree(root, root));
+    assert.ok((await verifyTree(root)).ok);
+
+    // The rename: the source moves, its artifacts do not.
+    await cp(join(root, 'main.ts'), join(root, 'renamed.ts')); await rm(join(root, 'main.ts'));
+    assert.ok(!(await verifyTree(root)).ok, 'a source-less artifact must not verify');
+    assert.equal(await buildTree(root, root, true), false, '--check must report the leftover rather than remove it');
+    await assert.rejects(readFile(join(root, 'main.ts'), 'utf8'), 'the checked build must not have written the source back');
+    assert.equal(await readFile(join(root, 'main.ts.js'), 'utf8'), 'export const value         = 1;\n');
+
+    assert.ok(await buildTree(root, root));
+    await assert.rejects(readFile(join(root, 'main.ts.js'), 'utf8'));
+    await assert.rejects(readFile(join(root, 'main.ts.artifact.json'), 'utf8'));
+    assert.ok((await verifyTree(root)).ok);
+    assert.ok(await buildTree(root, root, true), 'a tree with nothing stale in it is fresh');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

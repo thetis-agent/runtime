@@ -12,8 +12,18 @@ import type { Result, Schemas } from '@/lib/schema/index.ts';
 
 export const limits = { fileBytes: 4194304, files: 256 };
 
-export interface Asset { path: string; file: string; type: string; size: number; sha256: string; absolute: string }
+export interface Asset { path: string; file: string; type: string; size: number; sha256: string; absolute: string; body?: Buffer }
 export interface Table { root: string; assets: readonly Asset[] }
+
+/** Offered a manifest row, returns the text edit that row needs, or nothing to serve the file as it lies.
+ *
+ * A gateway whose pages carry per-installation text — a name, a colour — has to put it in before the
+ * bytes leave, and the alternative (a placeholder the browser fills in after boot) shows the wrong
+ * name for the length of a round trip and cannot reach a <title> or a tab icon at all. Returning a
+ * function rather than a string is what keeps a binary asset unread: only a row the caller claims is
+ * opened as text. The edited bytes are hashed and measured like any other row, so revalidation still
+ * describes what was actually served. */
+export type Rewrite = (asset: { path: string; file: string; type: string }) => ((text: string) => string) | undefined;
 
 interface ManifestEntry { path: string; file: string; type: string }
 interface Manifest { assets: ManifestEntry[] }
@@ -36,8 +46,13 @@ async function hash(path: string): Promise<Result<string, 'io'>> {
   } catch { return failure('io', `${path} could not be hashed.`); }
 }
 
+async function rewritten(path: string, edit: (text: string) => string): Promise<Result<Buffer, 'io'>> {
+  try { return { ok: true, value: Buffer.from(edit(await readFile(path, 'utf8')), 'utf8') }; }
+  catch { return failure('io', `${path} could not be read as text.`); }
+}
+
 /** Read the committed manifest once, canonicalise every file against root, refuse on doubt; ADR 0005. */
-export async function load(root: string, manifestPath: string, schemas: Schemas): Promise<Result<Table>> {
+export async function load(root: string, manifestPath: string, schemas: Schemas, rewrite?: Rewrite): Promise<Result<Table>> {
   let text: string;
   try { text = await readFile(manifestPath, 'utf8'); }
   catch { return failure('not-found', `${manifestPath} does not exist.`); }
@@ -57,6 +72,14 @@ export async function load(root: string, manifestPath: string, schemas: Schemas)
     if (!resolved.ok) return resolved;
     const bounded = await boundedFile(resolved.value, limits.fileBytes);
     if (!bounded.ok) return bounded;
+    const edit = rewrite?.(entry);
+    if (edit) {
+      const edited = await rewritten(resolved.value, edit);
+      if (!edited.ok) return edited;
+      if (edited.value.length > limits.fileBytes) return failure('budget', `${entry.file} is larger than ${String(limits.fileBytes)} bytes once filled in.`);
+      rows.push({ path: entry.path, file: entry.file, type: entry.type, size: edited.value.length, sha256: createHash('sha256').update(edited.value).digest('hex'), absolute: resolved.value, body: edited.value });
+      continue;
+    }
     const hashed = await hash(resolved.value);
     if (!hashed.ok) return hashed;
     const info = await stat(resolved.value);
@@ -115,6 +138,8 @@ export async function respond(table: Table, request: IncomingMessage, response: 
   }
   response.writeHead(200, { 'content-type': asset.type, 'content-length': String(asset.size), etag, 'cache-control': cacheControl, 'accept-ranges': 'none', ...security });
   if (method === 'HEAD') { response.end(); return { ok: true, value: undefined }; }
+  // A rewritten row was filled in at load and never touches the disk again: its bytes are the served bytes.
+  if (asset.body) { response.end(asset.body); return { ok: true, value: undefined }; }
   try { await pipeline(createReadStream(asset.absolute), response); return { ok: true, value: undefined }; }
   catch { if (!response.writableEnded) response.destroy(); return failure('io', `${asset.path} could not be streamed.`); }
 }

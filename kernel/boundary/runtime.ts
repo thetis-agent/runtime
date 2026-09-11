@@ -28,8 +28,9 @@ import { socketPair } from '@/lib/socket/pair.ts';
 import { executionPlan } from '@/lib/deployment/execution-plan.ts';
 import type { EvaluationBridge } from '@/lib/deployment/evaluation.ts';
 import { Pins } from '@/lib/pins/index.ts';
-import { sessionMethods } from '@/lib/socket/sessions.ts';
+import { sessionMethods, everyone, listEveryone } from '@/lib/socket/sessions.ts';
 import { recovery } from '@/lib/deployment/recover.ts';
+import { targetLogs } from '@/lib/deployment/logs.ts';
 import type { Recovery } from '@/lib/deployment/recover.ts';
 import { saveCheckpoint, neutralCheckpoint } from '@/lib/deployment/checkpoint.ts';
 
@@ -114,6 +115,18 @@ export class Runtime {
     return { ok: true, value: { target, ready: found.driver?.admits ?? false, generation: found.driver?.machine.view.current.n ?? 0, state: found.driver?.machine.view.state ?? 'FAILED', ...(found.failure ? { reason: found.failure } : {}) } };
   }
 
+  /** env.logs answers only what env.status would already admit, so one ownership rule governs both
+   * and a person can never read another environment's observations; the tail itself is bounded and
+   * observed-only in lib/deployment/logs.ts (ADR 0014, KS-019). Whether a deployment keeps an
+   * observed journal at all is deployment-wide and names no person, so that refusal precedes the
+   * ownership check; every row it could answer with is behind it. */
+  async logs(person: Principal, target: string, params: Record<string, unknown>): Promise<Result<unknown>> {
+    const path = this.#context.recoveryJournal;
+    if (!path) return failure('unsupported', 'This deployment retains no observed journal.');
+    const admitted = this.status(person, target); if (!admitted.ok) return admitted;
+    return targetLogs(path, target, params, this.#context.schemas);
+  }
+
   endpoint(target: string): Result<string> {
     const value = this.#targets.get(target)?.driver;
     return value ? { ok: true, value: value.endpoint } : failure('not-found', 'The target endpoint does not exist.');
@@ -132,6 +145,8 @@ export class Runtime {
     if (!sessionMethods.includes(method)) return Promise.resolve(failure('unsupported', 'This is not a session operation.'));
     const requested = method === 'session.list' && typeof params['person'] === 'string' ? params['person'] : person.id;
     if (requested !== person.id && !person.observeOthers) return Promise.resolve(failure('forbidden', 'The conversation list belongs to another person.'));
+    if (requested === everyone) return listEveryone([...this.#targets.values()].flatMap(({ target, driver }) =>
+      driver && target.scope === 'person' && target.environment !== false ? [{ owner: target.owner, list: (args: Record<string, unknown>) => driver.invoke('session.list', args) }] : []), params);
     const mounted = [...this.#targets.values()].find(value => value.target.scope === 'person' && value.target.owner === requested && value.target.environment !== false);
     const driver = mounted?.driver; if (!driver) return failure('not-found', 'The person has no running environment.');
     const hashes = Object.values(driver.machine.view.current.pins);
@@ -285,11 +300,12 @@ export class Runtime {
 
   #operations(mounted: Mounted): Operations {
     const methods = new Map<Method, Operation>();
-    for (const method of ['env.status', 'env.reset'] satisfies Method[]) methods.set(method, (run, params) => {
+    for (const method of ['env.status', 'env.logs', 'env.reset'] satisfies Method[]) methods.set(method, (run, params) => {
       const person = this.#context.identity.principal(run.person);
       if (!person) return Promise.resolve(failure('forbidden', 'The run has no environment authority.'));
       const target = typeof params['target'] === 'string' ? params['target'] : run.person;
-      return method === 'env.status' ? Promise.resolve(this.status(person, target)) : this.reset(person, target);
+      if (method === 'env.status') return Promise.resolve(this.status(person, target));
+      return method === 'env.logs' ? this.logs(person, target, params) : this.reset(person, target);
     });
     methods.set('health.probe', () => Promise.resolve({ ok: true, value: { ready: true } }));
     for (const method of sessionMethods.filter(method => method !== 'session.subscribe')) methods.set(method, (run, params) => {

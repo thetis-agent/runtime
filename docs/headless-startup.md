@@ -195,6 +195,22 @@ bounded to the most recent 256 messages and 256 KiB, with an explicit truncation
 notice; retained conversation storage is unchanged. Live events follow the saved
 snapshot so reconnecting does not clear the transcript or lose arriving frames.
 
+What the agent is called on that surface is a deployment choice, not a constant:
+`gateway-web`'s settings declare `agentName` (default `Thetis`) and `accent` (a
+`#rrggbb` colour, default `#7c9cff`), supplied under `settings` in the target's
+own `profile`:
+
+```json
+{ "id": "alice-web", "package": "gateway-web", "profile": { "settings": { "agentName": "Ada", "accent": "#ff8844" } } }
+```
+
+The name and the colour are filled into the served page, the stylesheet and
+`/favicon.svg` before they are sent, and the same values ride the opening frame
+for text the surface builds afterwards. Thetis stays the name of the runtime —
+the versions, the packages, the generations — and is not renamed by this; only
+the agent a person talks to is. A missing or malformed value falls back to the
+default rather than refusing to serve.
+
 ## Password authority and trusted kernel origin
 
 The installer configures password authority and a separate privileged origin.

@@ -97,6 +97,7 @@ A gateway emits it. Nothing else changes it.
 ```ts
 interface Notice {
   source: string;          // package@version, set by the core from the emitter
+  conversation?: string;   // the conversation it belongs to; without one it is dropped
   tool?: string;           // the tool whose pending call this completes, if any
   handle?: string;         // the handle that call returned
   content: Content[];      // what the model will see
@@ -105,7 +106,10 @@ interface Notice {
 ```
 
 A stage emits a notice between turns through `ctx.emit`. The core
-queues it; at the next turn boundary each queued notice becomes a
+queues it against the conversation it names — nothing else knows which
+one, because a `call` request carries no conversation — and a notice
+that names none is dropped rather than delivered everywhere. At the
+next turn boundary each queued notice for that conversation becomes a
 `tool` message in `history` tagged with its source. If any queued
 notice has `wake: true` and the setting `conversation.wake` is on for
 the person, the core starts a turn with the notices as its first
