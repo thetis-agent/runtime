@@ -17,7 +17,7 @@ import type { serviceFixture } from '@/test/provider-service.ts';
 import type { environmentProcess } from '@/test/environment-process.ts';
 import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
-export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts') {
+export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts', siblings: readonly string[] = []) {
   const root = await mkdtemp('/tmp/gateway-process-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));
   await symlink('service.sock', join(environment.root, 'endpoint/current.sock'));
   const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
@@ -34,7 +34,9 @@ export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFi
   const context: Context = { target: `gateway-${person}`, identity: shared.identity, schemas, clock, journal: journal.value, runner: new SandboxRunner('/cgroup'), operations: { methods, notes: ['run.stop', 'env.updated'], note: () => Promise.resolve({ ok: true, value: undefined }) } };
   const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
   const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: packageEntry(repository, packageName, entry), args, cwd: '/state', mounts: [
-    ...packageMounts(repository, [packageName]),
+    // Siblings are mounted beside the gateway at their own paths, which is the layout panels.ts
+    // reads: a contributed panel is discovered by readdir, so a fixture that names none has none.
+    ...packageMounts(repository, [packageName, ...siblings]),
     { source: join(environment.root, 'endpoint'), path: '/services/environment', mode: 'ro' },
     ...['state', 'endpoint'].map((name): Mount => ({ source: join(root, name), path: `/${name}`, mode: 'rw', maximumBytes: 67108864 }))
   ] }, issued.value, context); assert.ok(started.ok, JSON.stringify(started));
