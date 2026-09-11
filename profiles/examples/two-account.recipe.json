@@ -113,7 +113,8 @@
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "core",
-        "tools-files", "skills-core", "inspector-context", "inspector-tools", "tools-terminal"
+        "tools-files", "skills-core", "inspector-context", "inspector-tools", "tools-terminal",
+        "tools-todo", "tools-ask"
       ],
       "environment": true,
       "services": [
@@ -207,7 +208,8 @@
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "core",
-        "tools-files", "skills-core", "inspector-context", "inspector-tools", "tools-terminal"
+        "tools-files", "skills-core", "inspector-context", "inspector-tools", "tools-terminal",
+        "tools-todo", "tools-ask"
       ],
       "environment": true,
       "services": [
@@ -275,7 +277,8 @@
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "gateway-web", "skills-core",
-        "inspector-context", "inspector-tools", "tools-terminal"
+        "inspector-context", "inspector-tools", "tools-terminal",
+        "tools-todo", "tools-ask"
       ],
       "services": [
         {
@@ -305,7 +308,8 @@
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "gateway-web", "skills-core",
-        "inspector-context", "inspector-tools", "tools-terminal"
+        "inspector-context", "inspector-tools", "tools-terminal",
+        "tools-todo", "tools-ask"
       ],
       "services": [
         {
@@ -359,7 +363,8 @@
       "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
       "semver", "ws", "yaml", "core",
       "tools-files", "provider-mock", "cli", "gateway-web", "gateway-login",
-      "skills-core", "inspector-context", "inspector-tools", "tools-terminal"
+      "skills-core", "inspector-context", "inspector-tools", "tools-terminal",
+        "tools-todo", "tools-ask"
     ]
   }
 }
