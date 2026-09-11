@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "446243ee7eb0af8fb86cb9496d0bbda5357e1486",
-        "hash": "sha256:a37e386361ecc7412212ae793c107db6721a468ce78f22307e681e3b66cb4898"
+        "commit": "b68a692d3c9667aa726700ed785cb2c6b23ead46",
+        "hash": "sha256:bbae605455bd6fcd537a5f6a8003000d9f5e7a225a1f933fca062f82e14d8bb3"
       }
     },
     {
@@ -128,8 +128,8 @@
       "pin": {
         "name": "retriever-local",
         "version": "1.0.0",
-        "commit": "f865fc5307ec49fb7860dc6b8e89b206657d6298",
-        "hash": "sha256:8d71734fcfab3922cd8d280ccdeac49ca1fdb1b78f2477488f95f00c336ec0d7"
+        "commit": "20e69106c12ed09f910c22a6fb99987ce3b20817",
+        "hash": "sha256:4d5ab1537c49b52ab27a11e57540e2ad9cd119a14b32831066bdaecef641a700"
       }
     },
     {
@@ -138,8 +138,8 @@
       "pin": {
         "name": "skills-all",
         "version": "1.0.0",
-        "commit": "44eafb220bff55d033ec7da3ead12b36922712ad",
-        "hash": "sha256:2b349ae0acfa3064428605bf7a63d6d1432c7d016293dc31426f94df768e73dc"
+        "commit": "c081ae71a9a88b6e4e0097eb4f6e6985b409b216",
+        "hash": "sha256:5bf5a4532321de67c50ba1b3a3dbeb96871670fb90ca0acd0e061cc4a54ab96a"
       }
     },
     {
@@ -148,8 +148,8 @@
       "pin": {
         "name": "skills-core",
         "version": "1.0.0",
-        "commit": "758e205a9e37e095056b680be05397e6d965b268",
-        "hash": "sha256:b937f2ab2671f699be3a9055aa1716dfec52c9f0e6726035d2f17c24e1904b5f"
+        "commit": "8d406e659aa781982c21fe95eac33a4039fd71bd",
+        "hash": "sha256:2f07be6744ad53bbe169f1584977b30e1d6455f854183a6db5fccc1124c65355"
       }
     },
     {
@@ -158,8 +158,8 @@
       "pin": {
         "name": "skills-l1",
         "version": "1.0.0",
-        "commit": "65114b3c15b091e97524deb08dd0b63138d05ef3",
-        "hash": "sha256:81b39882b2c9a881ad63784442e8f1791bf0543b595c30e43628a1694cec4546"
+        "commit": "79846f89cbebcd012f0c5b2dda72057cd5341e68",
+        "hash": "sha256:6959e1cf818525b141efd7a1e0e2ea28609ee9384ed596be3de540f77f4a32af"
       }
     },
     {
@@ -418,8 +418,8 @@
       "pin": {
         "name": "lib/skills",
         "version": "1.0.0",
-        "commit": "bb5985da2434b40539c55975d99e7573421d271d",
-        "hash": "sha256:f4d23eb14ab7c91c1eb050135c3ea47bae08fb03d4fbdb92112d62c93acaa660"
+        "commit": "a7723fa85c017ab3bcc2ef77fe5ccc49648f8f0d",
+        "hash": "sha256:41b54c48cc129f5396cd67e5d4ead015114ec631d3bbfa0cf42295e374100d57"
       }
     },
     {
