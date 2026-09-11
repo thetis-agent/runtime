@@ -2,7 +2,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { join, dirname, basename } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
-import type { Schemas } from '@/lib/schema/index.ts';
+import type { Schemas, Validator } from '@/lib/schema/index.ts';
 import { failure } from '@/lib/result/index.ts';
 import type { Result } from '@/lib/result/index.ts';
 import { snapshot } from '@/lib/snapshots/index.ts';
@@ -28,14 +28,34 @@ export class ExecutionRuntime {
   readonly #checks = new Map<string, { pass: boolean; exit: number | null }>();
   constructor(host: ExecutionHost, config: ExecutionConfiguration) { this.#host = host; this.#config = structuredClone(config); this.#scorer = new Scorer(host.runner, host.clock); }
 
+  /** Authorize, then validate, then dispatch — once, for every operation this runtime offers.
+   *
+   * Authorization is fixed in here rather than supplied per registration. The source check is the whole
+   * of what makes a private evaluation private, so a registration able to vary it would be a
+   * registration able to forget it. Only the three things that genuinely differ per method are
+   * arguments: the validator, the typed handler, and the words a malformed request is refused with.
+   *
+   * The order is load-bearing, not incidental. A caller that is not the configured source is refused
+   * before its parameters are read, so a wrong source cannot learn the shape of a well-formed request
+   * by watching which refusal it gets. `runtime-operations.test.ts` asserts that ordering directly. */
+  #operation<T>(check: Validator<T>, handler: (request: T) => Promise<Result<unknown>>, invalid: string): Operation {
+    return (source, params) => {
+      if (source.scope !== 'deployment' || source.target !== this.#config.source) return Promise.resolve(failure('forbidden', 'This run is not authorized for private evaluation.'));
+      // The validator is a type guard, so a validated `params` reaches its handler as itself: unknown
+      // fields survive, which is what keeps a request forward-compatible with a newer evaluator.
+      return check(params) ? handler(params) : Promise.resolve(failure('invalid-args', invalid));
+    };
+  }
+
   operations(schemas: Schemas): ReadonlyMap<Method, Operation> {
+    // The root registers before the validators that `$ref` into it are compiled.
     schemas.compile(schema);
-    const run = schemas.compile<RunRequest>({ $ref: `${schema.$id}#/$defs/runRequest` }); const score = schemas.compile<ScoreRequest>({ $ref: `${schema.$id}#/$defs/scoreRequest` }); const release = schemas.compile<ReleaseRequest>({ $ref: `${schema.$id}#/$defs/releaseRequest` });
-    const authorize = (handler: (params: Record<string, unknown>) => Promise<Result<unknown>>): Operation => (source, params) => source.scope === 'deployment' && source.target === this.#config.source ? handler(params) : Promise.resolve(failure('forbidden', 'This run is not authorized for private evaluation.'));
     return new Map<Method, Operation>([
-      ['install', authorize(params => run(params) ? this.run(params) : Promise.resolve(failure('invalid-args', 'The evaluation run request violates its schema.')))],
-      ['snapshot', authorize(params => score(params) ? this.score(params) : Promise.resolve(failure('invalid-args', 'The evaluation score request violates its schema.')))],
-      ['prune', authorize(params => release(params) ? this.release(params.id) : Promise.resolve(failure('invalid-args', 'The evaluation release request violates its schema.')))]
+      ['install', this.#operation(schemas.compile<RunRequest>({ $ref: `${schema.$id}#/$defs/runRequest` }), request => this.run(request), 'The evaluation run request violates its schema.')],
+      ['snapshot', this.#operation(schemas.compile<ScoreRequest>({ $ref: `${schema.$id}#/$defs/scoreRequest` }), request => this.score(request), 'The evaluation score request violates its schema.')],
+      // `release` takes the id rather than the request, so the projection stays at the registration
+      // where the shape is known, not inside an adapter that has no business knowing it.
+      ['prune', this.#operation(schemas.compile<ReleaseRequest>({ $ref: `${schema.$id}#/$defs/releaseRequest` }), request => this.release(request.id), 'The evaluation release request violates its schema.')]
     ]);
   }
 
