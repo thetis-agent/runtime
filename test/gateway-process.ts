@@ -45,12 +45,16 @@ export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFi
   // test that wants a differently-configured one supplies it here rather than editing a committed recipe.
   methods.set('profile.get', () => Promise.resolve({ ok: true, value: { person, ...profile } }));
   methods.set('session.whois', (run, params) => Promise.resolve(sessionWhois(shared.identity, run, params['sessionToken'])));
-  methods.set('env.status', run => Promise.resolve({ ok: true, value: { person: run.person, state: 'LIVE' } }));
+  /* The shape `Runtime.status` actually answers with — target, ready, generation, state — not a
+   * plausible subset of it. A fixture that answers a narrower shape is how a surface comes to be
+   * written against a frame the kernel never sends, which is the failure this whole branch spent a
+   * day on; `person` stays because callers here assert on it. */
+  methods.set('env.status', run => Promise.resolve({ ok: true, value: { person: run.person, target: run.person, ready: true, generation: 1, state: 'LIVE' } }));
   // The observed-journal tail the web gateway's status bar reads. The limit is echoed back so a test
   // can see that the bound the gateway puts on the ask actually reached the kernel.
   methods.set('env.logs', (run, params) => Promise.resolve({ ok: true, value: { target: run.person, cursor: 1, oldest: 1, truncated: false,
     rows: [{ cursor: 1, at: 1700000000000, kind: 'process.start', data: { limit: params['limit'] } }] } }));
-  methods.set('env.reset', run => Promise.resolve({ ok: true, value: { person: run.person, state: 'LIVE' } }));
+  methods.set('env.reset', run => Promise.resolve({ ok: true, value: { person: run.person, target: run.person, ready: true, generation: 2, state: 'LIVE' } }));
   const context: Context = { target: `gateway-${person}`, identity: shared.identity, schemas, clock, journal: journal.value, runner: new SandboxRunner('/cgroup'), operations: { methods, notes: ['run.stop', 'env.updated'], note: () => Promise.resolve({ ok: true, value: undefined }) } };
   const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
   const started = await Process.start({ name: 'fixture', version: '1.0.0', entry: packageEntry(repository, packageName, entry), args, cwd: '/state', mounts: [
