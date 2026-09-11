@@ -11,6 +11,7 @@ export type OfferRequest = { "mode": { "readOnly": boolean; "deny": (string)[]; 
 export type Offer = { "tools": (ToolDef)[]; "mode": { [key: string]: unknown; }; [key: string]: unknown; };
 export type CallRequest = { "id": string; "name": string; "args": unknown; "deadlineMs": number; "mode": { "readOnly": unknown; "deny": unknown; [key: string]: unknown; }; "roots": ({ "path": string; "mode": "ro" | "rw"; "space": string; [key: string]: unknown; })[]; "budget": { "resultBytes": number; [key: string]: unknown; }; [key: string]: unknown; };
 export type CallAnswer = { "id": string; "ok": boolean; "content"?: (Content)[]; "error"?: { "code": "not-offered" | "invalid-args" | "deadline" | "outside-roots" | "read-only-mode" | "not-found" | "not-unique" | "gone" | "budget" | "io" | "tool"; "message": string; [key: string]: unknown; }; "spilled"?: { "path": unknown; "bytes": unknown; "hash": unknown; "head": unknown; "tail": unknown; [key: string]: unknown; }; "pending"?: { "handle": string; [key: string]: unknown; }; "data"?: { [key: string]: number | string | boolean; }; "endsTurn"?: boolean; [key: string]: unknown; };
+export type Call = { "request": CallRequest; "answer": CallAnswer; [key: string]: unknown; };
 export type ModelBegin = { "provider": string; "model": string; "request": (Provider.RequestEvent)[]; [key: string]: unknown; };
 export type ModelEvent = { "event": Provider.ResponseEvent; [key: string]: unknown; };
 export type ModelEnd = { "stop": string; "usage": { [key: string]: number; }; [key: string]: unknown; };
