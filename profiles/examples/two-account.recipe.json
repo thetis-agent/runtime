@@ -63,7 +63,7 @@
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
-        "semver", "ws", "yaml", "provider-mock"
+        "semver", "ws", "yaml", "provider-mock", "skills-core"
       ]
     },
     {
@@ -113,7 +113,7 @@
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "core",
-        "tools-files"
+        "tools-files", "skills-core"
       ],
       "environment": true,
       "services": [
@@ -151,7 +151,7 @@
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
-        "semver", "ws", "yaml", "cli"
+        "semver", "ws", "yaml", "cli", "skills-core"
       ],
       "services": [
         {
@@ -207,7 +207,7 @@
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
         "semver", "ws", "yaml", "core",
-        "tools-files"
+        "tools-files", "skills-core"
       ],
       "environment": true,
       "services": [
@@ -245,7 +245,7 @@
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
-        "semver", "ws", "yaml", "cli"
+        "semver", "ws", "yaml", "cli", "skills-core"
       ],
       "services": [
         {
@@ -274,7 +274,7 @@
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
-        "semver", "ws", "yaml", "gateway-web"
+        "semver", "ws", "yaml", "gateway-web", "skills-core"
       ],
       "services": [
         {
@@ -303,7 +303,7 @@
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
-        "semver", "ws", "yaml", "gateway-web"
+        "semver", "ws", "yaml", "gateway-web", "skills-core"
       ],
       "services": [
         {
@@ -332,7 +332,7 @@
         "contract/evaluator", "contract/kernel-socket", "contract/metrics", "contract/provider",
         "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
         "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
-        "semver", "ws", "yaml", "gateway-login"
+        "semver", "ws", "yaml", "gateway-login", "skills-core"
       ]
     }
   ],
@@ -356,7 +356,7 @@
       "contract/registry", "contract/skills", "contract/surface", "contract/turn-events", "ajv",
       "fast-deep-equal", "fast-uri", "json-schema-traverse", "require-from-string",
       "semver", "ws", "yaml", "core",
-      "tools-files", "provider-mock", "cli", "gateway-web", "gateway-login"
+      "tools-files", "provider-mock", "cli", "gateway-web", "gateway-login", "skills-core"
     ]
   }
 }
