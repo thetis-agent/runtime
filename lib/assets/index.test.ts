@@ -162,3 +162,38 @@ await test('a merged table is bounded like a single manifest', () => {
   const joined = merge([table, other]);
   assert.ok(!joined.ok); assert.equal(joined.error.code, 'budget');
 });
+
+await test('a rewritten row serves, measures and revalidates by its filled-in bytes, not the file on disk', async () => {
+  const root = await mkdtemp('/tmp/assets-root-');
+  try {
+    await writeFile(join(root, 'page.html'), '<title>{name}</title>');
+    await writeFile(join(root, 'logo.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const manifestPath = await manifest(root, [{ path: '/', file: 'page.html', type: 'text/html' }, { path: '/logo.png', file: 'logo.png', type: 'image/png' }]);
+    // Only the row the caller claims is opened as text; the binary beside it must never be decoded.
+    const table = await load(root, manifestPath, await schemas(), asset => asset.type === 'text/html' ? text => text.replace('{name}', 'Ada') : undefined);
+    assert.ok(table.ok);
+    const server = await serving(table.value);
+    try {
+      const page = await fetch(server.socket, 'GET', '/');
+      assert.equal(page.body.toString('utf8'), '<title>Ada</title>');
+      // The filled-in text is longer than the file, so a length taken from disk would truncate the page.
+      assert.equal(Number(page.headers['content-length']), page.body.length);
+      const head = await fetch(server.socket, 'HEAD', '/');
+      assert.equal(Number(head.headers['content-length']), page.body.length);
+      const revalidated = await fetch(server.socket, 'GET', '/', { 'if-none-match': String(page.headers['etag']) });
+      assert.equal(revalidated.status, 304);
+      const untouched = await fetch(server.socket, 'GET', '/logo.png');
+      assert.deepEqual([...untouched.body], [0x89, 0x50, 0x4e, 0x47]);
+    } finally { await server.close(); }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+await test('an edit that pushes a row past the byte budget is refused at load rather than served', async () => {
+  const root = await mkdtemp('/tmp/assets-root-');
+  try {
+    await writeFile(join(root, 'page.html'), 'x');
+    const manifestPath = await manifest(root, [{ path: '/', file: 'page.html', type: 'text/html' }]);
+    const result = await load(root, manifestPath, await schemas(), () => () => 'y'.repeat(limits.fileBytes + 1));
+    assert.ok(!result.ok); assert.equal(result.error.code, 'budget');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

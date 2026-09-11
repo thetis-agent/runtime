@@ -73,7 +73,7 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Pro
  * the tenth. */
 const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 });
 const environment = await environmentProcess(shared, 'alice', true);
-const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts',
+const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts', {},
   ['inspector-context', 'inspector-tools', 'skills-l1']);
 const cookie = `thetis_session=${shared.mintSession('alice')}`;
 
