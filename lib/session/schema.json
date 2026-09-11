@@ -60,14 +60,7 @@
                   "const": "call"
                 },
                 "payload": {
-                  "oneOf": [
-                    {
-                      "$ref": "thetis://contract/turn-events/1#/$defs/callRequest"
-                    },
-                    {
-                      "$ref": "thetis://contract/turn-events/1#/$defs/callAnswer"
-                    }
-                  ]
+                  "$ref": "thetis://contract/turn-events/1#/$defs/call"
                 }
               }
             },

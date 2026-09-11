@@ -53,7 +53,11 @@ function payloads(): Record<string, Record<string, unknown>> {
     'model.begin': { provider: 'vendor', model: 'model', request: [] },
     'model.event': { event: { type: 'delta.reasoning', text: 'thinking' } },
     'model.end': { stop: 'answer', usage: { cost: 0 } },
-    call: { id: 'call', name: 'read', args: {}, deadlineMs: 1000, mode: { readOnly: true, deny: [] }, roots: [], budget: { resultBytes: 1024 } },
+    /* The pair `packages/core/index.ts` emits, not either half on its own. A fixture that invented a
+     * bare request passed this file and then closed every real subscription the moment a tool ran,
+     * which is the whole reason the shapes here are taken from the emitter rather than from the names. */
+    call: { request: { id: 'call', name: 'read', args: {}, deadlineMs: 1000, mode: { readOnly: true, deny: [] }, roots: [], budget: { resultBytes: 1024 } },
+      answer: { id: 'call', ok: true, content: [] } },
     token: { text: 'x' },
     output: { message: { role: 'assistant', source: 'core', content: [] }, usage: { cost: 0 } },
     end: { reason: 'answer', iterations: 1, compactions: 0 },
@@ -86,7 +90,8 @@ await test('Every named envelope type validates against the committed stream sch
   const check: Validator<Event> = schemas.definition<Event>(await document('./schema.json'), 'event');
   let seq = 0;
   for (const [type, payload] of Object.entries(payloads())) assert.ok(check(envelope(type, seq++, payload)), `${type} is refused by the stream schema`);
-  assert.ok(check(envelope('call', seq++, { id: 'call', ok: true, content: [] })), 'a call answer is refused by the stream schema');
+  assert.ok(!check(envelope('call', seq++, { id: 'call', ok: true, content: [] })), 'a bare call answer is accepted by the stream schema');
+  assert.ok(!check(envelope('call', seq++, { id: 'call', name: 'read', args: {}, deadlineMs: 1, mode: { readOnly: true, deny: [] }, roots: [], budget: { resultBytes: 1 } })), 'a bare call request is accepted by the stream schema');
   assert.ok(!check({ type: 'token', conversation: 'conversation', turn: 1, iteration: 0, seq: 0, payload: { text: 1 } }), 'a malformed token payload is accepted');
   assert.ok(!check({ type: 'unnamed', conversation: 'conversation', turn: 1, iteration: 0, seq: 0, payload: {} }), 'an unnamed type is accepted');
 });

@@ -35,6 +35,8 @@
       "pending": { "type": "object", "required": ["handle"], "properties": { "handle": { "type": "string" } } },
       "data": { "type": "object", "additionalProperties": { "type": ["number", "string", "boolean"] } },
       "endsTurn": { "type": "boolean" } }, "additionalProperties": true },
+    "call": { "type": "object", "description": "the request and its answer together: one observed event per call",
+      "required": ["request", "answer"], "properties": { "request": { "$ref": "#/$defs/callRequest" }, "answer": { "$ref": "#/$defs/callAnswer" } }, "additionalProperties": true },
     "modelBegin": { "type": "object", "required": ["provider", "model", "request"], "properties": { "provider": { "type": "string" }, "model": { "type": "string" }, "request": { "type": "array", "items": { "$ref": "thetis://contract/provider/1#/$defs/requestEvent" } } }, "additionalProperties": true },
     "modelEvent": { "type": "object", "required": ["event"], "properties": { "event": { "$ref": "thetis://contract/provider/1#/$defs/responseEvent" } }, "additionalProperties": true },
     "modelEnd": { "type": "object", "required": ["stop", "usage"], "properties": { "stop": { "type": "string" }, "usage": { "type": "object", "additionalProperties": { "type": "number" } } }, "additionalProperties": true },
