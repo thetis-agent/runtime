@@ -18,6 +18,6 @@ export type ModelEnd = { "stop": string; "usage": { [key: string]: number; }; [k
 export type Token = { "text": string; [key: string]: unknown; };
 export type Output = { "message": Message; "usage": { [key: string]: number; }; [key: string]: unknown; };
 export type End = { "reason": "answer" | "limit" | "cancel" | "crash" | "restart"; "iterations": number; "compactions": number; [key: string]: unknown; };
-export type Notice = { "source": string; "handle"?: string; "content": (Content)[]; "wake"?: boolean; [key: string]: unknown; };
+export type Notice = { "source": string; "conversation"?: string; "tool"?: string; "handle"?: string; "content": (Content)[]; "wake"?: boolean; [key: string]: unknown; };
 export type Prefix = { "rendererVersion": string; "systemHash": string; "skills": (Skills.PinnedEntry)[]; "offer": ({ "name": unknown; "source": unknown; "schemaHash": unknown; [key: string]: unknown; })[]; "bytes": string; [key: string]: unknown; };
 export type Contract = Envelope;

@@ -43,7 +43,7 @@
     "token": { "type": "object", "required": ["text"], "properties": { "text": { "type": "string" } }, "additionalProperties": true },
     "output": { "type": "object", "required": ["message", "usage"], "properties": { "message": { "$ref": "#/$defs/message" }, "usage": { "type": "object", "additionalProperties": { "type": "number" } } }, "additionalProperties": true },
     "end": { "type": "object", "required": ["reason", "iterations", "compactions"], "properties": { "reason": { "enum": ["answer", "limit", "cancel", "crash", "restart"] }, "iterations": { "type": "integer" }, "compactions": { "type": "integer" } }, "additionalProperties": true },
-    "notice": { "type": "object", "required": ["source", "content"], "properties": { "source": { "type": "string" }, "handle": { "type": "string" }, "content": { "type": "array", "items": { "$ref": "#/$defs/content" } }, "wake": { "type": "boolean" } }, "additionalProperties": true },
+    "notice": { "type": "object", "required": ["source", "content"], "properties": { "source": { "type": "string" }, "conversation": { "type": "string" }, "tool": { "type": "string" }, "handle": { "type": "string" }, "content": { "type": "array", "items": { "$ref": "#/$defs/content" } }, "wake": { "type": "boolean" } }, "additionalProperties": true },
     "prefix": { "type": "object", "required": ["rendererVersion", "systemHash", "skills", "offer", "bytes"], "properties": {
       "rendererVersion": { "type": "string" }, "systemHash": { "type": "string" },
       "skills": { "type": "array", "items": { "$ref": "thetis://contract/skills/1#/$defs/pinnedEntry" } },
