@@ -8,8 +8,8 @@
       "pin": {
         "name": "autoupdate",
         "version": "1.0.0",
-        "commit": "15098838fbd3a1ec050d491d672ab2658dcd9bdd",
-        "hash": "sha256:583c722ad30c8e9632a427f97607231d36a7e4565cd425bb04efdef79ae3d273"
+        "commit": "e806c8be6979ea904b476b4e16b16cd968bc14e9",
+        "hash": "sha256:af9d738ba265318c19347ee8cb5f93bdd7cf4a7fc59fedfe84a9a0926711a3ba"
       }
     },
     {
@@ -18,8 +18,8 @@
       "pin": {
         "name": "cli",
         "version": "1.0.0",
-        "commit": "03d816cbcf85ff72b147104182e952d25577e989",
-        "hash": "sha256:ca76906c0fed5436495909b50edd03043a3142c7f04361f9a4325ef285c8e1d8"
+        "commit": "977dc2878de243050f9be62eaec2dba2b1d05e60",
+        "hash": "sha256:d64ddfeb261403daded9ff380220e0b4aaccbb8aeaab9601ec7c3650cca2489d"
       }
     },
     {
@@ -28,8 +28,8 @@
       "pin": {
         "name": "core",
         "version": "1.0.0",
-        "commit": "0fdcaf54ab12518cdbf1b8332578be81d9f18b96",
-        "hash": "sha256:79eb28ea512e3e7e7768155732240cb6a8e647ec3aa1f79023d2e541f15a4b85"
+        "commit": "8fe48cf032540e056da85164e4d47f9a1142ac12",
+        "hash": "sha256:0fda2a1d6d776e1335fdb53def471c853808b383366319e0544bfd9bebcd123a"
       }
     },
     {
@@ -48,8 +48,8 @@
       "pin": {
         "name": "gateway-login",
         "version": "1.0.0",
-        "commit": "ea0cd4fb747d78ef9ef2dfca883e3b5503a73c17",
-        "hash": "sha256:071e0b0dd9f0e8e7d78857cc90d8d89eaa5cc8d5ab589f626b05dfedd4dca3ff"
+        "commit": "8e1f0c36f68c3559fb950a2cffaa04ac1e70fa92",
+        "hash": "sha256:2a79c35559e4fcd16d08d2aa64926d1178479f6606f8ad579859ce74e5a553e8"
       }
     },
     {
@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "8b4a60666aa9ae91eb43fb5708db06778e5ce45f",
-        "hash": "sha256:c8f8e9da712889a93862d705d126d98ed6aeb6e246aacc6352180c871556dce2"
+        "commit": "446243ee7eb0af8fb86cb9496d0bbda5357e1486",
+        "hash": "sha256:a37e386361ecc7412212ae793c107db6721a468ce78f22307e681e3b66cb4898"
       }
     },
     {
@@ -98,8 +98,8 @@
       "pin": {
         "name": "provider-mock",
         "version": "1.0.0",
-        "commit": "401a5a77f19f03e1b53d761775767c55b8cc2a41",
-        "hash": "sha256:81bda00128170a77632d90ccdff0adcd6892ac3c7c89ce2d512cd9d037bc6812"
+        "commit": "5cd341e6a0dabe941408bd6aa8878583d5460cba",
+        "hash": "sha256:e5446ad16809044968e856b18ad78c79b09c002e13934234104d196905e2ad90"
       }
     },
     {
@@ -128,8 +128,38 @@
       "pin": {
         "name": "retriever-local",
         "version": "1.0.0",
-        "commit": "cef2f146e2f0f1b5e0bfb281c55a98ca1f81435e",
-        "hash": "sha256:6965081fdc77cb3dd8f4436f53ebd545e96bd99cf53344acb4f887d963c4b524"
+        "commit": "f865fc5307ec49fb7860dc6b8e89b206657d6298",
+        "hash": "sha256:8d71734fcfab3922cd8d280ccdeac49ca1fdb1b78f2477488f95f00c336ec0d7"
+      }
+    },
+    {
+      "kind": "packages",
+      "directory": "skills-all",
+      "pin": {
+        "name": "skills-all",
+        "version": "1.0.0",
+        "commit": "44eafb220bff55d033ec7da3ead12b36922712ad",
+        "hash": "sha256:2b349ae0acfa3064428605bf7a63d6d1432c7d016293dc31426f94df768e73dc"
+      }
+    },
+    {
+      "kind": "packages",
+      "directory": "skills-core",
+      "pin": {
+        "name": "skills-core",
+        "version": "1.0.0",
+        "commit": "758e205a9e37e095056b680be05397e6d965b268",
+        "hash": "sha256:b937f2ab2671f699be3a9055aa1716dfec52c9f0e6726035d2f17c24e1904b5f"
+      }
+    },
+    {
+      "kind": "packages",
+      "directory": "skills-l1",
+      "pin": {
+        "name": "skills-l1",
+        "version": "1.0.0",
+        "commit": "65114b3c15b091e97524deb08dd0b63138d05ef3",
+        "hash": "sha256:81b39882b2c9a881ad63784442e8f1791bf0543b595c30e43628a1694cec4546"
       }
     },
     {
@@ -148,8 +178,8 @@
       "pin": {
         "name": "tools-exa",
         "version": "1.0.0",
-        "commit": "88a6ba2f32a6597de37e4fd3043d5fc11a6e3003",
-        "hash": "sha256:54ebc9c57ff5341740468e1287a735542d96395effce553f1b2550f26ec18cf5"
+        "commit": "856bc6e01da36e172132c428fe7948a797d85ffe",
+        "hash": "sha256:e3e0b84154f671eecd8aa3beb669f08cccf0f1dceca18f119ae1c0fae28b300d"
       }
     },
     {
@@ -168,8 +198,8 @@
       "pin": {
         "name": "lib/artifacts",
         "version": "1.0.0",
-        "commit": "fee697b810966089ada4a50a261186005dd057de",
-        "hash": "sha256:ba804cd0e585ad9db2dee1d82fc4c97f7d06a062b8c52650a5c16aced5189c06"
+        "commit": "13259b9288c9b6f24bd15183cfe571a9d4961825",
+        "hash": "sha256:a8f9904c281619709c10ddf078e696b429aa9aba914f7536f0d1d560ea3dd2a6"
       }
     },
     {
@@ -348,8 +378,8 @@
       "pin": {
         "name": "lib/schema",
         "version": "1.0.0",
-        "commit": "48e76bd5b517fed02d1a257b0a4ff7c6635ec7d5",
-        "hash": "sha256:05e5f5d51425452c020b61f1df424a84f12d4b77537d43d6aaf351e3cc8f65fa"
+        "commit": "25424f24d54675e968ad26f10392eddb49b3668b",
+        "hash": "sha256:0bc6cc21797ab4de424de22a11fef9a81fa1854b7564a112778d5320ca80183a"
       }
     },
     {
@@ -388,8 +418,8 @@
       "pin": {
         "name": "lib/skills",
         "version": "1.0.0",
-        "commit": "e05777408a0802ee91468db8d6a9477cf3f5e872",
-        "hash": "sha256:457ea9cfbfde8fb2271ee1a59bd07f0b10438de2314f664881fafabc3510389d"
+        "commit": "bb5985da2434b40539c55975d99e7573421d271d",
+        "hash": "sha256:f4d23eb14ab7c91c1eb050135c3ea47bae08fb03d4fbdb92112d62c93acaa660"
       }
     },
     {
