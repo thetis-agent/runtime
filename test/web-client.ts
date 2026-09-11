@@ -9,21 +9,32 @@ import { isObject } from '@/lib/schema/index.ts';
 
 export interface HttpAnswer { status: number; headers: IncomingHttpHeaders; body: string }
 
-/** Perform one plain HTTP request over the gateway's Unix socket, outside the WebSocket wire; ADR 0038 §4. */
-export function httpGet(socketPath: string, urlPath: string, options: { cookie?: string; accept?: string; method?: string; prefix?: string } = {}): Promise<HttpAnswer> {
+export interface HttpOptions { cookie?: string; accept?: string; method?: string; prefix?: string; type?: string; body?: Buffer }
+
+/** Perform one plain HTTP request over the gateway's Unix socket, outside the WebSocket wire; ADR 0038 §4.
+ * `body` carries raw bytes with `type` as their content-type, which is how the attachment upload is shaped:
+ * the body is the image itself rather than a form the endpoint would have to parse to find one. The answer
+ * is returned whole, as text, so a caller can read the JSON refusals as well as the successes. */
+export function httpSend(socketPath: string, urlPath: string, options: HttpOptions = {}): Promise<HttpAnswer> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = {};
     if (options.cookie !== undefined) headers['cookie'] = options.cookie;
     if (options.accept !== undefined) headers['accept'] = options.accept;
     if (options.prefix !== undefined) headers['x-forwarded-prefix'] = options.prefix;
+    if (options.type !== undefined) headers['content-type'] = options.type;
+    if (options.body !== undefined) headers['content-length'] = String(options.body.byteLength);
     const request = httpRequest({ socketPath, path: urlPath, method: options.method ?? 'GET', headers }, response => {
       const chunks: Buffer[] = [];
       response.on('data', (chunk: Buffer) => { chunks.push(chunk); });
       response.on('end', () => { resolve({ status: response.statusCode ?? 0, headers: response.headers, body: Buffer.concat(chunks).toString('utf8') }); });
     });
     request.on('error', reject);
-    request.end();
+    request.end(options.body);
   });
+}
+
+export function httpGet(socketPath: string, urlPath: string, options: Omit<HttpOptions, 'body' | 'type'> = {}): Promise<HttpAnswer> {
+  return httpSend(socketPath, urlPath, options);
 }
 
 export async function webClient(path: string, options: { cookie?: string } = {}) {
