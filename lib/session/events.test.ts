@@ -122,3 +122,44 @@ await test('An event above the named event budget refuses its subscriber instead
   assert.equal(refused, 'budget');
   live.value.close();
 });
+
+/* The `cursor-replay` half of KS-004: a subscriber that lost its connection names the last event it
+ * drew and gets exactly what came after it, and one that names a position outside the retained window
+ * is refused with a code the gateway can act on rather than one it has to guess at. */
+function observeAll(hub: SessionEvents, types: readonly string[]): void {
+  const shapes = payloads(); let seq = 0;
+  for (const type of types) { const payload = shapes[type]; assert.ok(payload); hub.observe(envelope(type, seq++, payload)); }
+}
+
+async function drain(clock: ManualClock): Promise<void> {
+  for (let step = 0; step < 20; step++) { clock.advance(limits.batchMs); await Promise.resolve(); }
+}
+
+await test('A subscription from a position replays only what came after it', async () => {
+  const clock = new ManualClock(); const hub = new SessionEvents(clock); const batches: Record<string, unknown>[] = [];
+  const send = (value: Record<string, unknown>): Promise<{ ok: true; value: undefined }> => { batches.push(value); return Promise.resolve({ ok: true, value: undefined }); };
+  const seed = hub.subscribe('conversation', undefined, () => Promise.resolve({ ok: true, value: undefined }), result => { assert.ok(result.ok); }); assert.ok(seed.ok);
+  observeAll(hub, ['input', 'token', 'token', 'model.end', 'end']);
+  seed.value.close();
+  const resumed = hub.subscribe('conversation', 2, send, result => { assert.ok(result.ok); }); assert.ok(resumed.ok);
+  assert.equal(resumed.value.result.cursor, 5); assert.equal(resumed.value.result.oldest, 1);
+  await drain(clock);
+  const replayed = batches.flatMap(value => { const events = value['events']; return Array.isArray(events) ? events.map((event: unknown) => (isObject(event) ? event['type'] : undefined)) : []; });
+  assert.deepEqual(replayed, ['token', 'model.end', 'end'], 'a resume must deliver every event after the named position and none before it');
+  assert.equal(batches.at(-1)?.['cursor'], 5, 'the replayed batch still counts from the conversation, so the next resume can continue from it');
+  resumed.value.close();
+});
+
+await test('A position the stream can no longer reach is refused as not-found rather than silently restarted', () => {
+  const clock = new ManualClock(); const hub = new SessionEvents(clock);
+  const seed = hub.subscribe('conversation', undefined, () => Promise.resolve({ ok: true, value: undefined }), result => { assert.ok(result.ok); }); assert.ok(seed.ok);
+  observeAll(hub, ['input', 'token', 'end']);
+  seed.value.close();
+  const ahead = hub.subscribe('conversation', 9, () => Promise.resolve({ ok: true, value: undefined }), result => { assert.ok(result.ok); });
+  assert.ok(!ahead.ok); assert.equal(ahead.error.code, 'not-found');
+  const behind = hub.subscribe('other', 4, () => Promise.resolve({ ok: true, value: undefined }), result => { assert.ok(result.ok); });
+  assert.ok(!behind.ok); assert.equal(behind.error.code, 'not-found');
+  const zero = hub.subscribe('conversation', 0, () => Promise.resolve({ ok: true, value: undefined }), result => { assert.ok(result.ok); });
+  assert.ok(zero.ok, 'the position before the oldest retained event is inside the window, not outside it');
+  zero.value.close();
+});
