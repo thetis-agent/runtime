@@ -17,7 +17,7 @@ import type { serviceFixture } from '@/test/provider-service.ts';
 import type { environmentProcess } from '@/test/environment-process.ts';
 import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
-export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts', siblings: readonly string[] = []) {
+export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts', profile: Record<string, unknown> = {}, siblings: readonly string[] = []) {
   const root = await mkdtemp('/tmp/gateway-process-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));
   await symlink('service.sock', join(environment.root, 'endpoint/current.sock'));
   const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
@@ -27,7 +27,9 @@ export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFi
     assert.equal(run.person, person); return environment.process.invoke(method, params);
   }]));
   methods.set('health.probe', () => Promise.resolve({ ok: true, value: { ready: true } }));
-  methods.set('profile.get', () => Promise.resolve({ ok: true, value: { person } }));
+  // The target's profile is the only thing a deployment gets to configure about a spawned gateway, so a
+  // test that wants a differently-configured one supplies it here rather than editing a committed recipe.
+  methods.set('profile.get', () => Promise.resolve({ ok: true, value: { person, ...profile } }));
   methods.set('session.whois', (run, params) => Promise.resolve(sessionWhois(shared.identity, run, params['sessionToken'])));
   methods.set('env.status', run => Promise.resolve({ ok: true, value: { person: run.person, state: 'LIVE' } }));
   methods.set('env.reset', run => Promise.resolve({ ok: true, value: { person: run.person, state: 'LIVE' } }));
