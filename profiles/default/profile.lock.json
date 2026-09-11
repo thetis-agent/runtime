@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "70e0c4e2c99d83b252d67dc8a77461e1c12369c6",
-        "hash": "sha256:3f3053ec430f84b9d1fbf4aa4d5f0e6a65380f40344e359bcc3668df5b678d69"
+        "commit": "0f961e4bdb2afe0970619976c79201dd5f4faaaa",
+        "hash": "sha256:dbeb5f2fec0d84f17cad383864baa700977be93df1b901a07261b5ccae57ef34"
       }
     },
     {
