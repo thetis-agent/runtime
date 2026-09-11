@@ -23,6 +23,7 @@
     "storage-files": "1.0.0",
     "tools-exa": "1.0.0",
     "tools-files": "1.0.0",
+    "tools-terminal": "1.0.0",
     "lib/artifacts": "1.0.0",
     "lib/assets": "1.0.0",
     "lib/bm25": "1.0.0",
