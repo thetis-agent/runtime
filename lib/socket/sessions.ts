@@ -2,7 +2,7 @@
 import type { Method } from '@/contracts/kernel-socket/types.ts';
 import type { Result } from '@/lib/schema/index.ts';
 import { isObject } from '@/lib/schema/index.ts';
-export const sessionMethods: readonly Method[] = ['session.list', 'session.create', 'session.submit', 'session.subscribe', 'session.cancel', 'session.rename', 'session.archive'];
+export const sessionMethods: readonly Method[] = ['session.list', 'session.create', 'session.submit', 'session.subscribe', 'session.cancel', 'session.rename', 'session.archive', 'session.choices', 'session.choose'];
 
 /** The `session.list` person that means "everyone whose environment is running" rather than one name.
  * Reserved rather than invented: a person id is an account name and none is spelled this way, and a
