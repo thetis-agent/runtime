@@ -8,23 +8,37 @@ import type { Context } from '@/kernel/boundary/process.ts';
 import { sessionWhois } from '@/kernel/boundary/runtime.ts';
 import type { Operation } from '@/kernel/socket/index.ts';
 import type { Method } from '@/contracts/kernel-socket/types.ts';
-import { sessionMethods } from '@/lib/socket/sessions.ts';
+import { everyone, listEveryone, sessionMethods } from '@/lib/socket/sessions.ts';
 import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
 import type { Mount } from '@/lib/sandbox-runner/index.ts';
-import { Schemas } from '@/lib/schema/index.ts';
+import { Schemas, failure } from '@/lib/schema/index.ts';
+import type { Result } from '@/lib/schema/index.ts';
 import { ManualClock } from '@/lib/events/index.ts';
 import type { serviceFixture } from '@/test/provider-service.ts';
 import type { environmentProcess } from '@/test/environment-process.ts';
 import { packageEntry, packageMounts } from '@/test/package-mounts.ts';
 
-export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts', profile: Record<string, unknown> = {}, siblings: readonly string[] = []) {
+export async function gatewayProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, environment: Awaited<ReturnType<typeof environmentProcess>>, person: string, packageName: string, args: string[] = [], entry = 'service.ts', profile: Record<string, unknown> = {}, siblings: readonly string[] = [], peers: readonly { owner: string; process: { invoke(method: Method, params: Record<string, unknown>): Promise<Result<unknown>> } }[] = []) {
   const root = await mkdtemp('/tmp/gateway-process-'); await mkdir(join(root, 'state')); await mkdir(join(root, 'endpoint'));
   await symlink('service.sock', join(environment.root, 'endpoint/current.sock'));
   const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
   const issued = shared.identity.issue({ id: `gateway-${person}`, person, scope: 'person', target: `gateway-${person}`, generation: 1, services: [] }); assert.ok(issued.ok);
   const journal = await Journal.open(join(root, 'rows.jsonl'), () => clock.now()); assert.ok(journal.ok);
+  /* The kernel's own routing rule, in the two lines kernel/boundary/runtime.ts spends on it: only
+   * `session.list` may name a person other than the caller, and `*` means every running environment,
+   * each asked under its own name and its rows stamped with whose they are. A fixture that shortcut
+   * this answered an everyone-scoped list with one person's unstamped rows, which is indistinguishable
+   * on the wire from a deployment where nobody else exists — so the surface's own everyone view could
+   * never be looked at. `peers` are the other environments this deployment is running; a caller that
+   * names none keeps the single-environment behaviour every other test here relies on. */
+  const environments = [{ owner: person, invoke: environment.process.invoke.bind(environment.process) },
+    ...peers.map(peer => ({ owner: peer.owner, invoke: peer.process.invoke.bind(peer.process) }))];
   const methods = new Map<Method, Operation>(sessionMethods.filter(method => method !== 'session.subscribe').map(method => [method, (run, params) => {
-    assert.equal(run.person, person); return environment.process.invoke(method, params);
+    assert.equal(run.person, person);
+    const requested = method === 'session.list' && typeof params['person'] === 'string' ? params['person'] : person;
+    if (requested === everyone) return listEveryone(environments.map(value => ({ owner: value.owner, list: args => value.invoke('session.list', args) })), params);
+    const target = environments.find(value => value.owner === requested);
+    return target ? target.invoke(method, params) : Promise.resolve(failure('not-found', 'The person has no running environment.'));
   }]));
   methods.set('health.probe', () => Promise.resolve({ ok: true, value: { ready: true } }));
   // The target's profile is the only thing a deployment gets to configure about a spawned gateway, so a

@@ -16,6 +16,7 @@ import { serviceFixture } from '@/test/provider-service.ts';
 import { environmentProcess } from '@/test/environment-process.ts';
 import { gatewayProcess } from '@/test/gateway-process.ts';
 import type { Principal } from '@/kernel/identity/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
 
 const limits = { headerBytes: 16384, backlog: 64 };
 const headerEnd = Buffer.from('\r\n\r\n');
@@ -80,7 +81,17 @@ const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 }, 'deplo
   people, authorities: { password: 'fixture-login' }, bindings: people.map(person => ({ kind: 'password', id: person.id, person: person.id })) });
 const panels = ['inspector-context', 'inspector-tools', 'skills-l1'];
 const environment = await environmentProcess(shared, 'alice', true, panels);
-const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts', {}, panels);
+/* Bob gets an environment but no gateway of his own: his conversations are what alice's everyone view
+ * and People panel have to be able to name, and the only thing a second gateway would add is a second
+ * port nobody is looking at. One conversation of his is started here, because an environment with
+ * nothing in it is indistinguishable from a person who is not there. */
+const other = await environmentProcess(shared, 'bob', false);
+const started = await other.process.invoke('session.create', { surface: 'web' });
+if (started.ok && isObject(started.value) && typeof started.value['id'] === 'string') {
+  const spoke = await other.process.invoke('session.submit', { conversation: started.value['id'], input: { text: 'Where do the logs go?', attachments: [] } });
+  if (!spoke.ok) process.stderr.write(`${JSON.stringify({ surface: 'the second person could not speak', reason: spoke.error })}\n`);
+} else process.stderr.write(`${JSON.stringify({ surface: 'the second person has no conversation', reason: started.ok ? started.value : started.error })}\n`);
+const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts', {}, panels, [{ owner: 'bob', process: other.process }]);
 const cookie = `thetis_session=${shared.mintSession('alice')}`;
 
 const proxy = createServer(client => { inject(client, cookie, gateway.socket); });
@@ -90,7 +101,7 @@ process.stdout.write(`${JSON.stringify({ surface: 'listening', url: `http://127.
 
 const stop = async (): Promise<void> => {
   proxy.close();
-  await gateway.close(); await environment.close(); await shared.close();
+  await gateway.close(); await other.close(); await environment.close(); await shared.close();
   process.exit(0);
 };
 process.once('SIGINT', () => { void stop(); });
