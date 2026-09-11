@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "cd40326c34b18b42b32db8423a502b5811d0fd9a",
-        "hash": "sha256:5501f2497fbf597fbfff4335db9ff288d78fa4b467afc883401e45f5044e9d8d"
+        "commit": "ec712eec01df4ea2672961f9161fcee3d5afc079",
+        "hash": "sha256:39d621de9a9efb9bd898c79c7c51b1a57ac9accc9cdde7b625079d812f654d73"
       }
     },
     {
@@ -198,8 +198,8 @@
       "pin": {
         "name": "lib/artifacts",
         "version": "1.0.0",
-        "commit": "13259b9288c9b6f24bd15183cfe571a9d4961825",
-        "hash": "sha256:a8f9904c281619709c10ddf078e696b429aa9aba914f7536f0d1d560ea3dd2a6"
+        "commit": "c7baad30fd47eaea110c00db4defc2534a6b67a0",
+        "hash": "sha256:e2b9c666dba7b2f2ad4475f62489a56b537657b1024eaef5afebc5289f0a17d9"
       }
     },
     {
@@ -558,8 +558,8 @@
       "pin": {
         "name": "contract/surface",
         "version": "1.1.0",
-        "commit": "1043ae2b1b97afa6c0408ba51747fb00a9b22635",
-        "hash": "sha256:6c039907f88dc4e39acc8affc988b89f115562f0e4ce6832b4fb4e0b5ffaf1e1"
+        "commit": "c8e7a5097f7f32e5485bcb68648950c3e2b7765b",
+        "hash": "sha256:04e466bf123eb70e8dc27daba7d27c129d85346b315f419196c2ccdc0266a0f7"
       }
     },
     {
