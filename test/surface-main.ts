@@ -21,10 +21,15 @@ import { isObject } from '@/lib/schema/index.ts';
 const limits = { headerBytes: 16384, backlog: 64 };
 const headerEnd = Buffer.from('\r\n\r\n');
 
-/* One turn's worth of provider output per entry, replayed in order across the conversation's turns.
- * Written to exercise every projection the surface draws rather than to be interesting: reasoning
- * deltas, a tool call and its answer, usage counters, and enough text to batch. */
-const scripts = [
+/* One turn's worth of provider output per entry, handed out in order across the whole deployment —
+ * the mock counts its own calls, not each conversation's, so a turn anywhere advances the list.
+ *
+ * The first entry is therefore bob's, because his conversation is started below before any browser
+ * exists. Everything after it is the pair a person opening the page sees: reasoning deltas, a tool
+ * call and its answer, usage counters, and enough text to batch. The pair repeats so that a second and
+ * third conversation are as interesting as the first; past the end the mock answers its own default,
+ * which is a true thing for the surface to have to draw too. */
+const conversation = [
   [
     { type: 'delta.reasoning', text: 'The person is asking what is here. Listing the space answers it directly.' },
     { type: 'delta.text', text: 'Let me look at what is in your space.\n\n' },
@@ -38,6 +43,11 @@ const scripts = [
     { type: 'usage', counters: { cost: 0.0014, input: 2380, output: 214 } },
     { type: 'stop', reason: 'end' }
   ]
+];
+const scripts = [
+  [{ type: 'delta.text', text: 'They go to the environment\u2019s own activity, which the foot of the page can show you.' },
+    { type: 'usage', counters: { cost: 0.0004, input: 900, output: 40 } }, { type: 'stop', reason: 'end' }],
+  ...Array.from({ length: 6 }, () => conversation).flat()
 ];
 
 /** Rewrite the first request of a connection to carry the fixture's cookie, then get out of the way.

@@ -28,8 +28,8 @@
       "pin": {
         "name": "core",
         "version": "1.0.0",
-        "commit": "f65dddb31f6fe4811cc5aa2c9f3c8a770d788596",
-        "hash": "sha256:5041632b25e8eb58625e7abfd2a4d9748b4dedbc9979dc6f1c0bfbd870add5fa"
+        "commit": "4697d1f3165b0fd70598f09bd270bf87975b303a",
+        "hash": "sha256:409d6442a967f196f38d011a153add6277b0a786653d81d8675d2fb9d57ec601"
       }
     },
     {
@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "ec712eec01df4ea2672961f9161fcee3d5afc079",
-        "hash": "sha256:39d621de9a9efb9bd898c79c7c51b1a57ac9accc9cdde7b625079d812f654d73"
+        "commit": "c156a445094e8b827be1049a519000e110576f18",
+        "hash": "sha256:93004f398c98a60ebb962894d7de8eefe25dc76ef14abadb814057ae9a3b545b"
       }
     },
     {
@@ -378,8 +378,8 @@
       "pin": {
         "name": "lib/schema",
         "version": "1.0.0",
-        "commit": "c34c193d3d538e2921032d88eca09792d9b6efea",
-        "hash": "sha256:8837a71b40c6ccbfd1b21516fcd4be03ab69822fc24bdab9eedd30edfbad22f2"
+        "commit": "b84e36639f88a96fc1b9216972f2d0958328fa9d",
+        "hash": "sha256:7715ae99c6c5958d9eb8b3075a0a84534b88b0ca830b1f258be103ea4232f114"
       }
     },
     {
@@ -438,8 +438,8 @@
       "pin": {
         "name": "lib/socket",
         "version": "1.1.0",
-        "commit": "1c4235da89673a535b963d2ec9704d13fade30b6",
-        "hash": "sha256:48f0a9044661d0453ba99cf23edd444fb0908eb66405d4ce8568799b9c15ac56"
+        "commit": "dcffb9ba4f3eb077e500905cb2d907e84c70f36f",
+        "hash": "sha256:c3e2825fa3ab7bd43c373e943cd9cfa50ed9683b2f5d1d6346d902552b878ad8"
       }
     },
     {
@@ -498,8 +498,8 @@
       "pin": {
         "name": "contract/kernel-socket",
         "version": "1.2.0",
-        "commit": "01e7704b581439aa7efe81429e0fe53c22fb3f6c",
-        "hash": "sha256:1d793e0c3ba05b43b975bc4982321fbd64f2149f72741faa8accc44f71a654c3"
+        "commit": "0d2764129be21f418f96afc89260994922835ed4",
+        "hash": "sha256:2f6a55dc66afa43d52f7353189f9621b44d9cfb2404b1943ec62b46948b6790c"
       }
     },
     {
