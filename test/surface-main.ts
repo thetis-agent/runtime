@@ -79,7 +79,7 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Pro
 const people: Principal[] = [{ id: 'alice', role: 'admin', projects: [], observeOthers: true }, { id: 'bob', role: 'user', projects: [], observeOthers: false }];
 const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 }, 'deployment', {
   people, authorities: { password: 'fixture-login' }, bindings: people.map(person => ({ kind: 'password', id: person.id, person: person.id })) });
-const panels = ['inspector-context', 'inspector-tools', 'skills-l1'];
+const panels = ['inspector-context', 'inspector-tools', 'skills-l1', 'tools-terminal'];
 const environment = await environmentProcess(shared, 'alice', true, panels);
 /* Bob gets an environment but no gateway of his own: his conversations are what alice's everyone view
  * and People panel have to be able to name, and the only thing a second gateway would add is a second
