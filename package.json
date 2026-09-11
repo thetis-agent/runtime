@@ -20,7 +20,8 @@
     "size": "node --import ./lib/artifacts/source.mjs scripts/size.ts",
     "release": "node --import ./lib/artifacts/source.mjs scripts/release.ts",
     "live": "node --import ./lib/artifacts/source.mjs scripts/live.ts",
-    "generate": "node --import ./lib/artifacts/source.mjs lib/schema/generate.ts"
+    "generate": "node --import ./lib/artifacts/source.mjs lib/schema/generate.ts",
+    "surface": "node --import ./lib/artifacts/source.mjs scripts/surface.ts"
   },
   "dependencies": {
     "ajv": "8.17.1",
