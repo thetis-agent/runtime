@@ -7,13 +7,15 @@ import type { Schemas, Result, Validator } from '@/lib/schema/index.ts';
 import { failure, isObject } from '@/lib/schema/index.ts';
 import type { Clock } from '@/lib/events/index.ts';
 import type { Batch, Subscribed } from './types.ts';
+import type { CallAnswer } from '@/contracts/turn-events/types.ts';
 
-export const settings = { endpoint: '/services/environment/current.sock', turnMs: 600000 };
+export const settings = { endpoint: '/services/environment/current.sock', turnMs: 600000, requestMs: 30000 };
 
 export class SessionClient {
   readonly peer: Peer;
   readonly #batch: Validator<Batch>;
   readonly #subscribed: Validator<Subscribed>;
+  readonly #answer: Validator<CallAnswer>;
   readonly #receive: (batch: Batch) => Promise<Result<void>>;
   readonly #clock: Clock;
   readonly #ended = Promise.withResolvers<Result<void>>();
@@ -23,7 +25,8 @@ export class SessionClient {
     this.#clock = clock; this.#receive = receive;
     this.#batch = schemas.compile<Batch>(schema);
     this.#subscribed = schemas.compile<Subscribed>({ ...schema, $id: 'thetis://internal/session-subscribed/1', $ref: '#/$defs/subscribed' });
-    this.peer = new Peer(socket, schemas, clock, ['session.subscribe', 'session.list', 'session.create', 'session.submit', 'session.cancel', 'health.probe', 'notice'], { handlers: new Map(), note: note => this.#note(note.params) });
+    this.#answer = schemas.validator<CallAnswer>('turn-events', 'callAnswer');
+    this.peer = new Peer(socket, schemas, clock, ['session.subscribe', 'session.list', 'session.create', 'session.submit', 'session.cancel', 'session.request', 'health.probe', 'notice'], { handlers: new Map(), note: note => this.#note(note.params) });
   }
 
   static async open(path: string, schemas: Schemas, clock: Clock, receive: (batch: Batch) => Promise<Result<void>>): Promise<Result<SessionClient>> {
@@ -45,6 +48,19 @@ export class SessionClient {
     if (!this.#subscribed(result.value) || result.value.conversation !== conversation) return failure('protocol', 'The environment returned an invalid subscription.');
     this.#cursor ??= result.value.cursor;
     return { ok: true, value: result.value };
+  }
+
+  /** Ask the package that contributed a panel to do one thing it declared; ADR 0051.
+   *
+   * Sent on this connection, which is already subscribed to exactly one conversation, so the
+   * environment can refuse a request naming any other without consulting a list: the route is the
+   * binding. The answer is the same `callAnswer` a tool returns, because what answers it is the
+   * contributing package's own call hook — nothing new had to be invented for a package to reply. */
+  async request(conversation: string, name: string, verb: string, args: Record<string, unknown>, timeoutMs = settings.requestMs): Promise<Result<CallAnswer>> {
+    if (conversation !== this.#conversation) return failure('forbidden', 'The request names a conversation this stream is not reading.');
+    const result = await this.peer.call('session.request', { conversation, package: name, verb, args }, timeoutMs);
+    if (!result.ok) return result;
+    return this.#answer(result.value) ? { ok: true, value: result.value } : failure('protocol', 'The environment returned an invalid answer.');
   }
 
   async #note(params: Record<string, unknown>): Promise<Result<void>> {
