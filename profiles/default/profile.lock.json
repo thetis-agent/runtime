@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "da3dbcddcb4eec4df3c3dbf38e8ee4219a57fb64",
-        "hash": "sha256:a7cf0ada505622b45083761f14eaee2db9231e3b6017db4e390b92c5bbdd1c44"
+        "commit": "b73504a52f977936c94dbaaaa8c7c5ef547a0417",
+        "hash": "sha256:17a4fe17ce70fc43bb8f14c66b2ec19ec5d31d7e66a6ff80394088ffdb164116"
       }
     },
     {
@@ -558,8 +558,8 @@
       "pin": {
         "name": "contract/surface",
         "version": "1.1.0",
-        "commit": "1043ae2b1b97afa6c0408ba51747fb00a9b22635",
-        "hash": "sha256:6c039907f88dc4e39acc8affc988b89f115562f0e4ce6832b4fb4e0b5ffaf1e1"
+        "commit": "c8e7a5097f7f32e5485bcb68648950c3e2b7765b",
+        "hash": "sha256:04e466bf123eb70e8dc27daba7d27c129d85346b315f419196c2ccdc0266a0f7"
       }
     },
     {
