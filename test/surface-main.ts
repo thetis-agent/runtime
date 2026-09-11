@@ -1,0 +1,165 @@
+/** Serve the real web surface to a browser on this machine, against the mock provider; ADR 0009, ADR 0038.
+ *
+ * Everything below the proxy is the same trio `packages/gateway-web/service.test.ts` already builds —
+ * a shared provider, one person's environment, and that person's gateway — so what a browser sees here
+ * is what the gateway actually serves, not a mock of it. The one thing this adds is reachability: the
+ * gateway listens on a Unix socket inside a sandbox, and a browser cannot open one.
+ *
+ * The proxy signs the browser in by writing the fixture's own session cookie onto the first request of
+ * every connection. That is a deliberate convenience for looking at the surface and it is why this file
+ * binds to the loopback address and refuses to be told otherwise: anything reaching this port is already
+ * signed in as the fixture person, so it must never be reachable from off the machine.
+ */
+import { createConnection, createServer } from 'node:net';
+import type { Socket } from 'node:net';
+import { serviceFixture } from '@/test/provider-service.ts';
+import { environmentProcess } from '@/test/environment-process.ts';
+import { gatewayProcess } from '@/test/gateway-process.ts';
+import type { Principal } from '@/kernel/identity/index.ts';
+import { isObject } from '@/lib/schema/index.ts';
+
+const limits = { headerBytes: 16384, backlog: 64 };
+const headerEnd = Buffer.from('\r\n\r\n');
+
+/* One turn's worth of provider output per entry, handed out in order across the whole deployment —
+ * the mock counts its own calls, not each conversation's, so a turn anywhere advances the list.
+ *
+ * The first entry is therefore bob's, because his conversation is started below before any browser
+ * exists. Everything after it is the pair a person opening the page sees: reasoning deltas, a tool
+ * call and its answer, usage counters, and enough text to batch. The pair repeats so that a second and
+ * third conversation are as interesting as the first; past the end the mock answers its own default,
+ * which is a true thing for the surface to have to draw too. */
+const conversation = [
+  [
+    { type: 'delta.reasoning', text: 'The person is asking what is here. Listing the space answers it directly.' },
+    { type: 'delta.text', text: 'Let me look at what is in your space.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-1', name: 'list_path', args: '{"path":"/space"}' },
+    { type: 'usage', counters: { cost: 0.0009, input: 1840, output: 96 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'Your space is empty right now — nothing has been written to it yet.\n\n' },
+    { type: 'delta.text', text: 'Here is how the pieces fit together:\n\n```mermaid\ngraph LR\n  A[you] --> B[gateway]\n  B --> C[environment]\n  C --> D[model]\n```\n' },
+    { type: 'usage', counters: { cost: 0.0014, input: 2380, output: 214 } },
+    { type: 'stop', reason: 'end' }
+  ],
+  /* A second turn that puts a plan up and then starts working through it, so the Todo panel has
+   * something in it and the person has a line to tick off. */
+  [
+    { type: 'delta.text', text: 'That is three separate jobs, so I will put the plan up first.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-2', name: 'todo_write', args: '{"items":[{"text":"Read the current settings file"},{"text":"Write the new retention window in"},{"text":"Check nothing else reads the old value"}]}' },
+    { type: 'usage', counters: { cost: 0.0006, input: 2410, output: 88 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'Starting on the first one.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-3', name: 'todo_mark', args: '{"items":["t-1"],"stage":"active"}' },
+    { type: 'usage', counters: { cost: 0.0005, input: 2480, output: 61 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'The plan is up — open the Todo tab on the right to follow it, and tick anything off that you have already done yourself.\n' },
+    { type: 'usage', counters: { cost: 0.0007, input: 2560, output: 74 } },
+    { type: 'stop', reason: 'end' }
+  ],
+  /* A third turn that stops on a question. `ask_user` answers its call as unfinished and ends the
+   * turn, so this is where the transcript form appears and the agent waits. */
+  [
+    { type: 'delta.text', text: 'Before I change anything I need to know which way you want it.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-4', name: 'ask_user', args: '{"question":"How long should deleted conversations be kept before they are removed for good?","shape":"choice","options":["Seven days","Thirty days","A year"]}' },
+    { type: 'usage', counters: { cost: 0.0005, input: 2600, output: 59 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  /* The turn after the answer. What was said arrives ahead of this turn as a line of its own: the
+   * package emitted the notice that completes the unfinished call, and the core writes it into the
+   * conversation at the turn boundary (packages/core/notices.ts). */
+  [
+    { type: 'delta.text', text: 'Thank you — thirty days it is. One more thing before I write it.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-5', name: 'ask_user', args: '{"question":"Shall I apply that to conversations that are already deleted?","shape":"confirm"}' },
+    { type: 'usage', counters: { cost: 0.0008, input: 2680, output: 96 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'Understood — that is everything I needed.\n' },
+    { type: 'usage', counters: { cost: 0.0009, input: 2740, output: 88 } },
+    { type: 'stop', reason: 'end' }
+  ]
+];
+const scripts = [
+  [{ type: 'delta.text', text: 'They go to the environment\u2019s own activity, which the foot of the page can show you.' },
+    { type: 'usage', counters: { cost: 0.0004, input: 900, output: 40 } }, { type: 'stop', reason: 'end' }],
+  ...Array.from({ length: 6 }, () => conversation).flat()
+];
+
+/** Rewrite the first request of a connection to carry the fixture's cookie, then get out of the way.
+ *
+ * Only the first request is touched: a browser that has been handed a cookie sends it itself, and a
+ * WebSocket upgrade is one request followed by frames this must not read. Anything whose headers do not
+ * arrive within the bound is passed through untouched rather than buffered without end. */
+function inject(client: Socket, cookie: string, path: string): void {
+  const upstream = createConnection(path);
+  let buffered = Buffer.alloc(0); let forwarding = false;
+  const fail = (): void => { client.destroy(); upstream.destroy(); };
+  client.on('error', fail); upstream.on('error', fail);
+  upstream.on('close', () => { client.destroy(); });
+  upstream.pipe(client);
+  client.on('data', (chunk: Buffer) => {
+    if (forwarding) { upstream.write(chunk); return; }
+    buffered = Buffer.concat([buffered, chunk]);
+    const end = buffered.indexOf(headerEnd);
+    if (end === -1) { if (buffered.length > limits.headerBytes) { forwarding = true; upstream.write(buffered); } return; }
+    forwarding = true;
+    const head = buffered.subarray(0, end).toString('latin1');
+    const rest = buffered.subarray(end + headerEnd.length);
+    const lines = head.split('\r\n').filter(line => !/^cookie\s*:/iu.test(line));
+    upstream.write(`${[...lines, `cookie: ${cookie}`].join('\r\n')}\r\n\r\n`);
+    if (rest.length) upstream.write(rest);
+  });
+  client.on('close', () => { upstream.destroy(); });
+}
+
+const port = Number(process.argv[2] ?? '8787');
+if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Provide a loopback port between 1024 and 65535.');
+
+/* A development budget, not a realistic one: the fixture's rule caps the whole run and a turn is
+ * estimated at the mock's ceiling before it starts, so a small cap stops the second turn rather than
+ * the tenth. */
+/* An operator, not an ordinary account: the control panel, the package list and everyone's
+ * conversations are all role-gated, and a surface opened to look at them has to be able to see
+ * them. `bob` stays an ordinary `user`, so the gates are still visible from both sides. */
+const people: Principal[] = [{ id: 'alice', role: 'admin', projects: [], observeOthers: true }, { id: 'bob', role: 'user', projects: [], observeOthers: false }];
+const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 }, 'deployment', {
+  people, authorities: { password: 'fixture-login' }, bindings: people.map(person => ({ kind: 'password', id: person.id, person: person.id })) });
+/* The contributors this surface carries, mounted beside both the gateway (which serves their assets
+ * and discovers their panels) and the environment (which runs the hooks their declared commands
+ * reach). `skills-l1` and `tools-ask` both draw `tool-call` and `tool-result` rows and both are here:
+ * each declines the calls that are not its own, and the surface asks them in turn. That is worth
+ * exercising rather than avoiding — it is the only place two contributors share a kind. */
+const panels = ['inspector-context', 'inspector-tools', 'skills-l1', 'tools-terminal', 'tools-todo', 'tools-ask'];
+const environment = await environmentProcess(shared, 'alice', true, panels);
+/* Bob gets an environment but no gateway of his own: his conversations are what alice's everyone view
+ * and People panel have to be able to name, and the only thing a second gateway would add is a second
+ * port nobody is looking at. One conversation of his is started here, because an environment with
+ * nothing in it is indistinguishable from a person who is not there. */
+const other = await environmentProcess(shared, 'bob', false);
+const started = await other.process.invoke('session.create', { surface: 'web' });
+if (started.ok && isObject(started.value) && typeof started.value['id'] === 'string') {
+  const spoke = await other.process.invoke('session.submit', { conversation: started.value['id'], input: { text: 'Where do the logs go?', attachments: [] } });
+  if (!spoke.ok) process.stderr.write(`${JSON.stringify({ surface: 'the second person could not speak', reason: spoke.error })}\n`);
+} else process.stderr.write(`${JSON.stringify({ surface: 'the second person has no conversation', reason: started.ok ? started.value : started.error })}\n`);
+const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts', {}, panels, [{ owner: 'bob', process: other.process }]);
+const cookie = `thetis_session=${shared.mintSession('alice')}`;
+
+const proxy = createServer(client => { inject(client, cookie, gateway.socket); });
+proxy.on('error', error => { process.stderr.write(`${error.message}\n`); process.exitCode = 1; });
+await new Promise<void>(resolve => { proxy.listen(port, '127.0.0.1', limits.backlog, resolve); });
+process.stdout.write(`${JSON.stringify({ surface: 'listening', url: `http://127.0.0.1:${String(port)}/`, person: 'alice' })}\n`);
+
+const stop = async (): Promise<void> => {
+  proxy.close();
+  await gateway.close(); await other.close(); await environment.close(); await shared.close();
+  process.exit(0);
+};
+process.once('SIGINT', () => { void stop(); });
+process.once('SIGTERM', () => { void stop(); });
+await new Promise(() => { /* serve until signalled */ });

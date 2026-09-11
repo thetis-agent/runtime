@@ -6,11 +6,18 @@ import { loopFixture } from '@/test/loop-fixture.ts';
 await test('TE-029 wake requests wait for the next input when waking is disabled', async () => {
   const fixture = await loopFixture();
   try {
-    assert.ok(fixture.loop.notice('background', { content: [{ type: 'text', text: 'completed' }], wake: true }).ok);
+    assert.ok(fixture.loop.notice('background', { conversation: fixture.options.conversation, content: [{ type: 'text', text: 'completed' }], wake: true }).ok);
     assert.equal(fixture.events.length, 0);
     assert.equal(fixture.conversation.project().history.length, 0);
     assert.ok((await fixture.loop.turn({ text: 'Hello', attachments: [] }, fixture.options, new AbortController().signal)).ok);
     assert.equal(fixture.conversation.project().history[0]?.source, 'background');
     assert.equal(fixture.events.filter(event => event.type === 'input').length, 1);
+    // Said out loud as well as stored: a gateway draws this as a line, and a notice a person cannot
+    // see is indistinguishable from one that never arrived.
+    const said = fixture.events.filter(event => event.type === 'notice');
+    assert.equal(said.length, 1);
+    const [only] = said; assert.ok(only);
+    assert.equal(only.iteration, 0);
+    assert.equal(only.payload['source'], 'background');
   } finally { await fixture.close(); }
 });
