@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "b93f1c6f86fdd6e5c9604c510db50f45ef271d24",
-        "hash": "sha256:492e7998b78d3ec1e1c85a54e1cebdae9ea541758c7a44fcf616ecf377054af2"
+        "commit": "7ff8e6b12c6f47d819661df95fbc4293a1c2e865",
+        "hash": "sha256:50c4181aa179c16470a6dee3c8ab95c127f22e349ed10996b7d05d135361914c"
       }
     },
     {
@@ -178,8 +178,8 @@
       "pin": {
         "name": "tools-ask",
         "version": "1.0.0",
-        "commit": "52d448fcd8bb4457cd5ae5032a50cf87a8943383",
-        "hash": "sha256:8bdd3910fabdca2dc545321c13eb01e3ee2248575976ee48ac3dba9a812b01ad"
+        "commit": "fe0f704847a6a6d1ee76efc4f841e0929e76b756",
+        "hash": "sha256:0f8a1ee1b350ae84b312b1867e412fb47775fb3b475c4ecfc5d8944fc7e4acbd"
       }
     },
     {
