@@ -42,3 +42,32 @@ await test('SF-004 a contribution is bounded where it is declared', () => {
   const renderers = Array.from({ length: 17 }, (_, index) => ({ ...renderer, kind: `kind-${String(index)}` }));
   assert.ok(!valid({ v: '1', renderers }));
 });
+
+/* SF-005–007 cover the commands declaration ADR 0051 added. A panel may only send what its own
+ * package named here, so the shape of this list is the whole of a contributed panel's reach. */
+const command = { verb: 'refresh', label: 'Refresh the list' };
+
+await test('SF-005 a block may declare commands, or none', () => {
+  assert.ok(valid({ v: '1', panels: [panel], commands: [command] }));
+  assert.ok(valid({ v: '1', commands: [] }));
+  assert.ok(valid({ v: '1', commands: [{ ...command, role: 'admin' }] }));
+  // A declaration stands on its own: the host reads it from the same block whether or not this
+  // package also draws rows, so nothing here requires a panel beside it.
+  assert.ok(valid({ v: '1', commands: [command] }));
+});
+
+await test('SF-006 a verb, a label and a role are each named or refused', () => {
+  for (const verb of ['Refresh', '1refresh', 'refresh_now', 're fresh', '', 'r'.repeat(33)]) {
+    assert.ok(!valid({ v: '1', commands: [{ ...command, verb }] }), `${verb} is not a servable verb`);
+  }
+  assert.ok(!valid({ v: '1', commands: [{ verb: 'refresh' }] }), 'a verb with no label says nothing to the person');
+  assert.ok(!valid({ v: '1', commands: [{ ...command, label: '' }] }));
+  assert.ok(!valid({ v: '1', commands: [{ ...command, label: 'x'.repeat(65) }] }));
+  assert.ok(!valid({ v: '1', commands: [{ ...command, role: 'owner' }] }), 'a role outside the three the kernel knows');
+});
+
+await test('SF-007 a declaration is bounded where it is declared', () => {
+  const commands = Array.from({ length: 17 }, (_, index) => ({ ...command, verb: `verb-${String(index)}` }));
+  assert.ok(!valid({ v: '1', commands }));
+  assert.ok(valid({ v: '1', commands: commands.slice(0, 16) }));
+});

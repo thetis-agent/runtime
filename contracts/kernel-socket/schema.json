@@ -15,7 +15,7 @@
       "session.list", "session.create", "session.submit", "session.subscribe", "session.cancel", "session.rename", "session.archive",
       "profile.get", "secret.has", "package.register", "health.probe",
       "usage.report", "token.whois", "session.whois", "install", "snapshot", "prune", "results.submit",
-      "env.status", "env.logs", "env.reset", "default.prepare", "default.set", "identity.assert", "secret.set" ] },
+      "env.status", "env.logs", "env.reset", "default.prepare", "default.set", "identity.assert", "secret.set", "session.request" ] },
     "frame": { "oneOf": [ { "$ref": "#/$defs/request" }, { "$ref": "#/$defs/response" }, { "$ref": "#/$defs/note" } ], "description": "one JSON object per line; control methods (session.cancel, health.probe, run.stop) have priority; a frame over 1 MiB is refused" },
     "params": {
       "session.list": { "type": "object", "properties": { "person": { "type": "string", "description": "another person, or \"*\" for everyone; only with a role that may observe others" }, "archived": { "type": "boolean", "description": "include the archived conversations, which are left out of a list that does not ask for them" } } },
@@ -25,6 +25,7 @@
       "session.cancel": { "type": "object", "required": ["conversation"], "properties": { "conversation": { "type": "string" } } },
       "session.rename": { "type": "object", "required": ["conversation", "title"], "properties": { "conversation": { "type": "string" }, "title": { "type": "string", "minLength": 1, "maxLength": 96 } }, "description": "the cap matches the stored title's" },
       "session.archive": { "type": "object", "required": ["conversation", "archived"], "properties": { "conversation": { "type": "string" }, "archived": { "type": "boolean" } }, "description": "false brings an archived conversation back" },
+      "session.request": { "type": "object", "required": ["conversation", "package", "verb", "args"], "properties": { "conversation": { "type": "string" }, "package": { "type": "string" }, "verb": { "type": "string" }, "args": { "type": "object" } }, "description": "one declared surface command, bound to the conversation this connection is subscribed to (ADR 0051); offered on the environment's public endpoint only" },
       "profile.get": { "type": "object" },
       "secret.has": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "pattern": "^secret/" } } },
       "package.register": { "type": "object", "required": ["package", "requires", "provides"], "properties": { "package": { "type": "string" }, "requires": { "type": "object", "additionalProperties": { "type": "string" } }, "provides": { "type": "object", "additionalProperties": { "type": "string" } }, "spawn": { "type": "array", "items": { "type": "object" } } } },
