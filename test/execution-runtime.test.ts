@@ -27,3 +27,47 @@ await test('EV-006 an ordinary bound account runs the actual seeded candidate an
     assert.equal((await f.runtime.run({ ...request, hash: `sha256:${'f'.repeat(64)}` })).ok, false);
   } finally { await f.close(); }
 });
+
+/* EV-001. The three operations differ in exactly three ways — which validator, which handler, which
+ * words a malformed request is refused with — and agree about everything else, including the order.
+ *
+ * The ordering is the part worth a test rather than a reading. Authorization runs before validation,
+ * so a caller that is not the configured source is refused without its parameters ever being read;
+ * were that the other way round, a wrong source could map the shape of a well-formed request by
+ * sending malformed ones and watching which refusal came back. */
+await test('EV-001 every evaluation operation authorizes before it validates, and refuses each in its own words', async () => {
+  const f = await executionFixture();
+  try {
+    const operations = f.runtime.operations(f.schemas);
+    const authorized = { target: f.config.source, scope: 'deployment' };
+    const wrongScope = { target: f.config.source, scope: 'person' };
+    const wrongSource = { target: 'somebody-else', scope: 'deployment' };
+    const malformed = { operation: 'nonsense' };
+
+    for (const [method, subject] of [['install', 'run'], ['snapshot', 'score'], ['prune', 'release']] as const) {
+      const operation = operations.get(method); assert.ok(operation, `${method} is not offered.`);
+      // The right target in the wrong scope, and the right scope from the wrong target, are both
+      // refused — and refused identically, whatever the parameters were.
+      for (const source of [wrongScope, wrongSource]) {
+        const refused = await operation(source, malformed);
+        assert.ok(!refused.ok, `${method} admitted ${source.scope}/${source.target}.`);
+        assert.equal(refused.error.code, 'forbidden');
+        assert.match(refused.error.message, /not authorized for private evaluation/u,
+          `${method} told an unauthorized caller its parameters were malformed.`);
+      }
+      // Authorized and malformed: the refusal names this method's own request rather than another's,
+      // which is the whole reason the message is an argument instead of a constant in the adapter.
+      const invalid = await operation(authorized, malformed);
+      assert.ok(!invalid.ok); assert.equal(invalid.error.code, 'invalid-args');
+      assert.equal(invalid.error.message, `The evaluation ${subject} request violates its schema.`);
+    }
+
+    /* A well-formed request reaches its handler: `prune` proves both halves at once — that the
+     * adapter projects `request.id` for a handler that takes an id rather than a request, and that a
+     * field the contract does not name survives validation instead of being stripped on the way in.
+     * `not-found` is the handler's own answer, so the call got that far. */
+    const prune = operations.get('prune'); assert.ok(prune);
+    const missing = await prune(authorized, { operation: 'evaluation.release', id: 'no-such-snapshot', unknown: true });
+    assert.ok(!missing.ok); assert.equal(missing.error.code, 'not-found');
+  } finally { await f.close(); }
+});
