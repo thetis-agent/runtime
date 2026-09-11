@@ -28,8 +28,8 @@
       "pin": {
         "name": "core",
         "version": "1.0.0",
-        "commit": "8fe48cf032540e056da85164e4d47f9a1142ac12",
-        "hash": "sha256:0fda2a1d6d776e1335fdb53def471c853808b383366319e0544bfd9bebcd123a"
+        "commit": "5cbf515fa4cfc425964c73c88781d23756047cf3",
+        "hash": "sha256:57362ea98b7ed97b3f4255a610adb968587019174cf71d0fbd22afaa974bfc03"
       }
     },
     {
@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "ead8b2a966a067e20eda5fcced07903155526eb4",
-        "hash": "sha256:5e3759c6ca137d15cb06a3c92616d58115ba513e3bb58028a7a2d9533ceef83b"
+        "commit": "d1b03513c2e9a71a0b74e503e1748e836133c26f",
+        "hash": "sha256:d006e68d79ee99c4916dfccdda8fbcff878fc83e19c4f1ec14e1d0bc1d6a1491"
       }
     },
     {
@@ -378,8 +378,8 @@
       "pin": {
         "name": "lib/schema",
         "version": "1.0.0",
-        "commit": "ad6b3816ee6620170df29991a7e1f71d92775f68",
-        "hash": "sha256:956bb50218ca2d749d73ef596e0e846422dbb224553fd8a13d17d0fe6a65def5"
+        "commit": "6c9caa98cd9cb35885d8ef85afa866a6c2af2efa",
+        "hash": "sha256:3197445ecc63896d9a8e98cb122d579ea2d414e76ae8e5f5d904c96116b2d728"
       }
     },
     {
@@ -438,8 +438,8 @@
       "pin": {
         "name": "lib/socket",
         "version": "1.1.0",
-        "commit": "c9c9eec16ad50e9711b30e086d0e85212ff9c624",
-        "hash": "sha256:6ed3c22c6f1801673fa90ca6d7a56df3d5a3686e084c0ffcb2a476bb5c1f7a0e"
+        "commit": "1c4235da89673a535b963d2ec9704d13fade30b6",
+        "hash": "sha256:48f0a9044661d0453ba99cf23edd444fb0908eb66405d4ce8568799b9c15ac56"
       }
     },
     {
@@ -497,9 +497,9 @@
       "directory": "kernel-socket",
       "pin": {
         "name": "contract/kernel-socket",
-        "version": "1.1.0",
-        "commit": "103d26bb2a97d18eeeaa21874aaa8db939a0a06b",
-        "hash": "sha256:730c69fbec64c88cb120503c89f09dc3d5d3df0100ba3d7be63531c9fb8643b5"
+        "version": "1.2.0",
+        "commit": "e2f822a37b11d739aaef90e6d978a9c0153451b6",
+        "hash": "sha256:e9739d51687cca9fc53aa9e8a265da9fe537097d3678fda7a42d75c6c142671a"
       }
     },
     {

@@ -53,7 +53,7 @@
     "lib/update": "1.0.0",
     "lib/websocket": "1.0.0",
     "contract/evaluator": "1.0.0",
-    "contract/kernel-socket": "1.1.0",
+    "contract/kernel-socket": "1.2.0",
     "contract/metrics": "1.0.0",
     "contract/provider": "1.1.0",
     "contract/registry": "1.0.0",
