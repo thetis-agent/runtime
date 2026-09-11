@@ -1,6 +1,6 @@
 /** Load standard skill cards without accepting unchecked paths or duplicate ids; SK-001–009. */
 import { parseDocument } from 'yaml';
-import { readdir, realpath } from 'node:fs/promises';
+import { readdir, realpath, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join, relative, basename } from 'node:path';
 import type { Card, Frontmatter } from '@/contracts/skills/types.ts';
@@ -68,4 +68,35 @@ export function uniqueSkills(skills: readonly LoadedSkill[]): Result<void, 'inva
   }
   const universal = skills.filter(skill => skill.card.universal);
   return universal.length > defaults.universal ? failure('budget', `More than 20 universal skills exist: ${universal.map(skill => skill.card.id).join(', ')}.`) : { ok: true, value: undefined };
+}
+
+/** Every selected package is aliased at `/packages/<name>@<version>` (lib/profile/index.ts), which is
+ * exactly the shape `card.path` demands, so a pack is discovered rather than named in a registry. */
+export async function installedPacks(root = '/packages'): Promise<Pack[]> {
+  const packs: Pack[] = [];
+  let aliases: string[];
+  try { aliases = await readdir(root); } catch { return packs; }
+  for (const alias of aliases) {
+    const at = alias.lastIndexOf('@');
+    if (at <= 0 || at === alias.length - 1) continue;
+    const path = join(root, alias);
+    // A `skills/` directory is the whole test: a plain file cannot hold one, so this also settles
+    // that the alias is a directory without a second stat.
+    try { if (!(await stat(join(path, 'skills'))).isDirectory()) continue; } catch { continue; }
+    packs.push({ name: alias.slice(0, at), version: alias.slice(at + 1), path });
+  }
+  return packs.sort((one, other) => one.name.localeCompare(other.name));
+}
+
+/** One pack's failure is reported, never fatal: a broken pack must not cost the person every skill
+ * the others ship (ADR 0016). */
+export async function loadInstalled(schemas: Schemas, root = '/packages'): Promise<{ skills: LoadedSkill[]; warnings: string[] }> {
+  const skills: LoadedSkill[] = []; const warnings: string[] = [];
+  for (const pack of await installedPacks(root)) {
+    const loaded = await loadPack(pack, schemas);
+    if (!loaded.ok) { warnings.push(`${pack.name}@${pack.version} was skipped: ${loaded.error.message}`); continue; }
+    skills.push(...loaded.value.skills); warnings.push(...loaded.value.warnings);
+  }
+  const unique = uniqueSkills(skills);
+  return unique.ok ? { skills, warnings } : { skills: [], warnings: [...warnings, unique.error.message] };
 }
