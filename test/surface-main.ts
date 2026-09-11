@@ -132,11 +132,10 @@ const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 }, 'deplo
   people, authorities: { password: 'fixture-login' }, bindings: people.map(person => ({ kind: 'password', id: person.id, person: person.id })) });
 /* The contributors this surface carries, mounted beside both the gateway (which serves their assets
  * and discovers their panels) and the environment (which runs the hooks their declared commands
- * reach). `skills-l1` is deliberately not in this list: it draws `tool-call` and `tool-result` rows,
- * `tools-ask` draws the same two, and gateway-web/panels.ts admits one contributor per row kind and
- * refuses the second by name — so with both mounted the question form never appears. The question
- * form is the thing worth looking at here; the Skills panel is a swap away. */
-const panels = ['inspector-context', 'inspector-tools', 'tools-terminal', 'tools-todo', 'tools-ask'];
+ * reach). `skills-l1` and `tools-ask` both draw `tool-call` and `tool-result` rows and both are here:
+ * each declines the calls that are not its own, and the surface asks them in turn. That is worth
+ * exercising rather than avoiding — it is the only place two contributors share a kind. */
+const panels = ['inspector-context', 'inspector-tools', 'skills-l1', 'tools-terminal', 'tools-todo', 'tools-ask'];
 const environment = await environmentProcess(shared, 'alice', true, panels);
 /* Bob gets an environment but no gateway of his own: his conversations are what alice's everyone view
  * and People panel have to be able to name, and the only thing a second gateway would add is a second
