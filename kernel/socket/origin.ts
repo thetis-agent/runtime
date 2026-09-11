@@ -34,11 +34,11 @@ export function origin(context: OriginContext): Server {
       const token = request.headers.cookie?.split(';').map(value => value.trim()).find(value => value.startsWith('__Host-thetis='))?.slice('__Host-thetis='.length) ?? '';
       const person = context.identity.resolveSession(token); if (!person.ok) { reply(response, person); return; }
       if (request.url === '/default.prepare' && prepare(input.value)) {
-        const result = context.act.prepare(person.value, 'kernel', input.value);
+        const result = context.act.prepare(person.value, input.value);
         if (!result.ok) { reply(response, result); return; }
         response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; frame-ancestors 'none'", connection: 'close' }); response.end(`${result.value.line}\n`); return;
       }
-      const result = request.url === '/default.set' && set(input.value) ? await context.act.set(person.value, 'kernel', input.value)
+      const result = request.url === '/default.set' && set(input.value) ? await context.act.set(person.value, input.value)
         : request.url === '/secret.set' && secret(input.value) ? await context.secrets.set(person.value, 'kernel', input.value)
         : failure('invalid-args', 'The kernel origin operation or its parameters are invalid.');
       reply(response, result);

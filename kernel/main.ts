@@ -10,11 +10,12 @@ import { SandboxRunner } from '@/lib/sandbox-runner/index.ts';
 import { Runtime } from '@/kernel/boundary/runtime.ts';
 import type { RuntimeContext } from '@/kernel/boundary/runtime.ts';
 import { Identity } from '@/kernel/identity/index.ts';
+import type { Principal, Run } from '@/kernel/identity/index.ts';
 import { Journal } from '@/kernel/log/index.ts';
 import { descriptor } from '@/lib/files/descriptor.ts';
 import { Secrets } from '@/kernel/secrets/index.ts';
 import { defaultAct } from '@/kernel/generations/default.ts';
-import type { Method } from '@/contracts/kernel-socket/types.ts';
+import type { Method, DefaultPrepareParams, DefaultSetParams } from '@/contracts/kernel-socket/types.ts';
 import type { Operation } from '@/kernel/socket/index.ts';
 import type { Act } from '@/kernel/generations/act.ts';
 import { origin } from '@/kernel/socket/origin.ts';
@@ -49,7 +50,7 @@ export async function start(path: string): Promise<Result<{ runtime: Runtime; id
     schemas, clock, identity, journal: journal.value,
     runner: new SandboxRunner(config.value.cgroup),
     ...(sealed?.ok ? { secrets: sealed.value } : {}),
-    extension: evaluationExtension(() => evaluations, () => act)
+    extension: evaluationExtension(() => evaluations, () => act, identity, schemas)
   });
   let endpoint: Awaited<ReturnType<typeof listen>> | undefined; const watcher: { current?: Awaited<ReturnType<typeof watchAll>> } = {};
   const close = async (): Promise<Result<void>> => { const watched = watcher.current?.ok ? await watcher.current.value.close() : undefined; const stopped = endpoint?.ok ? await endpoint.value.close() : undefined; const closed = await runtime.close(); const evaluated = await evaluations?.close(); await journal.value.close(); return watched && !watched.ok ? watched : stopped && !stopped.ok ? stopped : evaluated && !evaluated.ok ? evaluated : closed; };
@@ -86,19 +87,46 @@ export async function start(path: string): Promise<Result<{ runtime: Runtime; id
   return { ok: true, value: { runtime, identity, close } };
 }
 
+/* `default.prepare` and `default.set` sit here beside `results.submit` because ADR 0050 offers them on
+ * the package socket: a reviewer acts where the evidence already is, instead of carrying a string back
+ * from a second origin. `kernel/socket/origin.ts` keeps both calls unchanged for anyone who wants the
+ * stronger path. Nothing is relaxed by the move — `Act` re-checks the role, the passing gate, the
+ * baseline compare-and-swap and the single-use code, and a service reaches either call only if it
+ * negotiated the capability by name. The parameters are validated here rather than trusted, because
+ * the socket's own frame schema admits any object as `params`. */
 function evaluationExtension(
   getEvaluation: () => Evaluation | undefined,
-  getAct: () => Act | undefined
+  getAct: () => Act | undefined,
+  identity: Identity,
+  schemas: Schemas
 ): NonNullable<RuntimeContext['extension']> {
   const submit: Operation = async (run, params) => {
     const act = getAct();
     return act ? act.submit(run, params)
       : failure('unsupported', 'No default evaluation authority is configured.');
   };
+  const reference = 'thetis://contract/kernel-socket/1#/$defs/params/';
+  const checkPrepare = schemas.compile<DefaultPrepareParams>({ $ref: `${reference}default.prepare` });
+  const checkSet = schemas.compile<DefaultSetParams>({ $ref: `${reference}default.set` });
+  const act = (run: Run): Result<{ act: Act; person: Principal }> => {
+    const value = getAct(); if (!value) return failure('unsupported', 'No default evaluation authority is configured.');
+    const person = identity.principal(run.person);
+    return person ? { ok: true, value: { act: value, person } } : failure('forbidden', 'The run has no reviewing principal.');
+  };
+  const prepare: Operation = (run, params) => {
+    const bound = act(run); if (!bound.ok) return Promise.resolve(bound);
+    return Promise.resolve(checkPrepare(params) ? bound.value.act.prepare(bound.value.person, params) : failure('invalid-args', 'The default preparation parameters violate their schema.'));
+  };
+  const set: Operation = async (run, params) => {
+    const bound = act(run); if (!bound.ok) return bound;
+    return checkSet(params) ? bound.value.act.set(bound.value.person, params) : failure('invalid-args', 'The default confirmation parameters violate their schema.');
+  };
   return target => {
     const evaluation = getEvaluation()?.extension(target.id);
     const methods = new Map<Method, Operation>(evaluation?.methods);
     methods.set('results.submit', submit);
+    methods.set('default.prepare', prepare);
+    methods.set('default.set', set);
     return { capabilities: evaluation?.capabilities ?? [], methods };
   };
 }
