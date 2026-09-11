@@ -1,5 +1,5 @@
 /** Erase types as data in bounded trusted tooling; never evaluate an edited package; ADR 0037. */
-import { readdir, realpath, stat, readFile, writeFile, cp } from 'node:fs/promises';
+import { readdir, realpath, stat, readFile, writeFile, rm, cp } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
 import { createHash } from 'node:crypto';
@@ -8,18 +8,35 @@ import { verified } from './verify.mjs';
 import { readBounded } from '@/lib/files/read-bounded.ts';
 export const limits = { entries: 10000, sourceBytes: 1048576, totalBytes: 67108864, depth: 64 };
 export async function sources(root: string): Promise<string[]> {
-  let entries = 0; const files: string[] = [];
+  return (await walk(root)).sources;
+}
+
+/** Artifacts whose source is gone.
+ *
+ * `verifyTree` reads every `.ts` an artifact names, so one left behind by a rename fails a whole
+ * pinned tree with `io` — and since artifacts are not committed, the file is invisible to git and the
+ * failure surfaces somewhere else entirely, as a deployment that will not assemble. The build owns
+ * this directory's artifacts, so the build is what clears them. */
+export async function orphans(root: string): Promise<string[]> {
+  const { sources: found, artifacts } = await walk(root);
+  const present = new Set(found);
+  return artifacts.filter(path => !present.has(path.endsWith('.artifact.json') ? path.slice(0, -'.artifact.json'.length) : path.slice(0, -'.js'.length))).sort();
+}
+
+async function walk(root: string): Promise<{ sources: string[]; artifacts: string[] }> {
+  let entries = 0; const files: string[] = []; const artifacts: string[] = [];
   async function visit(path: string, depth: number): Promise<void> {
     if (depth > limits.depth) throw new Error('The artifact source tree exceeds its depth limit.');
     for (const entry of await readdir(path, { withFileTypes: true })) {
       if (++entries > limits.entries) throw new Error('The artifact source tree exceeds its entry limit.');
       if (entry.isSymbolicLink() || !entry.isDirectory() && !entry.isFile()) throw new Error('The artifact source tree contains a non-regular entry.');
-      if (entry.isDirectory()) await visit(join(path, entry.name), depth + 1);
+      if (entry.isDirectory()) { await visit(join(path, entry.name), depth + 1); continue; }
+      if (entry.name.endsWith('.ts.js') || entry.name.endsWith('.ts.artifact.json')) artifacts.push(join(path, entry.name));
       else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) files.push(join(path, entry.name));
     }
   }
   if (await realpath(root) !== root) throw new Error('The artifact source root is not canonical.');
-  await visit(root, 0); return files.sort();
+  await visit(root, 0); return { sources: files.sort(), artifacts };
 }
 function hash(value: string): string { return `sha256:${createHash('sha256').update(value).digest('hex')}`; }
 export async function buildTree(source: string, destination: string, check = false, previous?: string): Promise<boolean> {
@@ -45,6 +62,13 @@ export async function buildTree(source: string, destination: string, check = fal
     } else { await writeFile(`${target}.js`, output); await writeFile(`${target}.artifact.json`, record); }
   }
   if (source !== destination && !check && (await readdir(destination)).includes('schema.json')) { const { schemaOutput } = await import('./schema-output.ts'); await schemaOutput(destination, previous); }
+  // An in-place build owns what is in the tree; a copied one is a fresh destination with nothing stale
+  // in it. `--check` reports rather than writes, so a leftover makes the tree stale instead of vanishing.
+  if (source === destination) {
+    const stale = await orphans(destination);
+    if (check) fresh = !stale.length && fresh;
+    else for (const path of stale) await rm(path, { force: true });
+  }
   return fresh;
 }
 
