@@ -28,8 +28,8 @@
       "pin": {
         "name": "core",
         "version": "1.0.0",
-        "commit": "4697d1f3165b0fd70598f09bd270bf87975b303a",
-        "hash": "sha256:409d6442a967f196f38d011a153add6277b0a786653d81d8675d2fb9d57ec601"
+        "commit": "7de1f0fd8083a25f5bfce0eaf388b41fb9b1486d",
+        "hash": "sha256:c43e43e4b06e7d29454f848afd546b022e58e60fa242a496262854322bea7eb0"
       }
     },
     {
@@ -58,8 +58,8 @@
       "pin": {
         "name": "gateway-web",
         "version": "1.0.0",
-        "commit": "c156a445094e8b827be1049a519000e110576f18",
-        "hash": "sha256:93004f398c98a60ebb962894d7de8eefe25dc76ef14abadb814057ae9a3b545b"
+        "commit": "b93f1c6f86fdd6e5c9604c510db50f45ef271d24",
+        "hash": "sha256:492e7998b78d3ec1e1c85a54e1cebdae9ea541758c7a44fcf616ecf377054af2"
       }
     },
     {
@@ -174,6 +174,16 @@
     },
     {
       "kind": "packages",
+      "directory": "tools-ask",
+      "pin": {
+        "name": "tools-ask",
+        "version": "1.0.0",
+        "commit": "52d448fcd8bb4457cd5ae5032a50cf87a8943383",
+        "hash": "sha256:8bdd3910fabdca2dc545321c13eb01e3ee2248575976ee48ac3dba9a812b01ad"
+      }
+    },
+    {
+      "kind": "packages",
       "directory": "tools-exa",
       "pin": {
         "name": "tools-exa",
@@ -200,6 +210,16 @@
         "version": "1.0.0",
         "commit": "32961dcbbf1b726026048568fe6523308a281883",
         "hash": "sha256:625d7ff181605182c9a83e66ba9244e40b7ea294ebfb832aefa1cb213444ebe0"
+      }
+    },
+    {
+      "kind": "packages",
+      "directory": "tools-todo",
+      "pin": {
+        "name": "tools-todo",
+        "version": "1.0.0",
+        "commit": "85c25f9b2f5db0a22ed4f5769e640b99765fc8ba",
+        "hash": "sha256:b75a7cacb8119d3c4a7bc77bb03e52723592923e7f3d89a347d2943854db21ea"
       }
     },
     {
@@ -388,8 +408,8 @@
       "pin": {
         "name": "lib/schema",
         "version": "1.0.0",
-        "commit": "b84e36639f88a96fc1b9216972f2d0958328fa9d",
-        "hash": "sha256:7715ae99c6c5958d9eb8b3075a0a84534b88b0ca830b1f258be103ea4232f114"
+        "commit": "3ad0d9de935795d3903517e4f90387d0db679ec3",
+        "hash": "sha256:1138f771afb8a97d89bbfe8addb0c59d2949c2a2d56ad143a0c5b745aa77a508"
       }
     },
     {
@@ -587,9 +607,9 @@
       "directory": "turn-events",
       "pin": {
         "name": "contract/turn-events",
-        "version": "1.2.0",
-        "commit": "d60b89d3ff505ee8fe43ffbde19d3efe0a891e19",
-        "hash": "sha256:a6fd3d8f30ddddfdd7bdd7c45f7f8f2c0469560570448f831e35b8502a4a6b3b"
+        "version": "1.3.0",
+        "commit": "a33b29c4dd34f44551d26fcd92b8637642a06822",
+        "hash": "sha256:0d129b7e15388c0e472c787bafee64103bd244e8862d16931c346d6e3c3ce019"
       }
     },
     {

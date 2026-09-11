@@ -42,6 +42,47 @@ const conversation = [
     { type: 'delta.text', text: 'Here is how the pieces fit together:\n\n```mermaid\ngraph LR\n  A[you] --> B[gateway]\n  B --> C[environment]\n  C --> D[model]\n```\n' },
     { type: 'usage', counters: { cost: 0.0014, input: 2380, output: 214 } },
     { type: 'stop', reason: 'end' }
+  ],
+  /* A second turn that puts a plan up and then starts working through it, so the Todo panel has
+   * something in it and the person has a line to tick off. */
+  [
+    { type: 'delta.text', text: 'That is three separate jobs, so I will put the plan up first.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-2', name: 'todo_write', args: '{"items":[{"text":"Read the current settings file"},{"text":"Write the new retention window in"},{"text":"Check nothing else reads the old value"}]}' },
+    { type: 'usage', counters: { cost: 0.0006, input: 2410, output: 88 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'Starting on the first one.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-3', name: 'todo_mark', args: '{"items":["t-1"],"stage":"active"}' },
+    { type: 'usage', counters: { cost: 0.0005, input: 2480, output: 61 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'The plan is up — open the Todo tab on the right to follow it, and tick anything off that you have already done yourself.\n' },
+    { type: 'usage', counters: { cost: 0.0007, input: 2560, output: 74 } },
+    { type: 'stop', reason: 'end' }
+  ],
+  /* A third turn that stops on a question. `ask_user` answers its call as unfinished and ends the
+   * turn, so this is where the transcript form appears and the agent waits. */
+  [
+    { type: 'delta.text', text: 'Before I change anything I need to know which way you want it.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-4', name: 'ask_user', args: '{"question":"How long should deleted conversations be kept before they are removed for good?","shape":"choice","options":["Seven days","Thirty days","A year"]}' },
+    { type: 'usage', counters: { cost: 0.0005, input: 2600, output: 59 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  /* The turn after the answer. What was said arrives ahead of this turn as a line of its own: the
+   * package emitted the notice that completes the unfinished call, and the core writes it into the
+   * conversation at the turn boundary (packages/core/notices.ts). */
+  [
+    { type: 'delta.text', text: 'Thank you — thirty days it is. One more thing before I write it.\n\n' },
+    { type: 'delta.tool_call', callId: 'call-5', name: 'ask_user', args: '{"question":"Shall I apply that to conversations that are already deleted?","shape":"confirm"}' },
+    { type: 'usage', counters: { cost: 0.0008, input: 2680, output: 96 } },
+    { type: 'stop', reason: 'tool_calls' }
+  ],
+  [
+    { type: 'delta.text', text: 'Understood — that is everything I needed.\n' },
+    { type: 'usage', counters: { cost: 0.0009, input: 2740, output: 88 } },
+    { type: 'stop', reason: 'end' }
   ]
 ];
 const scripts = [
@@ -89,7 +130,13 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Pro
 const people: Principal[] = [{ id: 'alice', role: 'admin', projects: [], observeOthers: true }, { id: 'bob', role: 'user', projects: [], observeOthers: false }];
 const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 }, 'deployment', {
   people, authorities: { password: 'fixture-login' }, bindings: people.map(person => ({ kind: 'password', id: person.id, person: person.id })) });
-const panels = ['inspector-context', 'inspector-tools', 'skills-l1', 'tools-terminal'];
+/* The contributors this surface carries, mounted beside both the gateway (which serves their assets
+ * and discovers their panels) and the environment (which runs the hooks their declared commands
+ * reach). `skills-l1` is deliberately not in this list: it draws `tool-call` and `tool-result` rows,
+ * `tools-ask` draws the same two, and gateway-web/panels.ts admits one contributor per row kind and
+ * refuses the second by name — so with both mounted the question form never appears. The question
+ * form is the thing worth looking at here; the Skills panel is a swap away. */
+const panels = ['inspector-context', 'inspector-tools', 'tools-terminal', 'tools-todo', 'tools-ask'];
 const environment = await environmentProcess(shared, 'alice', true, panels);
 /* Bob gets an environment but no gateway of his own: his conversations are what alice's everyone view
  * and People panel have to be able to name, and the only thing a second gateway would add is a second
