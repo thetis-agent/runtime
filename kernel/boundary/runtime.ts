@@ -28,7 +28,7 @@ import { socketPair } from '@/lib/socket/pair.ts';
 import { executionPlan } from '@/lib/deployment/execution-plan.ts';
 import type { EvaluationBridge } from '@/lib/deployment/evaluation.ts';
 import { Pins } from '@/lib/pins/index.ts';
-import { sessionMethods } from '@/lib/socket/sessions.ts';
+import { sessionMethods, everyone, listEveryone } from '@/lib/socket/sessions.ts';
 import { recovery } from '@/lib/deployment/recover.ts';
 import { targetLogs } from '@/lib/deployment/logs.ts';
 import type { Recovery } from '@/lib/deployment/recover.ts';
@@ -145,6 +145,8 @@ export class Runtime {
     if (!sessionMethods.includes(method)) return Promise.resolve(failure('unsupported', 'This is not a session operation.'));
     const requested = method === 'session.list' && typeof params['person'] === 'string' ? params['person'] : person.id;
     if (requested !== person.id && !person.observeOthers) return Promise.resolve(failure('forbidden', 'The conversation list belongs to another person.'));
+    if (requested === everyone) return listEveryone([...this.#targets.values()].flatMap(({ target, driver }) =>
+      driver && target.scope === 'person' && target.environment !== false ? [{ owner: target.owner, list: (args: Record<string, unknown>) => driver.invoke('session.list', args) }] : []), params);
     const mounted = [...this.#targets.values()].find(value => value.target.scope === 'person' && value.target.owner === requested && value.target.environment !== false);
     const driver = mounted?.driver; if (!driver) return failure('not-found', 'The person has no running environment.');
     const hashes = Object.values(driver.machine.view.current.pins);
