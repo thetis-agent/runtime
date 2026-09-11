@@ -15,6 +15,7 @@ import type { Socket } from 'node:net';
 import { serviceFixture } from '@/test/provider-service.ts';
 import { environmentProcess } from '@/test/environment-process.ts';
 import { gatewayProcess } from '@/test/gateway-process.ts';
+import type { Principal } from '@/kernel/identity/index.ts';
 
 const limits = { headerBytes: 16384, backlog: 64 };
 const headerEnd = Buffer.from('\r\n\r\n');
@@ -71,10 +72,15 @@ if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Pro
 /* A development budget, not a realistic one: the fixture's rule caps the whole run and a turn is
  * estimated at the mock's ceiling before it starts, so a small cap stops the second turn rather than
  * the tenth. */
-const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 });
-const environment = await environmentProcess(shared, 'alice', true);
-const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts', {},
-  ['inspector-context', 'inspector-tools', 'skills-l1']);
+/* An operator, not an ordinary account: the control panel, the package list and everyone's
+ * conversations are all role-gated, and a surface opened to look at them has to be able to see
+ * them. `bob` stays an ordinary `user`, so the gates are still visible from both sides. */
+const people: Principal[] = [{ id: 'alice', role: 'admin', projects: [], observeOthers: true }, { id: 'bob', role: 'user', projects: [], observeOthers: false }];
+const shared = await serviceFixture(1000, { scripts, maximumCost: 0.01 }, 'deployment', {
+  people, authorities: { password: 'fixture-login' }, bindings: people.map(person => ({ kind: 'password', id: person.id, person: person.id })) });
+const panels = ['inspector-context', 'inspector-tools', 'skills-l1'];
+const environment = await environmentProcess(shared, 'alice', true, panels);
+const gateway = await gatewayProcess(shared, environment, 'alice', 'gateway-web', [], 'service.ts', {}, panels);
 const cookie = `thetis_session=${shared.mintSession('alice')}`;
 
 const proxy = createServer(client => { inject(client, cookie, gateway.socket); });

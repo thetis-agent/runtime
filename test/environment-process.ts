@@ -17,7 +17,11 @@ import { sessionMethods } from '@/packages/core/protocol.ts';
 import type { Method } from '@/contracts/kernel-socket/types.ts';
 import type { serviceFixture } from '@/test/provider-service.ts';
 
-export async function environmentProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, person: string, publicEndpoint = false) {
+/* `stages` names packages to load beside core, for a fixture that needs one of their hooks. A panel
+ * package answering a declared surface command (ADR 0051) is reached through its own `call` hook in
+ * the environment, not through the gateway that serves its assets, so mounting it beside the gateway
+ * is not enough to exercise the round trip. */
+export async function environmentProcess(shared: Awaited<ReturnType<typeof serviceFixture>>, person: string, publicEndpoint = false, stages: readonly string[] = []) {
   // The inherited handshake precedes socket publication; wait for real provider health before mounting it (GN-003).
   const ready = await shared.process.probe(); assert.ok(ready.ok, JSON.stringify(ready));
   const root = await mkdtemp('/tmp/person-environment-'); const schemas = new Schemas(); await schemas.load(); const clock = new ManualClock();
@@ -25,7 +29,8 @@ export async function environmentProcess(shared: Awaited<ReturnType<typeof servi
   const journal = await Journal.open(join(root, 'observed.jsonl'), () => clock.now()); assert.ok(journal.ok);
   const repository = new URL('..', import.meta.url).pathname.replace(/\/$/u, '');
   const entries = await discover(packagesRoot(repository), '/state/packages', {}, schemas); assert.ok(entries.ok);
-  const profile = { entries: entries.value.filter(entry => ['core', 'tools-files'].includes(entry.manifest.name)), profile: {}, provided: {}, spaces: [], excluded: [], runtime: {
+  const loaded = ['core', 'tools-files', ...stages];
+  const profile = { entries: entries.value.filter(entry => loaded.includes(entry.manifest.name)), profile: {}, provided: {}, spaces: [], excluded: [], runtime: {
     ...(publicEndpoint ? { endpoint: '/endpoint/service.sock' } : {}), root: '/state/conversations', providerSocket: '/services/provider.sock', person: 'wrong-person', token: 'not-the-inherited-token', model: 'scripted', provider: 'shared', space: '/space',
     system: [{ role: 'system', source: 'core', content: [{ type: 'text', text: 'A stable stored prefix. '.repeat(1024) }] }],
     roots: [{ path: '/space', mode: 'rw', space: 'person' }], mode: { readOnly: false, deny: [] }
@@ -39,7 +44,7 @@ export async function environmentProcess(shared: Awaited<ReturnType<typeof servi
   } };
   const caller = shared.client(person);
   const plan = { name: 'fixture', version: '1.0.0', entry: packageEntry(repository, 'core', 'main.ts'), args: [], cwd: '/state', execution: 'artifacts', mounts: [
-    ...packageMounts(repository, ['core', 'tools-files']),
+    ...packageMounts(repository, loaded),
     ...['state', 'space'].map((name): Mount => ({ source: join(root, name), path: `/${name}`, mode: 'rw', maximumBytes: 67108864 })),
     { source: join(shared.root, 'endpoint/service.sock'), path: '/services/provider.sock', mode: 'ro' },
     ...(publicEndpoint ? [{ source: join(root, 'endpoint'), path: '/endpoint', mode: 'rw', maximumBytes: 67108864 } satisfies Mount] : [])
