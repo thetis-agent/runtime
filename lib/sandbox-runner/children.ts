@@ -2,10 +2,12 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 
-export function spawnChild(command: string, args: readonly string[], cwd?: string): ChildProcess {
+/** `input` opens stdin as a pipe. Off by default: a child that inherits no way to be spoken to is
+ *  the safer shape, and only a stage that means to type into one — a terminal — asks for the pipe. */
+export function spawnChild(command: string, args: readonly string[], cwd?: string, input = false): ChildProcess {
   return spawn(command, args, {
     ...(cwd === undefined ? {} : { cwd }),
     env: { PATH: '/runtime/bin:/usr/bin:/bin' },
-    stdio: ['ignore', 'pipe', 'pipe'], detached: false
+    stdio: [input ? 'pipe' : 'ignore', 'pipe', 'pipe'], detached: false
   });
 }

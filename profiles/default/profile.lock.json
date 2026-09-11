@@ -193,6 +193,16 @@
       }
     },
     {
+      "kind": "packages",
+      "directory": "tools-terminal",
+      "pin": {
+        "name": "tools-terminal",
+        "version": "1.0.0",
+        "commit": "32961dcbbf1b726026048568fe6523308a281883",
+        "hash": "sha256:625d7ff181605182c9a83e66ba9244e40b7ea294ebfb832aefa1cb213444ebe0"
+      }
+    },
+    {
       "kind": "lib",
       "directory": "artifacts",
       "pin": {
@@ -368,8 +378,8 @@
       "pin": {
         "name": "lib/sandbox-runner",
         "version": "1.0.0",
-        "commit": "946c3326106c978edde159faa29c5f751f7c9e7a",
-        "hash": "sha256:c7a802ca361d79f6e0bec05ddf0df736d7c7611e3c614d3543fa06b3ea7cef90"
+        "commit": "8d4049c6f3af46a2f4d4f4977d7b6c462585f5ef",
+        "hash": "sha256:f90c7951d8766ff4f1d1cacd696032e5cba157b0ffebf32edda275d9ee2832f8"
       }
     },
     {
