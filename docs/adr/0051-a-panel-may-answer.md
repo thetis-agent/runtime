@@ -63,11 +63,20 @@ answer is not to hand panels the socket.
 4. **The answer returns to the panel that asked, and to no other.** The
    reply frame carries the request's own id and the surface module
    settles only that promise. A panel cannot name a package other than
-   its own: `surface.js` reads the calling module's served path, which
-   is `/surface/<package>/…` by the same schema rule that fixes where a
-   contributor's assets may sit.
-5. **The pool is bounded per connection,** like `settings.pendingIdentity`:
-   past the cap a request is refused rather than queued.
+   its own: the seam reads the calling module's served path out of the
+   stack, which is `/surface/<package>/…` by the same schema rule that
+   fixes where a contributor's assets may sit.
+5. **Everything about it is bounded.** The requests one connection may
+   have outstanding, like `settings.pendingIdentity`: past the cap a
+   request is refused rather than queued, at both ends. What the
+   environment asks a package for: no file roots, a fixed result budget,
+   its own deadline. And what the answer may carry back to the browser,
+   capped in UTF-8 bytes the way a rendered summary is.
+6. **A failure of the wire is said plainly, not forwarded.** A deadline
+   or a closed connection reaches the person as "That did not work.
+   Nothing was changed."; only a package's own refusal is passed
+   through, because the package is the only thing that knows what it
+   refused.
 
 ## Consequences
 
