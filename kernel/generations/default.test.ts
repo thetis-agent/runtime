@@ -22,10 +22,10 @@ await test('GN-005 two code-bound default digests race through the actual deploy
     const codes = [];
     for (const release of releases) {
       assert.ok((await made.value.act.submit(source, evidence(release.digest).submission)).ok);
-      const prepared = made.value.act.prepare(reviewer, 'kernel', { digest: release.digest, baseline: 1 }); assert.ok(prepared.ok);
+      const prepared = made.value.act.prepare(reviewer, { digest: release.digest, baseline: 1 }); assert.ok(prepared.ok);
       codes.push({ digest: release.digest, baseline: 1, code: prepared.value.code });
     }
-    const results = await Promise.all(codes.map(params => made.value.act.set(reviewer, 'kernel', params)));
+    const results = await Promise.all(codes.map(params => made.value.act.set(reviewer, params)));
     assert.equal(results.filter(result => result.ok).length, 1, JSON.stringify(results)); assert.ok(results.some(result => !result.ok && result.error.code === 'baseline-moved'));
     assert.equal(made.value.machine.view.current.n, 2); const status = fixture.runtime.status(administrator, 'shared'); assert.ok(status.ok); assert.equal(status.value['generation'], 2);
     const person = people[0]; assert.ok(person); assert.ok((await fixture.runtime.start(await fixture.environment(person.id))).ok);
@@ -45,8 +45,8 @@ await test('GN-005 a later serving failure restores every already-committed defa
     const targets = [{ ...fixture.shared, profile: { ...fixture.shared.profile, label: 'candidate' } }, { ...secondary, revision: await controlledRevision(fixture.root, 'new', 'fail-serving', 2, true) }];
     const digest = releaseDigest(targets); const material = evidence(digest);
     const made = await defaultAct({ root, schemas: fixture.schemas, journal: fixture.journal, runtime: fixture.runtime, administrator, now: () => fixture.clock.now() }, { baseline: 1, digest: releaseDigest([fixture.shared, secondary]), releases: [{ digest, targets }], plans: [{ source: source.target, plan: material.plan }] }); assert.ok(made.ok);
-    assert.ok((await made.value.act.submit(source, material.submission)).ok); const prepared = made.value.act.prepare(reviewer, 'kernel', { digest, baseline: 1 }); assert.ok(prepared.ok);
-    const result = await made.value.act.set(reviewer, 'kernel', { digest, baseline: 1, code: prepared.value.code }); assert.ok(!result.ok);
+    assert.ok((await made.value.act.submit(source, material.submission)).ok); const prepared = made.value.act.prepare(reviewer, { digest, baseline: 1 }); assert.ok(prepared.ok);
+    const result = await made.value.act.set(reviewer, { digest, baseline: 1, code: prepared.value.code }); assert.ok(!result.ok);
     assert.equal(made.value.machine.view.state, 'LIVE'); assert.equal(made.value.machine.view.current.n, 3);
     const endpoint = fixture.runtime.endpoint('secondary'); assert.ok(endpoint.ok); assert.equal(await endpointVersion(endpoint.value), 'old');
     for (const id of ['shared', 'secondary']) { const status = fixture.runtime.status(administrator, id); assert.ok(status.ok); assert.equal(status.value['state'], 'LIVE'); assert.equal(status.value['generation'], 3); }

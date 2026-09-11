@@ -1,4 +1,4 @@
-/** Bind the sole default act to a reviewer, origin, immutable evidence and baseline; KS-014–016, ADR 0018. */
+/** Bind the sole default act to a reviewer, immutable evidence and baseline; KS-014–016, ADR 0018, ADR 0050. */
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -63,8 +63,8 @@ export class Act {
     return { ok: true, value: { stale } };
   }
 
-  prepare(person: Principal, origin: 'kernel' | 'package', params: DefaultPrepareParams): Result<{ code: string; line: string }> {
-    const valid = this.#guard(person, origin, params); if (!valid.ok) return valid;
+  prepare(person: Principal, params: DefaultPrepareParams): Result<{ code: string; line: string }> {
+    const valid = this.#guard(person, params); if (!valid.ok) return valid;
     for (const [code, value] of this.#codes) if (value.expires <= this.#context.now()) this.#codes.delete(code);
     if (this.#codes.size >= actLimits.codes) return failure('budget', 'The confirmation code pool is full.');
     const code = randomBytes(24).toString('base64url');
@@ -72,8 +72,8 @@ export class Act {
     return { ok: true, value: { code, line: `${params.digest} baseline ${String(params.baseline)} gate passed code ${code}` } };
   }
 
-  async set(person: Principal, origin: 'kernel' | 'package', params: DefaultSetParams): Promise<Result<void>> {
-    const valid = this.#guard(person, origin, params); if (!valid.ok) return valid;
+  async set(person: Principal, params: DefaultSetParams): Promise<Result<void>> {
+    const valid = this.#guard(person, params); if (!valid.ok) return valid;
     const confirmation = this.#codes.get(params.code);
     if (!confirmation || confirmation.expires <= this.#context.now() || confirmation.person !== person.id || confirmation.digest !== params.digest || confirmation.baseline !== params.baseline) return failure('forbidden', 'The confirmation code does not authorize this act.');
     if (this.#busy) return failure('baseline-moved', 'The default baseline is being moved; prepare again.');
@@ -85,8 +85,15 @@ export class Act {
     } finally { this.#busy = false; }
   }
 
-  #guard(person: Principal, origin: 'kernel' | 'package', params: DefaultPrepareParams): Result<void> {
-    if (origin !== 'kernel' || person.role === 'user') return failure('forbidden', 'The default act requires a reviewer at the kernel origin.');
+  /* ADR 0050 drops the `origin !== 'kernel'` clause this guard opened with: a page served by a package
+   * may drive the act, and what protects a release is publication and repository access rather than
+   * which origin asked. Every other clause is untouched, and together they are the whole of the
+   * protection — a role above `user`, a baseline equal to the current one, evidence for that exact
+   * digest and baseline whose gate passed, and (in `set`) a single-use confirmation code bound to
+   * person, digest and baseline. Explicitness moved into the act: the page must show what it is about
+   * to commit and take a distinct confirming action before calling `set`. */
+  #guard(person: Principal, params: DefaultPrepareParams): Result<void> {
+    if (person.role === 'user') return failure('forbidden', 'The default act requires a reviewer.');
     if (params.baseline !== this.#context.baseline()) return failure('baseline-moved', 'The default baseline moved; prepare again.');
     const evidence = this.#evidence.get(key(params.digest, params.baseline));
     if (!evidence?.submission || evidence.plan.identities.baseline !== String(params.baseline) || evidence.passed !== true) return failure('forbidden', 'The release has no current passing evaluation.');
