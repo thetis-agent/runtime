@@ -1,0 +1,22 @@
+# Thetis runtime: the kernel daemon, its control socket, and every installed service (the web gateway).
+# Install:  sudo cp deploy/thetis-runtime.service /etc/systemd/system/ && sudo systemctl daemon-reload
+#           sudo systemctl enable --now thetis-runtime.service
+# The CLI in this checkout talks to the running daemon through .thetis/thetis.sock.
+[Unit]
+Description=Thetis runtime (kernel daemon and services)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=thetis
+Group=thetis
+WorkingDirectory=/srv/thetis/runtime
+ExecStart=/home/thetis/.local/bin/node /srv/thetis/runtime/bin/thetis.js serve
+Restart=on-failure
+RestartSec=2
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

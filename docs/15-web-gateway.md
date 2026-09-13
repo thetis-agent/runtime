@@ -32,6 +32,23 @@ Open `http://127.0.0.1:8777`. `thetis serve` stops on Ctrl+C. It closes every fe
 
 While `thetis serve` runs, `thetis install` and `thetis uninstall` reach it through the control socket, so the service starts or stops at once. See [08-cli.md](08-cli.md).
 
+### 2.1 Deployment on this host
+
+`deploy/thetis-runtime.service` runs `thetis serve` as a systemd service under the checkout's user. Install it once:
+
+```sh
+sudo cp deploy/thetis-runtime.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now thetis-runtime.service
+sudo systemctl disable thetis-web.service    # the previous front door, which also binds 8777 at boot
+```
+
+Public TLS for `thetis.example.com` terminates at the Caddy on `10.0.0.10`, which forwards to this host at `10.0.0.20:8777`. The configuration for that is `{ "host": "10.0.0.20", "port": 8777, "secure": true }`. From this host, check through Caddy directly, because the route through the public address times out from inside the network:
+
+```sh
+curl --resolve thetis.example.com:443:10.0.0.10 https://thetis.example.com/login
+```
+
 ## 3. Configuration
 
 ```json
