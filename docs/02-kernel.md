@@ -18,6 +18,8 @@ The kernel is the package `@thetis/kernel` in `packages/kernel`. It is the only 
 | `src/util.ts` | `AsyncQueue`, `KernelError`, `readJson`, `writeJson`, `newId`, `now`, `assert` | Small helpers. |
 | `src/config.ts` | `KernelConfig`, `defaultConfig`, `loadConfig`, `saveConfig`, `configPath` | Configuration. See [09-configuration.md](09-configuration.md). |
 | `src/users.ts` | `UserStore` | User records and authorization. |
+| `src/auth.ts` | `AuthService` | Passwords and login tokens for network gateways. |
+| `src/services.ts` | `ServiceSupervisor` | Starts and stops the services that packages declare. |
 | `src/userspaces.ts` | `UserspaceManager` | The directory layout of each userspace. |
 | `src/fence/fence.ts` | `Fence`, `FenceHandle`, `KernelRpc`, `ExecResult` | The fence interfaces. |
 | `src/fence/process-fence.ts` | `ProcessFence` | The process sandbox implementation. |
@@ -46,7 +48,7 @@ The kernel is the package `@thetis/kernel` in `packages/kernel`. It is the only 
 
 The token table `T` in `src/kernel.ts` lists every kernel service:
 
-`config`, `log`, `users`, `userspaces`, `fence`, `fences`, `registry`, `packages`, `providers`, `sessionStore`, `enumerator`, `providerCall`, `runner`, `sessions`.
+`config`, `log`, `users`, `auth`, `services`, `userspaces`, `fence`, `fences`, `registry`, `packages`, `providers`, `sessionStore`, `enumerator`, `providerCall`, `runner`, `sessions`.
 
 To replace a component, pass a `configure` function to `createKernel`:
 
@@ -67,6 +69,8 @@ const kernel = createKernel(config, (c) => {
 |---|---|---|
 | `config` | `KernelConfig` | The effective configuration. |
 | `users` | `UserStore` | User records. |
+| `auth` | `AuthService` | Passwords and tokens. See [06-sessions-and-users.md](06-sessions-and-users.md) section 7. |
+| `services` | `ServiceSupervisor` | `boot()` starts every installed service. See [05-packages.md](05-packages.md) section 13. |
 | `userspaces` | `UserspaceManager` | Userspace paths. |
 | `packages` | `PackageManager` | Package operations. |
 | `providers` | `ProviderRegistry` | Provider operations. |
@@ -87,8 +91,11 @@ ProviderCallStep -> KernelConfig, ProviderRegistry, FencePool
 ProviderRegistry -> KernelConfig, PackageManager, UserspaceManager, FencePool
 Enumerator -> KernelConfig, FencePool
 PackageManager -> KernelConfig, PackageRegistry, FencePool
-FencePool -> Fence, rpcFor(userspace)
-rpcFor -> UserStore, PackageManager, SessionApi   (resolved lazily to break the cycle)
+FencePool -> Fence, rpcFor(userspace), onOpen(userspace, handle)
+rpcFor -> UserStore, PackageManager, SessionApi, AuthService   (resolved lazily to break the cycle)
+onOpen -> ServiceSupervisor                                     (resolved lazily)
+ServiceSupervisor -> KernelConfig, UserStore, UserspaceManager, PackageManager, FencePool
+PackageManager -> observes ServiceSupervisor for installs and uninstalls
 ```
 
 The RPC handler needs `SessionApi`. `SessionApi` needs `PipelineRunner`. `PipelineRunner` needs `FencePool`. `FencePool` needs the RPC handler. The container resolves this cycle. The `FencePool` factory receives a function `rpcFor`. That function calls `c.get(T.sessions)` only when a fence opens.
@@ -103,7 +110,7 @@ The test `test/loc.test.ts` counts the lines in `packages/kernel/src/**/*.ts`. T
 - `import` statements, including multi-line imports;
 - re-export statements (`export * from`, `export { ... } from`).
 
-The test fails when the count is 2,000 or more. The test prints a per-file table. At the end of the MVP the count was 1,200.
+The test fails when the count is 2,000 or more. The test prints a per-file table. At the end of the MVP the count was 1,200. With cancellation, identity, and services it is 1,450.
 
 To keep the count low:
 

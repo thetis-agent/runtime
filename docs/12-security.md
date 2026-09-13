@@ -4,8 +4,8 @@
 
 | Zone | Trust | Code that runs there |
 |---|---|---|
-| Service plane (the kernel process) | Trusted | `@thetis/kernel`, `@thetis/gateway-cli`, and `@thetis/gateway-web`. |
-| System userspace `_system` | Fenced. Holds service secrets. | System providers and any `@thetis/*` package installed there. |
+| Service plane (the kernel process) | Trusted | `@thetis/kernel` and `@thetis/gateway-cli`. |
+| System userspace `_system` | Fenced. Holds service secrets. May act for any user over RPC. | System providers, system gateways such as `@thetis/gateway-web`, and any `@thetis/*` package installed there. |
 | User userspace | Fenced. Untrusted code. | The user's packages and the system packages linked into it. |
 
 The kernel treats every value from a fence as untrusted input. It validates step results, enumerator plans, manifests, and RPC arguments.
@@ -32,7 +32,7 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
 - Every session API call runs `users.authorize(id)`. Unknown and suspended users are rejected.
 - A session is found only in the caller's own userspace directory.
-- RPC from a fence runs as the userspace's own user. A fence cannot name another user.
+- RPC from a fence runs as the userspace's own user. A fence cannot name another user. The system userspace is the exception: it may pass `as` and call `auth.*`, because a system gateway serves every user. Code installed there is trusted to that extent.
 - A user installs only into scope `@<own id>/*`. Only admins install `@thetis/*`.
 - A local install path must resolve inside the userspace root. `..` escapes are rejected.
 - A package enumerator can schedule only steps that installed packages declare.
@@ -46,10 +46,11 @@ The kernel has none. The CLI trusts `--user`. Anyone who can run the CLI on the 
 2. Map the caller to a user id.
 3. Call the session API with that id only.
 
-`@thetis/gateway-web` does this with a password per user and a login cookie. See [15-web-gateway.md](15-web-gateway.md) section 8. The cookie is `HttpOnly` and `SameSite=Strict`. It is `Secure` only with `THETIS_WEB_SECURE=1`. The server binds to `127.0.0.1` by default.
+The kernel holds the identity for this: `AuthService` keeps passwords and login tokens in the service plane ([06-sessions-and-users.md](06-sessions-and-users.md) section 7). `@thetis/gateway-web` exchanges a password for a token over RPC and keeps the token in a cookie. See [15-web-gateway.md](15-web-gateway.md) section 9. The cookie is `HttpOnly` and `SameSite=Strict`. It is `Secure` only with the `secure` configuration key. The server binds to `127.0.0.1` by default.
 
 ## 6. Secrets
 
+- Passwords are scrypt hashes in `$THETIS_HOME/auth.json`, mode `0600`. No fence can read the file.
 - The OpenRouter key is in `<root>/.env`. `.gitignore` excludes it. The `thetis config` command prints the interpolated key.
 - The key was pasted into the conversation that created this project. Rotate it when the project leaves development.
 - The config file references the key as `${OPENROUTER_API_KEY}`. Do not write the literal key into the config file.
@@ -66,5 +67,5 @@ The kernel has none. The CLI trusts `--user`. Anyone who can run the CLI on the 
 
 1. Replace `ProcessFence` with a microVM fence, or add `--unshare-net` with an explicit egress proxy for provider calls.
 2. Add per-userspace quotas (cgroups or the microVM limits).
-3. Put TLS in front of the web gateway. Move it into the system userspace when `service` packages exist.
+3. Put TLS in front of the web gateway.
 4. Add a size limit for `conversation` and `harness` in `PipelineRunner.apply`.

@@ -1,14 +1,15 @@
 # 11 Testing
 
-All tests use the Node test runner (`node:test`) and `node:assert/strict`. No test framework is installed. Tests live in `packages/kernel/test`. `npm test` builds and then runs `packages/kernel/dist/test/**/*.test.js`.
+All tests use the Node test runner (`node:test`) and `node:assert/strict`. No test framework is installed. Tests live in `packages/<name>/test`. `npm test` builds and then runs `packages/*/dist/test/**/*.test.js`.
 
 ## 1. Suites
 
 | File | Type | Content |
 |---|---|---|
 | `test/loc.test.ts` | Guard | Counts kernel lines of code. Fails at 2,000 or more. Prints a per-file table. |
-| `test/unit.test.ts` | Unit | Container, user store, manifest validation, enumerator plan and validation, async queue. |
+| `test/unit.test.ts` | Unit | Container, user store, auth service, manifest validation, enumerator plan and validation, async queue. |
 | `test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
+| `packages/gateway-web/test/gateway.test.ts` | End-to-end | The web gateway over HTTP, in-process and inside the system fence. See [15-web-gateway.md](15-web-gateway.md) section 10. |
 
 ## 2. The end-to-end suite
 
@@ -35,6 +36,7 @@ The `after` hook shuts the kernel down and deletes the directory.
 | scope and visibility | Alice cannot install `@bob/evil`. A path outside the userspace is rejected. Bob does not see alice's tool. Bob cannot inspect alice's session. |
 | cancel mid-stream | `cancel` during a `slow:` reply ends the turn with the code `cancelled`. The partial text is saved as an assistant message. The session is idle and accepts the next turn. |
 | cancel a tool | `cancel` during `run: sleep 30` kills the process. The turn ends in under 10 seconds. |
+| rpc scoping | Alice's handler refuses `as` and `auth.*`. The system handler lists bob's sessions with `as` and streams a turn for alice through `sessions.send`. |
 | suspended users | `create` fails for a suspended user. |
 | fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory. Skipped without `bwrap`. |
 

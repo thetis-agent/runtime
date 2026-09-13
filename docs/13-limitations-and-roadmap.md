@@ -10,7 +10,7 @@ The MVP defined in [ARCHITECTURE.md](ARCHITECTURE.md) section 2 is complete:
 | Fence | Process sandbox with bubblewrap. Filesystem and process isolation. No network isolation. |
 | Package manager | Scoped store per userspace. Install from a local path, a git URL, or a system name. |
 | Provider | `@thetis/provider-openrouter`. |
-| Gateway | `@thetis/gateway-cli` and `@thetis/gateway-web`. |
+| Gateway | `@thetis/gateway-cli` on the host. `@thetis/gateway-web` as a service package in the system userspace. |
 | Tool | `@thetis/tool-exec`. |
 
 Verified: a user asked Thetis in a conversation to add a prompt step and a tool. Thetis wrote the package, tested it with `node`, installed it, and both were active on the next turn.
@@ -22,11 +22,10 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | No microVM fence | Shared network and kernel with the host. | Implement `Fence`; rebind `T.fence`. |
 | No network namespace | Port collisions between users. Reachability of host services. | `ProcessFence.spawn`: add `--unshare-net` and an egress path for providers. |
 | No quotas | One user can exhaust the host. | Fence implementation. |
-| No `service` packages | A package cannot start a long-running process that the kernel manages. `publish` is recorded and ignored. | New kernel crossing: start on install, stop on uninstall. |
-| No port publishing | Nothing outside the fence reaches a package service. | Service plane forwarder (L4). |
+| No port publishing | `publish` is recorded and ignored. A service is reachable because the fence shares the host network, not because of a grant. | Service plane forwarder (L4), once the network is namespaced. |
 | No package sharing | A `@user/*` package cannot be given to another user. | `PackageRegistry` share operation plus a copy or link into the target store. |
-| Web gateway runs on the host | `@thetis/gateway-web` is trusted code, not a fenced package. | Needs `service` packages and `host` publishing. |
-| Web gateway state is not shared | Archive flags and logins live in `$THETIS_HOME/gateway-web/`. The CLI does not see them. | Acceptable. A session metadata field in the kernel would share them. |
+| The daemon does not see CLI installs | A service installed by `thetis install` while `thetis serve` runs starts on the next `serve`. | A notify channel between kernel processes, or one kernel process with the CLI as a client. |
+| Archive flags are gateway state | They live in the system userspace home. The CLI does not see them. | Acceptable. A session metadata field in the kernel would share them. |
 | No enumerator package shipped | The default plan is kernel code. | Write `@thetis/enumerator-default` and set `config.enumerator`. |
 | Gateway runs on the host | `@thetis/gateway-cli` is not fenced. | Acceptable for a CLI. A network gateway must run in the system userspace. |
 | Git installs untested | Regression risk. | Add an e2e case with a local bare repository. |
@@ -39,7 +38,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 
 1. **`@thetis/enumerator-default` as a package.** Small. Proves the replaceable enumerator path end to end. Add an e2e case.
 2. **A memory package.** A `history` step that summarizes old messages into `harness.summary` and an `after` step that updates it. Keeps sessions usable for long.
-3. **Move the web gateway into the system userspace.** Requires `service` packages and `host` publishing. Do these three together.
+3. **One kernel process.** Make the CLI a client of `thetis serve`, so installs and moderation reach the running services.
 4. **Network isolation.** `--unshare-net` plus a per-userspace egress proxy for provider calls, or move to a microVM.
 5. **Quotas.** cgroups for the process fence, or the microVM limits.
 6. **Package sharing.** Registry share operation and `@thetis/*` promotion.
@@ -53,6 +52,6 @@ These are unchanged from ARCHITECTURE.md section 12:
 - Whether a replacement enumerator must honor the default phase names.
 - Ordering conflicts between packages that claim the same phase.
 - Review and revocation for shared packages.
-- Where authentication lives and the format of a signed identity assertion.
+- The format of a signed identity assertion for delegation. Authentication itself now lives in the kernel (`AuthService`).
 - Per-user provider spend.
 - Verification that a hostile enumerator can only hurt its own user. The current validation limits it to declared steps of its own userspace. A formal check is not done.

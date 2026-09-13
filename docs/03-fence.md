@@ -154,12 +154,15 @@ Zero or more `event` lines come first. Exactly one `result` or `error` line ends
 { "rpc": "k3", "method": "packages.install", "args": { "source": "packages/hello" } }
 ```
 
-The kernel answers:
+The kernel answers with zero or more events and then one result:
 
 ```json
+{ "rpcEvent": "k3", "event": { ... } }
 { "rpcResult": "k3", "result": ... }
-{ "rpcResult": "k3", "error": "message" }
+{ "rpcResult": "k3", "error": "message", "code": "busy" }
 ```
+
+`code` is the `KernelError` code. The agent sets it on the rejected `Error` as `code`.
 
 ### 5.4 Operations
 
@@ -172,6 +175,8 @@ The kernel answers:
 | `enumerate` | `{ package, export, ctx: { session, packages, phases } }` | An array of step references. |
 | `provider.models` | `{ package, export, config }` | An array of `ModelDescriptor`. |
 | `provider.call` | `{ package, export, config, call }` | `null`. Each `ProviderEvent` arrives as an `event` line. |
+| `service.start` | `{ package, export, config }` | `"started"`, or `"running"` when the service already runs. See section 7. |
+| `service.stop` | `{ package }` | `"stopped"`. |
 
 In `step`, `ctx` is a `StepContext`. Its `packages` field is an array. The agent wraps the array into a `PackageQuery` and adds `env`. Its `config` field holds only the configuration of the step's own package.
 
@@ -202,14 +207,29 @@ Code inside the fence reaches the kernel through `env.kernel`. Every method runs
 | Method | RPC method | Behavior |
 |---|---|---|
 | `kernel.packages.install(source)` | `packages.install` | Installs a package into this userspace. Returns `PackageInfo`. |
-| `kernel.packages.uninstall(name)` | `packages.uninstall` | Removes the package link and registry entry. |
+| `kernel.packages.uninstall(name)` | `packages.uninstall` | Removes the package link and registry entry. Stops its service first. |
 | `kernel.packages.list()` | `packages.list` | Returns the installed packages. |
-| `kernel.sessions.create(parent?)` | `sessions.create` | Creates a session for this user. Returns a session reference. |
-| `kernel.sessions.ask(session, input)` | `sessions.ask` | Runs one turn to completion. Returns the final assistant text. |
-| `kernel.sessions.list()` | `sessions.list` | Lists this user's sessions. |
-| (no client method) | `sessions.inspect` | Returns one session record with its status. |
+| `kernel.sessions.create(parent?, as?)` | `sessions.create` | Creates a session. Returns a session reference. |
+| `kernel.sessions.ask(session, input, as?)` | `sessions.ask` | Runs one turn to completion. Returns the final assistant text. |
+| `kernel.sessions.send(session, input, onEvent, as?)` | `sessions.send` | Runs one turn. Each `TurnEvent` arrives through `onEvent`. Resolves at the end. |
+| `kernel.sessions.cancel(session, as?)` | `sessions.cancel` | Stops the running turn. Returns `false` when no turn runs. |
+| `kernel.sessions.list(as?)` | `sessions.list` | Lists the sessions. |
+| `kernel.sessions.inspect(session, as?)` | `sessions.inspect` | Returns one session record with its status. |
+| `kernel.auth.login(id, password)` | `auth.login` | Returns `{ token, user }` or `null`. System userspace only. |
+| `kernel.auth.authenticate(token)` | `auth.authenticate` | Returns `{ id, role }` or `null`. System userspace only. |
+| `kernel.auth.logout(token)` | `auth.logout` | Revokes the token. System userspace only. |
 
-A method that is not in this list fails with the code `rpc`.
+`as` names the user a session call acts for. The kernel accepts it from the system userspace only. Any other fence gets the error `unauthorized`. This is how a system gateway serves every user: it authenticates a person with `auth.authenticate` and passes that id as `as`. A method that is not in this list fails with the code `rpc`.
+
+## 7. Services
+
+A package can declare a service. See [05-packages.md](05-packages.md) section 13. The agent runs the service in its own process:
+
+- `service.start` loads the export and calls it with a `ServiceEnv`: the `StepEnv` fields plus `config` (the package's configuration) and `log(line)`, which writes to `stderr` with the package name as prefix. The export can return `{ stop() }`. The agent keeps one instance per package.
+- `service.stop` calls `stop()` and forgets the instance.
+- The agent exits when the fence closes. Every service exits with it.
+
+**Caution:** A service must not write to `process.stdout`. It shares the protocol channel with the agent. Use `env.log`.
 
 ## 7. Failure modes
 

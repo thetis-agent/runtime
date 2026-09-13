@@ -34,22 +34,27 @@ thetis users remove <id>
 thetis users suspend <id>
 thetis users unsuspend <id>
 thetis users role <id> <admin|user>
+thetis users passwd <id> [--password <text>]
 ```
 
 - `add` creates the user with role `user`, or `admin` with `--admin`.
 - `remove` deletes the user and its userspace directory.
 - `suspend` blocks all session API calls for the user. `unsuspend` restores them.
 - `list` prints `id`, `role`, `status`, and `createdAt`, separated by tabs.
+- `passwd` sets the sign-in password for network gateways. Without `--password` it reads one line from standard input: `echo secret | thetis users passwd alice`. A new password revokes every login of the user.
 
 ### 2.4 `packages`
 
 ```
 thetis packages list [--user <id>]
-thetis packages install <source> --user <id>
-thetis packages uninstall <name> --user <id>
+thetis packages install <source> [--user <id>]
+thetis packages uninstall <name> [--user <id>]
+thetis install <source> [--user <id>]
+thetis uninstall <name> [--user <id>]
 ```
 
-- Without `--user`, the commands act on the system userspace as `_system`.
+- `install` and `uninstall` at the top level are the same commands.
+- Without `--user`, the commands act on the system userspace as `_system`. This is how a system gateway is installed: `thetis install @thetis/gateway-web`.
 - `install` accepts a system name, a git URL, or a path inside the user's home. See [05-packages.md](05-packages.md) section 5.
 - `list` prints `name@version`, `type`, and the store path.
 
@@ -88,7 +93,15 @@ Starts an interactive loop. Without `--session` it creates a new session. Input 
 
 The loop reads from standard input. Piped input works: `printf 'hello\n/quit\n' | node bin/thetis.js chat --user alice`.
 
-### 2.8 `models`
+### 2.8 `serve`
+
+```
+thetis serve
+```
+
+Runs the kernel until `SIGINT` or `SIGTERM`. It arms the service supervisor and starts every service that installed packages declare, in every userspace. See [05-packages.md](05-packages.md) section 13. Ctrl+C closes every fence and stops every service.
+
+### 2.9 `models`
 
 ```
 thetis models [--user <id>]
@@ -120,6 +133,6 @@ The process exits with `1` and prints the error message when a command throws. A
 
 ## 6. Trust model of the CLI
 
-See [15-web-gateway.md](15-web-gateway.md) for the browser interface and its `thetis-web` command.
+See [15-web-gateway.md](15-web-gateway.md) for the browser interface.
 
 `--user` is not authenticated. The CLI is an operator tool on the host. Any person who can run the CLI can act as any user, including admins. A network gateway must authenticate callers before it maps them to a user.

@@ -18,6 +18,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
     "steps": [ { "id": "add-context", "phase": "prompt", "export": "addContext" } ],
     "tools": [ { "name": "greet", "description": "Say hi", "parameters": { "type": "object", "properties": {} }, "export": "greet" } ],
     "export": "createProvider",
+    "service": { "export": "startService" },
     "publish": [ { "port": 8777, "to": "host" } ]
   }
 }
@@ -42,6 +43,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `steps` | array | Pipeline steps. Each entry needs `id`, `phase`, and `export`. |
 | `tools` | array | Tools. Each entry needs `name`, `description`, `export`, and can have `parameters` (a JSON schema object). |
 | `export` | string | The factory export of a provider or the function export of an enumerator. Default `createProvider` for providers. |
+| `service` | `{ export }` | A long-running process. The userspace agent starts the export when the fence opens under `thetis serve`. See section 13. |
 | `publish` | array | Declared ports. The kernel records the field. It does not act on it yet. |
 
 `validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install.
@@ -62,8 +64,9 @@ Types in use or planned:
 | `memory` | Steps that read and write `harness`. |
 | `provider` | A model source. |
 | `enumerator` | A replacement for the default plan. Set `config.enumerator` to use it. |
-| `gateway` | An endpoint. `@thetis/gateway-cli` has this type. |
-| `skill`, `skill-type`, `mcp`, `mcp-server`, `rag`, `service` | Planned. No kernel behavior yet. |
+| `gateway` | An endpoint. `@thetis/gateway-cli` and `@thetis/gateway-web` have this type. |
+| `service` | A long-running process with no other contribution. Any type can also declare a `service`. |
+| `skill`, `skill-type`, `mcp`, `mcp-server`, `rag` | Planned. No kernel behavior yet. |
 
 ## 3. Writing package code
 
@@ -233,3 +236,31 @@ The model performs this cycle with the tools of `@thetis/tool-exec`:
 4. On the next turn the new steps run and the new tools are attached.
 
 The test `test/e2e.test.ts` verifies this cycle.
+
+## 13. Services
+
+A package with a `service` field runs a process for as long as it is installed and its fence is open.
+
+```js
+export async function startService(env) {
+  const server = createServer(...).listen(env.config.port ?? 8777);
+  env.log("listening");
+  return { stop: () => new Promise((done) => server.close(done)) };
+}
+```
+
+`env` is a `ServiceEnv`: the `StepEnv` fields, `config` (`config.packages[<name>]`), and `log`. The service runs inside the userspace agent, so it sees the same files and reaches the kernel through `env.kernel`.
+
+`ServiceSupervisor` in `src/services.ts` controls the lifecycle:
+
+| Event | Effect |
+|---|---|
+| `thetis serve` calls `services.boot()` | Every declared service in every userspace starts. |
+| A fence opens while the supervisor is armed | The services of that userspace start. This covers a restart after a crash. |
+| A service package is installed while the supervisor is armed | It starts at once. |
+| A service package is uninstalled | `service.stop` runs before the link is removed. |
+| The kernel shuts down | Every fence closes. Every service exits with its agent. |
+
+A one-shot CLI command never arms the supervisor. `thetis send` does not start a gateway.
+
+`publish` is recorded and not enforced. The process fence shares the host network, so a port bound by a service is reachable on the host. See [12-security.md](12-security.md).

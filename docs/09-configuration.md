@@ -6,6 +6,7 @@
 $THETIS_HOME/
   thetis.config.json      The configuration file. Created by `thetis init`.
   users.json              User records.
+  auth.json               Passwords and login tokens. Mode 0600.
   registry.json           Package registry.
   userspaces/<user>/      One directory per user. See 06-sessions-and-users.md section 2.
 ```
@@ -72,6 +73,7 @@ Known keys:
 |---|---|---|
 | `@thetis/provider-openrouter` | `apiKey`, `baseUrl`, `headers` | See [07-providers.md](07-providers.md). |
 | `@thetis/harness-core` | `historyWindow` | Number of messages in `call.messages`. Default 80. |
+| `@thetis/gateway-web` | `host`, `port`, `secure` | See [15-web-gateway.md](15-web-gateway.md). |
 
 ## 5. Changing the configuration
 

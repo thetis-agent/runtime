@@ -20,8 +20,9 @@ node bin/thetis.js init
 node bin/thetis.js users add alice
 node bin/thetis.js chat --user alice
 
-node bin/thetis-web.js passwd alice --password secret
-node bin/thetis-web.js serve     # http://127.0.0.1:8777
+node bin/thetis.js users passwd alice --password secret
+node bin/thetis.js install @thetis/gateway-web
+node bin/thetis.js serve         # http://127.0.0.1:8777
 ```
 
 Inside chat, ask Thetis to change itself, for example: *"Add a tool that counts words and a
@@ -33,7 +34,6 @@ tests it with `exec`, calls `install_package`, and the step and tool are live on
 | Path | Content |
 |---|---|
 | `bin/thetis.js` | Command-line entry point. |
-| `bin/thetis-web.js` | Web gateway entry point. |
 | `packages/` | Git submodule with all packages: `kernel`, `userspace-agent`, `provider-openrouter`, `harness-core`, `tool-exec`, `gateway-cli`, `gateway-web`. |
 | `docs/` | Documentation. |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |
@@ -45,13 +45,12 @@ thetis init
 thetis chat --user <id> [--session <id>] [--verbose]
 thetis send --user <id> [--session <id>] <text>
 thetis sessions list|show --user <id> [--session <id>]
-thetis users list | add <id> [--admin] | remove <id> | suspend <id> | unsuspend <id> | role <id> <admin|user>
+thetis users list | add <id> [--admin] | remove <id> | suspend <id> | unsuspend <id> | role <id> <admin|user> | passwd <id> [--password <text>]
+thetis install <source> [--user <id>] | uninstall <name> [--user <id>]
 thetis packages list|install <source>|uninstall <name> [--user <id>]
+thetis serve
 thetis models [--user <id>]
 thetis config
-
-thetis-web serve [--host <addr>] [--port <n>]
-thetis-web passwd <user> [--password <text>]
 ```
 
 See [docs/08-cli.md](docs/08-cli.md) and [docs/15-web-gateway.md](docs/15-web-gateway.md).

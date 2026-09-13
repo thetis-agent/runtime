@@ -21,7 +21,7 @@ interface UserRecord {
 | `admin` | All rights of `user`. Can install `@thetis/*` packages into any userspace. |
 | `system` | The user `_system` only. Owns the system userspace. Cannot be changed or removed. |
 
-**Note:** The kernel does not check the role of a gateway caller. The CLI trusts `--user`. Authentication is a gateway concern.
+**Note:** The kernel does not check the role of a gateway caller. The CLI trusts `--user`. A network gateway authenticates with `AuthService`. See section 7.
 
 ### 1.2 The system user
 
@@ -129,3 +129,17 @@ The child session persists after the reply. A later call with the same id contin
 The runner appends the input messages to the saved conversation before the first step. Steps see the input as `ctx.turn.input` and at the end of `ctx.conversation`.
 
 The full conversation is saved. Only `call.messages` is limited, by the `trimHistory` step of `@thetis/harness-core`. A step that must see everything reads `ctx.conversation`.
+
+## 7. Authentication
+
+`AuthService` in `src/auth.ts` holds the identity a network gateway checks. It lives in the service plane. The file is `$THETIS_HOME/auth.json`, written with mode `0600`.
+
+| Method | Effect |
+|---|---|
+| `setPassword(id, password)` | Stores an scrypt credential (N 16384, r 8, p 1, 64-byte key, 16-byte salt). Revokes every token of the user. The user must exist. The system user is refused. |
+| `hasPassword(id)` | True when a credential exists. |
+| `login(id, password)` | Returns `{ token, user }` or `undefined`. The work is the same for an unknown user. A suspended user is refused. |
+| `authenticate(token)` | Returns the active user of a token, or `undefined` when the token is unknown, older than 30 days, or the user may not act. |
+| `logout(token)` | Revokes the token. |
+
+The CLI sets passwords: `thetis users passwd <id>`. Package code reaches `auth` through RPC from the system userspace only. See [03-fence.md](03-fence.md) section 6. A gateway exchanges a password for a token, keeps the token in a cookie, and calls `authenticate` on each request.
