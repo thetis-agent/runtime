@@ -24,6 +24,7 @@ runtime/                 <root>. Git repository. npm workspace root.
   .gitmodules            Declares packages/ as a submodule.
   .thetis/               Default data directory (THETIS_HOME=.thetis in .env). Not committed.
   bin/thetis.js          Command-line entry point.
+  bin/thetis-web.js      Web gateway entry point.
   docs/                  This documentation.
   package.json           Workspace root. Workspaces are packages/*.
   tsconfig.json          TypeScript project references to all packages.
@@ -37,6 +38,7 @@ runtime/                 <root>. Git repository. npm workspace root.
     harness-core/        @thetis/harness-core. Default prompt and tool attachment.
     tool-exec/           @thetis/tool-exec. Code execution and package install tools.
     gateway-cli/         @thetis/gateway-cli. The command-line gateway.
+    gateway-web/         @thetis/gateway-web. The web gateway.
 ```
 
 **Note:** The submodule URL in `.gitmodules` is `./packages`. Set it to the real remote URL of the packages repository before you push. Run `git submodule update --init` after a fresh clone of `runtime`.
@@ -51,6 +53,7 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Harness | `@thetis/harness-core` | Each user's fence | Limits history. Builds the system prompt. Attaches tools. |
 | Tools | `@thetis/tool-exec` | Each user's fence | `exec`, `read_file`, `write_file`, `install_package`, `uninstall_package`, `spawn_subagent`. |
 | Gateway | `@thetis/gateway-cli` | Host process | The `thetis` command. Uses the session API only. |
+| Gateway | `@thetis/gateway-web` | Host process | The `thetis-web` command. A browser interface with password login. See [15-web-gateway.md](15-web-gateway.md). |
 
 ## 4. The two planes
 

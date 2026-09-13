@@ -4,7 +4,7 @@
 
 | Zone | Trust | Code that runs there |
 |---|---|---|
-| Service plane (the kernel process) | Trusted | `@thetis/kernel` and `@thetis/gateway-cli`. |
+| Service plane (the kernel process) | Trusted | `@thetis/kernel`, `@thetis/gateway-cli`, and `@thetis/gateway-web`. |
 | System userspace `_system` | Fenced. Holds service secrets. | System providers and any `@thetis/*` package installed there. |
 | User userspace | Fenced. Untrusted code. | The user's packages and the system packages linked into it. |
 
@@ -40,11 +40,13 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
 ## 5. Authentication
 
-There is none. The CLI trusts `--user`. Anyone who can run the CLI on the host is an operator. A network gateway must:
+The kernel has none. The CLI trusts `--user`. Anyone who can run the CLI on the host is an operator. A network gateway must:
 
 1. Authenticate the caller.
 2. Map the caller to a user id.
 3. Call the session API with that id only.
+
+`@thetis/gateway-web` does this with a password per user and a login cookie. See [15-web-gateway.md](15-web-gateway.md) section 8. The cookie is `HttpOnly` and `SameSite=Strict`. It is `Secure` only with `THETIS_WEB_SECURE=1`. The server binds to `127.0.0.1` by default.
 
 ## 6. Secrets
 
@@ -64,5 +66,5 @@ There is none. The CLI trusts `--user`. Anyone who can run the CLI on the host i
 
 1. Replace `ProcessFence` with a microVM fence, or add `--unshare-net` with an explicit egress proxy for provider calls.
 2. Add per-userspace quotas (cgroups or the microVM limits).
-3. Add a network gateway with authentication.
+3. Put TLS in front of the web gateway. Move it into the system userspace when `service` packages exist.
 4. Add a size limit for `conversation` and `harness` in `PipelineRunner.apply`.

@@ -120,4 +120,6 @@ The process exits with `1` and prints the error message when a command throws. A
 
 ## 6. Trust model of the CLI
 
+See [15-web-gateway.md](15-web-gateway.md) for the browser interface and its `thetis-web` command.
+
 `--user` is not authenticated. The CLI is an operator tool on the host. Any person who can run the CLI can act as any user, including admins. A network gateway must authenticate callers before it maps them to a user.
