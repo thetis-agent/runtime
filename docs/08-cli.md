@@ -2,7 +2,9 @@
 
 The package `@thetis/gateway-cli` provides the `thetis` command. The entry point is `bin/thetis.js`. Run it from `<root>` with `node bin/thetis.js <command>` or `npm run thetis -- <command>`.
 
-The CLI starts a kernel in its own process for each invocation and shuts it down at the end. It talks to the kernel through the session API and the public kernel object.
+The CLI has two modes. When `thetis serve` runs, every other command connects to its control socket `$THETIS_HOME/thetis.sock` and is a client of that one kernel. Installs, passwords, and moderation then reach the running services. Without a daemon, a command starts a kernel in its own process and shuts it down at the end. Both modes use the same operator handler, `createControlHandler` in `packages/kernel/src/control.ts`, so a command behaves the same way in either mode.
+
+The socket protocol is the fence RPC protocol over a Unix socket: `{ id, method, args }` in; `{ id, event }` lines, then `{ id, result }` or `{ id, error, code }` out. The socket has mode `0600`. Anyone who can open it is an operator.
 
 ## 1. Environment
 
@@ -99,7 +101,7 @@ The loop reads from standard input. Piped input works: `printf 'hello\n/quit\n' 
 thetis serve
 ```
 
-Runs the kernel until `SIGINT` or `SIGTERM`. It arms the service supervisor and starts every service that installed packages declare, in every userspace. See [05-packages.md](05-packages.md) section 13. Ctrl+C closes every fence and stops every service.
+Runs the kernel until `SIGINT` or `SIGTERM`. It opens the control socket, arms the service supervisor, and starts every service that installed packages declare, in every userspace. See [05-packages.md](05-packages.md) section 13. Ctrl+C removes the socket, closes every fence, and stops every service. A second `serve` while one runs fails with `a thetis daemon is already running`. A stale socket file from a crash is replaced.
 
 ### 2.9 `models`
 

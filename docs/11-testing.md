@@ -36,6 +36,7 @@ The `after` hook shuts the kernel down and deletes the directory.
 | scope and visibility | Alice cannot install `@bob/evil`. A path outside the userspace is rejected. Bob does not see alice's tool. Bob cannot inspect alice's session. |
 | cancel mid-stream | `cancel` during a `slow:` reply ends the turn with the code `cancelled`. The partial text is saved as an assistant message. The session is idle and accepts the next turn. |
 | cancel a tool | `cancel` during `run: sleep 30` kills the process. The turn ends in under 10 seconds. |
+| control socket | A raw client pings, lists users, creates a session, streams a turn with `sessions.send`, and receives error codes. The socket file is removed on close. |
 | rpc scoping | Alice's handler refuses `as` and `auth.*`. The system handler lists bob's sessions with `as` and streams a turn for alice through `sessions.send`. |
 | suspended users | `create` fails for a suspended user. |
 | fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory. Skipped without `bwrap`. |

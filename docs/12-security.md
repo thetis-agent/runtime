@@ -51,6 +51,7 @@ The kernel holds the identity for this: `AuthService` keeps passwords and login 
 ## 6. Secrets
 
 - Passwords are scrypt hashes in `$THETIS_HOME/auth.json`, mode `0600`. No fence can read the file.
+- The control socket `$THETIS_HOME/thetis.sock` has mode `0600`. It gives operator rights to anyone who can open it, the same rights as running the CLI on the host.
 - The OpenRouter key is in `<root>/.env`. `.gitignore` excludes it. The `thetis config` command prints the interpolated key.
 - The key was pasted into the conversation that created this project. Rotate it when the project leaves development.
 - The config file references the key as `${OPENROUTER_API_KEY}`. Do not write the literal key into the config file.

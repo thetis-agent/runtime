@@ -24,7 +24,6 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | No quotas | One user can exhaust the host. | Fence implementation. |
 | No port publishing | `publish` is recorded and ignored. A service is reachable because the fence shares the host network, not because of a grant. | Service plane forwarder (L4), once the network is namespaced. |
 | No package sharing | A `@user/*` package cannot be given to another user. | `PackageRegistry` share operation plus a copy or link into the target store. |
-| The daemon does not see CLI installs | A service installed by `thetis install` while `thetis serve` runs starts on the next `serve`. | A notify channel between kernel processes, or one kernel process with the CLI as a client. |
 | Archive flags are gateway state | They live in the system userspace home. The CLI does not see them. | Acceptable. A session metadata field in the kernel would share them. |
 | No enumerator package shipped | The default plan is kernel code. | Write `@thetis/enumerator-default` and set `config.enumerator`. |
 | Gateway runs on the host | `@thetis/gateway-cli` is not fenced. | Acceptable for a CLI. A network gateway must run in the system userspace. |
@@ -38,11 +37,10 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 
 1. **`@thetis/enumerator-default` as a package.** Small. Proves the replaceable enumerator path end to end. Add an e2e case.
 2. **A memory package.** A `history` step that summarizes old messages into `harness.summary` and an `after` step that updates it. Keeps sessions usable for long.
-3. **One kernel process.** Make the CLI a client of `thetis serve`, so installs and moderation reach the running services.
-4. **Network isolation.** `--unshare-net` plus a per-userspace egress proxy for provider calls, or move to a microVM.
-5. **Quotas.** cgroups for the process fence, or the microVM limits.
-6. **Package sharing.** Registry share operation and `@thetis/*` promotion.
-7. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change.
+3. **Network isolation.** `--unshare-net` plus a per-userspace egress proxy for provider calls, or move to a microVM.
+4. **Quotas.** cgroups for the process fence, or the microVM limits.
+5. **Package sharing.** Registry share operation and `@thetis/*` promotion.
+6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change.
 
 ## 4. Open design questions
 

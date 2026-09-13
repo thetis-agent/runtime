@@ -30,7 +30,7 @@ Open `http://127.0.0.1:8777`. `thetis serve` stops on Ctrl+C. It closes every fe
 
 `thetis uninstall @thetis/gateway-web` stops the server when a `serve` process runs in the same kernel, and removes the package. See [08-cli.md](08-cli.md).
 
-**Note:** The daemon and a one-shot CLI command are separate processes with separate kernels. A package installed by `thetis install` while `thetis serve` runs is started by the next `thetis serve`.
+While `thetis serve` runs, `thetis install` and `thetis uninstall` reach it through the control socket, so the service starts or stops at once. See [08-cli.md](08-cli.md).
 
 ## 3. Configuration
 
@@ -120,7 +120,7 @@ The server sends a comment line every 20 seconds to keep the connection open. Th
 3. The hub numbers each event, buffers it, and sends it to every stream of the user.
 4. On `turn.end` the hub forgets the turn. When the RPC rejects after the turn started, the hub sends an `error` event with the code `gateway` and then `turn.end`.
 
-The buffer lives in memory in the system userspace agent. A restart of `thetis serve` forgets the turns in progress. The kernel finishes them anyway and saves the session.
+The buffer lives in memory in the system userspace agent. A restart of `thetis serve` ends the turns in progress; the kernel saves what each turn had produced.
 
 ## 8. Source
 

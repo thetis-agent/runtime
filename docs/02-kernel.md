@@ -34,6 +34,7 @@ The kernel is the package `@thetis/kernel` in `packages/kernel`. It is the only 
 | `src/pipeline/provider-call.ts` | `ProviderCallStep` | The built-in call step and the tool loop. |
 | `src/pipeline/runner.ts` | `PipelineRunner` | Runs one turn. Applies and validates mutations. Persists. |
 | `src/rpc.ts` | `createRpcHandler` | The methods a fence can call on the kernel. |
+| `src/control.ts` | `createControlHandler`, `ControlServer`, `controlSocketPath` | The operator methods and the control socket for the command line. |
 | `src/kernel.ts` | `createKernel`, `T`, `Kernel` | The composition root and the token table. |
 | `src/index.ts` | Re-exports | The public API of the package. |
 
