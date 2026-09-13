@@ -109,10 +109,20 @@ An invalid result ends the turn with an `error` event. The variables keep the va
 6. For each step: emit `step.start`; run the step; apply the result; emit `step.end` with the duration in milliseconds.
    - The built-in call runs in the kernel.
    - Any other step goes to the fence as the operation `step`. The payload `ctx.config` is `config.packages[<step package>]` or `{}`.
-7. On any error: emit `error` with the message. Stop the loop.
+7. On any error: emit `error` with the message and the error code. Stop the loop.
 8. Always: save `conversation` and `harness` to the session file. Increase `turns` by one. Emit `turn.end`.
 
 **Note:** The kernel saves the session even after an error. The input messages and any messages added before the error are kept.
+
+### 5.1 Cancel
+
+`runTurn` receives an `AbortSignal` from `SessionApi.send`. `SessionApi.cancel` aborts it. The turn then stops at the next checkpoint:
+
+- before each step;
+- inside the provider call: the fence request is cancelled, so the stream stops;
+- before each tool call.
+
+The turn ends with an `error` event of code `cancelled`, then `turn.end`. Text that the provider streamed before the cancel is kept as a partial `assistant` message in the conversation.
 
 ## 6. The built-in provider call
 
@@ -158,7 +168,7 @@ Tool results never end the turn. The model sees the error text and can react.
 | `tool.result` | `id`, `name`, `result` | After the tool ran. |
 | `message` | `message` | After each assistant message is complete. |
 | `usage` | `usage` | When the provider reports token usage. |
-| `error` | `message` | When the turn fails. At most one per turn. |
+| `error` | `message`, `code?` | When the turn fails. At most one per turn. `code` is the `KernelError` code, for example `provider`, `cancelled`, `step`. |
 | `turn.end` | `turn`, `session` | Always, last. |
 
 ## 9. Message shapes

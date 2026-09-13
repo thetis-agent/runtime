@@ -121,6 +121,7 @@ To keep the count low:
 | `unauthorized` | The user may not do the operation. |
 | `not-found` | The session does not exist. |
 | `busy` | The session already runs a turn. |
+| `cancelled` | The turn or the fence request was cancelled with `SessionApi.cancel`. |
 | `fence` | The fence request failed or timed out, or the agent exited. |
 | `package` | Package code threw an error. |
 | `build` | A build or clone command failed. |

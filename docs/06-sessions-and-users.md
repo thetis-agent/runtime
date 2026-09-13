@@ -95,6 +95,7 @@ The kernel writes the file at the end of every turn, also after an error. Writes
 | `create(userId, { parent? })` | `SessionRef` | `parent` must be an existing session of the same user. |
 | `send(userId, sessionId, input)` | `AsyncIterable<TurnEvent>` | `input` is a string or `Message[]`. A string becomes one `user` message. |
 | `ask(userId, sessionId, input)` | `Promise<string>` | Runs `send` to the end. Returns the last assistant text. Throws on an `error` event. |
+| `cancel(userId, sessionId)` | `boolean` | Stops the running turn of the session. Returns `false` when no turn runs. See [04-pipeline.md](04-pipeline.md) section 5.1. |
 | `inspect(userId, sessionId)` | `SessionRecord & { status }` | `status` is `running` or `idle`. |
 | `list(userId)` | `SessionRef[]` | Sorted by creation time. |
 
@@ -103,6 +104,8 @@ The kernel writes the file at the end of every turn, also after an error. Writes
 ### 4.1 Concurrency
 
 A session runs at most one turn at a time. A second `send` on a running session fails with the code `busy`. Different sessions of the same user can run in parallel. They share one fence process. The agent handles requests concurrently.
+
+`cancel` stops the running turn. The `send` iterator receives an `error` event with the code `cancelled` and then `turn.end`. The session is idle again when `turn.end` arrives.
 
 ### 4.2 Ownership
 

@@ -10,7 +10,7 @@ The file `packages/kernel/src/fence/fence.ts` defines the contract.
 type KernelRpc = (method: string, args: unknown) => Promise<unknown>;
 
 interface FenceHandle {
-  request(op: string, payload: unknown, onEvent?: (event: unknown) => void): Promise<unknown>;
+  request(op: string, payload: unknown, onEvent?: (event: unknown) => void, signal?: AbortSignal): Promise<unknown>;
   close(): Promise<void>;
 }
 
@@ -20,7 +20,7 @@ interface Fence {
 ```
 
 - `Fence.open` starts the environment for one userspace. The kernel passes an `rpc` function. Code in the fence uses it to call the kernel.
-- `FenceHandle.request` sends one operation. Events arrive through `onEvent` before the result.
+- `FenceHandle.request` sends one operation. Events arrive through `onEvent` before the result. When `signal` aborts, the kernel sends a cancel message to the agent and rejects the request with the code `cancelled`. See section 5.6.
 - A different isolation technology, for example a microVM, implements `Fence` and replaces the binding of `T.fence`.
 
 ## 2. The fence pool
@@ -28,7 +28,7 @@ interface Fence {
 `FencePool` in `src/fence/pool.ts` keeps at most one open handle per userspace.
 
 - `handle(us)` opens the fence on the first call. Later calls return the same handle.
-- `request(us, op, payload, onEvent)` sends one request. When the error code is `fence`, the pool drops the handle. The next request opens a new agent.
+- `request(us, op, payload, onEvent, signal)` sends one request. When the error code is `fence`, the pool drops the handle. The next request opens a new agent.
 - `close(id?)` closes one fence, or all fences when `id` is not given.
 
 ## 3. The process fence
@@ -175,7 +175,21 @@ The kernel answers:
 
 In `step`, `ctx` is a `StepContext`. Its `packages` field is an array. The agent wraps the array into a `PackageQuery` and adds `env`. Its `config` field holds only the configuration of the step's own package.
 
-### 5.5 Timeouts
+### 5.5 Cancel
+
+The kernel sends this line to stop a request that is in progress:
+
+```json
+{ "cancel": "r7" }
+```
+
+The kernel rejects the request with the code `cancelled` at the same time. It ignores every later `event`, `result`, or `error` line with that id. The agent aborts the request's `AbortSignal`:
+
+- `exec` kills the process.
+- `provider.call` stops reading the provider stream. This closes the provider's iterator.
+- Other operations run to the end. Their result is discarded.
+
+### 5.6 Timeouts
 
 Each request has a timer of `requestTimeoutMs` milliseconds. The default is 600000. On timeout the kernel rejects the request with the code `fence`. The pool then drops the handle and closes the agent.
 

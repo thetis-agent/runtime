@@ -33,6 +33,8 @@ The `after` hook shuts the kernel down and deletes the directory.
 | tool loop | `run: <cmd>` makes the provider call `exec`. The tool runs in the fence. The conversation is `user, assistant, tool, assistant`. |
 | self-extension | A package written into `home/packages/hello` installs through the `install_package` tool over RPC. Its `prompt` step and `after` step are active on the next turns. Its tool is attached. The harness state persists. |
 | scope and visibility | Alice cannot install `@bob/evil`. A path outside the userspace is rejected. Bob does not see alice's tool. Bob cannot inspect alice's session. |
+| cancel mid-stream | `cancel` during a `slow:` reply ends the turn with the code `cancelled`. The partial text is saved as an assistant message. The session is idle and accepts the next turn. |
+| cancel a tool | `cancel` during `run: sleep 30` kills the process. The turn ends in under 10 seconds. |
 | suspended users | `create` fails for a suspended user. |
 | fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory. Skipped without `bwrap`. |
 
@@ -44,6 +46,7 @@ The `after` hook shuts the kernel down and deletes the directory.
 |---|---|
 | `run: <cmd>` and the `exec` tool is attached | A `tool_call` for `exec` with `{ cmd }`. |
 | `install: <path>` | A `tool_call` for `install_package` with `{ source }`. |
+| `slow: <words>` | One `text` event per word, 50 milliseconds apart. |
 | `system?` | The text of `call.system`. |
 | `tools?` | The tool names, comma-separated. |
 | a `tool` message | `tool said: <content>`. |
