@@ -28,7 +28,8 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | No enumerator package shipped | The default plan is kernel code. | Write `@thetis/enumerator-default` and set `config.enumerator`. |
 | Gateway runs on the host | `@thetis/gateway-cli` is not fenced. | Acceptable for a CLI. A network gateway must run in the system userspace. |
 | Git installs untested | Regression risk. | Add an e2e case with a local bare repository. |
-| Conversation grows without bound | Large session files. Slow turns. | A `memory` package that summarizes, or a size limit in the kernel. |
+| Conversation grows without bound | Large session files. `call.messages` is bounded by `trimHistory`; the saved conversation is not. | A `memory` package that summarizes into `harness`, written so the prefix of the call stays append-only. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
+| Cache accounting is per reply only | No per-session or per-user totals. | A gateway or a service package that sums the `usage` of the `message` events. |
 | Subagent turns block the parent tool call | Long subagent tasks hit `requestTimeoutMs`. | Background sessions with a poll or a notify RPC. |
 | `models()` of OpenRouter lists 400+ ids | One HTTP call per 5 minutes per process. | Acceptable. Cache to disk if needed. |
 | Config `${VAR}` with a missing variable becomes `""` | Silent misconfiguration. | Warn in `loadConfig`. |
@@ -41,6 +42,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 4. **Quotas.** cgroups for the process fence, or the microVM limits.
 5. **Package sharing.** Registry share operation and `@thetis/*` promotion.
 6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change.
+7. **Cache keep-alive and a native Anthropic provider.** See [16-prompt-cache.md](16-prompt-cache.md) section 11.
 
 ## 4. Open design questions
 

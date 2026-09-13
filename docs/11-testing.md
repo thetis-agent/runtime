@@ -10,6 +10,8 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 | `test/unit.test.ts` | Unit | Container, user store, auth service, manifest validation, enumerator plan and validation, async queue. |
 | `test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
 | `packages/gateway-web/test/gateway.test.ts` | End-to-end | The web gateway over HTTP, in-process and inside the system fence. See [15-web-gateway.md](15-web-gateway.md) section 10. |
+| `packages/prompt-cache/test/*.test.ts` | Unit | The planner, the policy and hint rules, both wire adapters, usage normalization, the fingerprint diagnosis, and the step. |
+| `packages/harness-core/test/history.test.ts` | Unit | The history window: the cut holds while the window fills and jumps on overflow. |
 
 ## 2. The end-to-end suite
 
@@ -18,8 +20,8 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 The `before` hook:
 
 1. Creates a temporary directory.
-2. Creates `system-packages/` inside it with symbolic links to `packages/harness-core`, `packages/tool-exec`, and the fixture `test/fixtures/provider-echo`.
-3. Builds a config with `defaultConfig`, then sets: `systemPackagesDir` to that directory, `model` to `echo`, `fence.sandbox` from `THETIS_TEST_SANDBOX` (default `auto`), `systemPackages` to the three packages, `packages["@thetis/provider-echo"]` to `{ tag: "t1" }`, `requestTimeoutMs` to 60000.
+2. Creates `system-packages/` inside it with symbolic links to `packages/harness-core`, `packages/tool-exec`, `packages/prompt-cache`, and the fixture `test/fixtures/provider-echo`.
+3. Builds a config with `defaultConfig`, then sets: `systemPackagesDir` to that directory, `model` to `echo`, `fence.sandbox` from `THETIS_TEST_SANDBOX` (default `auto`), `systemPackages` to the four packages, `packages["@thetis/provider-echo"]` to `{ tag: "t1" }`, `packages["@thetis/prompt-cache"]` to `{ explicitVendors: ["echo"], ttl: "1h" }`, `requestTimeoutMs` to 60000.
 4. Calls `createKernel` and rebinds `T.log` to a function that prints only when `THETIS_TEST_VERBOSE` is set.
 5. Creates the users `alice` and `bob`.
 
@@ -30,6 +32,7 @@ The `after` hook shuts the kernel down and deletes the directory.
 | Case | Verifies |
 |---|---|
 | first turn seeds the userspace | System packages are linked on first use. The provider round-trip returns `echo: hello (t1)`. The conversation has two messages. |
+| the prompt-cache step hands the provider a hint | `hints?` returns `call.hints`. The `cache` hint has the configured strategy and lifetime, no lifetime that is not configured, and an affinity token. After two turns the harness has `turns: 2` and no divergence. |
 | harness steps build the system prompt | `system?` returns text that contains `You are Thetis` and the package list. `tools?` lists the tool-exec tools. |
 | tool loop | `run: <cmd>` makes the provider call `exec`. The tool runs in the fence. The conversation is `user, assistant, tool, assistant`. |
 | self-extension | A package written into `home/packages/hello` installs through the `install_package` tool over RPC. Its `prompt` step and `after` step are active on the next turns. Its tool is attached. The harness state persists. |
@@ -52,6 +55,7 @@ The `after` hook shuts the kernel down and deletes the directory.
 | `slow: <words>` | One `text` event per word, 50 milliseconds apart. |
 | `system?` | The text of `call.system`. |
 | `tools?` | The tool names, comma-separated. |
+| `hints?` | `call.hints` as JSON. |
 | a `tool` message | `tool said: <content>`. |
 | anything else | `echo: <text> (<config.tag>)`. |
 
@@ -79,7 +83,7 @@ node --test --test-name-pattern "tool loop" packages/kernel/dist/test/e2e.test.j
 
 ## 6. What is not tested
 
-- The OpenRouter provider against the real API. Manual check: `node bin/thetis.js send --user <id> "hello"`.
+- The OpenRouter provider against the real API. Manual check: `node bin/thetis.js send --user <id> "hello"`. The line under the reply shows the cache accounting; a second turn in the same session must show `cached` above 80%.
 - Git installs. The code path is implemented and not exercised by a test.
 - The CLI parser and renderer.
 - Behavior under a microVM fence.

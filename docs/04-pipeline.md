@@ -166,7 +166,7 @@ Tool results never end the turn. The model sees the error text and can react.
 | `text` | `delta` | For each text chunk from the provider. |
 | `tool.call` | `call: { id, name, args }` | When the provider emits a tool call. |
 | `tool.result` | `id`, `name`, `result` | After the tool ran. |
-| `message` | `message` | After each assistant message is complete. |
+| `message` | `message`, `usage?` | After each assistant message is complete. `usage` repeats the last `usage` the provider reported for that message. |
 | `usage` | `usage` | When the provider reports token usage. |
 | `error` | `message`, `code?` | When the turn fails. At most one per turn. `code` is the `KernelError` code, for example `provider`, `cancelled`, `step`. |
 | `turn.end` | `turn`, `session` | Always, last. |
@@ -188,6 +188,7 @@ interface ProviderCall {
   messages: Message[];
   tools: ToolSpec[];
   params: Record<string, unknown>;   // passed to the provider as extra fields
+  hints?: Record<string, unknown>;   // never sent to the API; a provider reads the keys it understands
 }
 
 interface ToolSpec {
@@ -205,6 +206,10 @@ The package `@thetis/harness-core` provides three steps. They are the reference 
 
 | Step | Phase | Behavior |
 |---|---|---|
-| `trimHistory` | `history` | Sets `call.messages` to the last N messages. N is `config.packages["@thetis/harness-core"].historyWindow`, default 80. The cut moves forward to the next `user` message. This keeps an assistant tool call and its tool results together. |
+| `trimHistory` | `history` | Sets `call.messages` to a window over the conversation. The window holds at most `historyWindow` messages, default 80. The start of the window is kept in `harness["@thetis/harness-core"].cut`. It moves only when the window overflows. It then jumps so that `historyWindow * historyKeep` messages remain, default half. The cut lands on a `user` message. This keeps an assistant tool call with its tool results, and keeps the prefix of the call identical for many turns, which a prompt cache needs. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
 | `systemPrompt` | `prompt` | Appends the guide text, the installed package list, the content of `home/THETIS.md`, and `harness.notes` to `call.system`. |
 | `attachTools` | `tools` | Adds every tool declared by every installed package to `call.tools`. The first package with a given tool name wins. |
+
+The package `@thetis/prompt-cache` adds a fourth default step, `cacheHints` in the `call` phase. See [16-prompt-cache.md](16-prompt-cache.md).
+
+**Note:** A package that keeps state in `harness` should use its own name as the key, as `@thetis/harness-core` and `@thetis/prompt-cache` do. Other packages read the key by name and tolerate its absence.

@@ -67,7 +67,7 @@ curl --resolve thetis.example.com:443:10.0.0.10 https://thetis.example.com/login
 
 ## 4. Files
 
-The gateway keeps UI state only: which conversations each user archived. The file is `home/gateway-web/state.json` in the system userspace. Credentials and tokens are the kernel's, in `$THETIS_HOME/auth.json`, which no fence can read.
+The gateway keeps UI state only: which conversations each user archived, and the usage each reply reported, keyed by the reply's index in the conversation. The file is `home/gateway-web/state.json` in the system userspace. The usage is recorded after a turn ends without an error; the transcript shows it as a header over the reply (`cached 96% · 2.5k in · 4 out · $0.0100`). The header reads the fields `cache_read_tokens`, `prompt_tokens`, `completion_tokens`, and `cost` by name. See [16-prompt-cache.md](16-prompt-cache.md) section 7.1. Credentials and tokens are the kernel's, in `$THETIS_HOME/auth.json`, which no fence can read.
 
 ## 5. HTTP routes
 
@@ -81,7 +81,7 @@ The gateway keeps UI state only: which conversations each user archived. The fil
 | `GET /api/me` | `{ user, role }`. |
 | `GET /api/sessions` | `SessionSummary[]`. Sorted by `updatedAt`, newest first. Subagent sessions are excluded. |
 | `POST /api/sessions` | Creates a session. Answers `201 { id }`. |
-| `GET /api/sessions/<id>` | The session record with `status`, `archived`, and `turn`. `turn` is the turn in progress, or `null`. |
+| `GET /api/sessions/<id>` | The session record with `status`, `archived`, `turn`, and `usage`. `turn` is the turn in progress, or `null`. `usage` maps a conversation index to the usage of that reply. |
 | `POST /api/sessions/<id>/send` | Body `{ text }`. Starts a turn. Answers `202`. Answers `409` when a turn is running. |
 | `POST /api/sessions/<id>/cancel` | Stops the running turn. Answers `{ cancelled: boolean }`. |
 | `POST /api/sessions/<id>/archive` | Body `{ archived: boolean }`. |
@@ -146,7 +146,7 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 | `src/index.ts` | `startService(env)`: reads the configuration, starts the server, returns `{ stop }`. |
 | `src/server.ts` | `createGateway(kernel, store, opts)`: routes, cookie, static files, the event stream. `kernel` is a `KernelClient`. |
 | `src/turns.ts` | `TurnHub`. |
-| `src/store.ts` | `ArchiveStore`. |
+| `src/store.ts` | `GatewayStore`: archive flags and per-reply usage. `ArchiveStore` is the former name. |
 | `src/client.ts` | `clientFromRpc(rpc)`: the `KernelClient` shape over a raw RPC function, for tests and in-process hosts. |
 | `assets/` | The browser code. Plain ECMAScript modules. No build step, no dependency. |
 

@@ -19,6 +19,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [13-limitations-and-roadmap.md](13-limitations-and-roadmap.md) | Known gaps and the recommended order of future work. |
 | [14-glossary.md](14-glossary.md) | Definitions of all terms. |
 | [15-web-gateway.md](15-web-gateway.md) | The browser interface: commands, routes, the event stream, and its trust model. |
+| [16-prompt-cache.md](16-prompt-cache.md) | Prompt caching: the policy, the breakpoints, the hint, the diagnostics, and the rules for package authors. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
 
 ## Conventions in these documents

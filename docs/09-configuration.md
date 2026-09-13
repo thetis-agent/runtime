@@ -35,7 +35,7 @@ $THETIS_HOME/
 | `phases` | string[] | `["history","prompt","tools","call","after"]` | The phase order. |
 | `callPhase` | string | `call` | The phase that ends with the built-in provider call. |
 | `enumerator` | `{ package, export }` | not set | A package enumerator that replaces the default plan. |
-| `systemPackages` | object | see below | System packages to link per userspace. |
+| `systemPackages` | object | see below | System packages to link per userspace. Seeding runs when a userspace is created. An existing userspace gets a new system package with `thetis packages install @thetis/<name> --user <id>`. |
 | `packages` | object | see below | Per-package configuration. |
 | `fence.sandbox` | `auto`, `bwrap`, `none` | `auto` | The sandbox mode. |
 | `fence.readOnly` | string[] | `[<root>/packages, <root>/node_modules]` | Extra read-only binds. Derived. |
@@ -47,7 +47,7 @@ Defaults for the object fields:
 
 ```json
 "systemPackages": {
-  "*": ["@thetis/harness-core", "@thetis/tool-exec"],
+  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache"],
   "_system": ["@thetis/provider-openrouter"]
 },
 "packages": {
@@ -72,8 +72,9 @@ Known keys:
 
 | Package | Key | Meaning |
 |---|---|---|
-| `@thetis/provider-openrouter` | `apiKey`, `baseUrl`, `headers` | See [07-providers.md](07-providers.md). |
-| `@thetis/harness-core` | `historyWindow` | Number of messages in `call.messages`. Default 80. |
+| `@thetis/provider-openrouter` | `apiKey`, `baseUrl`, `headers`, `defaults`, `cache` | See [07-providers.md](07-providers.md) and [16-prompt-cache.md](16-prompt-cache.md). |
+| `@thetis/harness-core` | `historyWindow`, `historyKeep` | The window over the conversation: at most `historyWindow` messages (default 80); after an overflow, `historyWindow * historyKeep` remain (default 0.5). |
+| `@thetis/prompt-cache` | `ttl`, `systemTtl`, `anchorStride`, `maxBreakpoints`, `explicitVendors`, `overrides`, `enabled`, `diagnostics`, `affinity` | The hint and the diagnostics. See [16-prompt-cache.md](16-prompt-cache.md). |
 | `@thetis/gateway-web` | `host`, `port`, `secure` | See [15-web-gateway.md](15-web-gateway.md). |
 
 ## 5. Changing the configuration

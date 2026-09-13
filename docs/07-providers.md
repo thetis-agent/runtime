@@ -27,6 +27,7 @@ Rules for `call`:
 - Emit `tool_call` after the arguments are complete. The kernel runs tools after the stream ends.
 - Emit `error` and return when the request fails. The kernel ends the turn with the code `provider`.
 - Read `call.system`, `call.messages`, `call.tools`, and `call.params`. Pass `params` through to the API as extra fields.
+- Read `call.hints` for the concerns you understand. Never send `hints` to the API. Validate every hint: it comes from the user's fence.
 
 Rules for `models`:
 
@@ -67,10 +68,16 @@ The registry caches `models()` per provider and userspace for 300000 millisecond
   "@thetis/provider-openrouter": {
     "apiKey": "${OPENROUTER_API_KEY}",
     "baseUrl": "https://openrouter.ai/api/v1",
-    "headers": {}
+    "headers": {},
+    "defaults": {},
+    "cache": {}
   }
 }
 ```
+
+`defaults` holds request fields sent with every call, under `call.params`. Example: `{ "provider": { "order": ["anthropic"], "allow_fallbacks": true } }`.
+
+`cache` holds the prompt caching policy. See [16-prompt-cache.md](16-prompt-cache.md) section 6.
 
 `apiKey` falls back to the environment variable `OPENROUTER_API_KEY` of the agent process. The kernel does not pass that variable to the fence. Set the key in `config.packages`, or in `.env` from which the CLI interpolates `${OPENROUTER_API_KEY}` into the config.
 
@@ -82,11 +89,17 @@ The registry caches `models()` per provider and userspace for 300000 millisecond
 - An assistant message with `toolCalls` becomes `tool_calls` with JSON-encoded arguments.
 - A `tool` message becomes `{ role: "tool", tool_call_id, name, content }`.
 - `call.tools` become `{ type: "function", function: { name, description, parameters } }`.
+- The body is `{ model, messages, tools, stream, usage, ...defaults, ...call.params }`. The provider then applies the cache policy: `resolvePolicy` from its `cache` config, `applyHint` with `call.hints.cache`, `applyOpenAiCompatible` on the body. It sets the `user` field to the affinity token of the hint when the body has none.
 - Streamed tool call fragments are joined by index. The provider emits `tool_call` events after the stream ends.
+- `usage` events carry `normalizeUsage` of the OpenRouter usage object: `prompt_tokens`, `completion_tokens`, `total_tokens`, `cost`, `cache_read_tokens`, `cache_write_tokens`, `cache_read_ratio`, `reasoning_tokens`.
 - Invalid JSON in tool arguments becomes `{ _raw: "<text>" }`.
 - A non-2xx response or an `error` field in a chunk becomes an `error` event.
 
-### 4.3 Model ids
+### 4.3 Dependencies
+
+The package depends on `@thetis/prompt-cache` for the policy, the planner, the wire adapter, and the usage normalization. The dependency is a workspace link. The fence binds `<root>/node_modules` read-only, so the module resolves inside the system fence.
+
+### 4.4 Model ids
 
 Model ids are OpenRouter ids, for example `anthropic/claude-sonnet-5`. The default is in `config.model`. A step can set `call.model` to any id the provider serves.
 
