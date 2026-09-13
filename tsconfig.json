@@ -1,0 +1,23 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/kernel"
+    },
+    {
+      "path": "packages/userspace-agent"
+    },
+    {
+      "path": "packages/provider-openrouter"
+    },
+    {
+      "path": "packages/harness-core"
+    },
+    {
+      "path": "packages/tool-exec"
+    },
+    {
+      "path": "packages/gateway-cli"
+    }
+  ]
+}

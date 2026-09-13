@@ -1,0 +1,22 @@
+{
+  "name": "thetis",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "bin": {
+    "thetis": "bin/thetis.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo",
+    "test": "npm run build && node --test \"packages/kernel/dist/test/**/*.test.js\"",
+    "thetis": "node bin/thetis.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  }
+}

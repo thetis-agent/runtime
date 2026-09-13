@@ -1,0 +1,29 @@
+# Thetis documentation
+
+This directory contains the technical documentation for Thetis. The documents use Simplified Technical English (ASD-STE100). Each sentence gives one fact or one instruction. Read the documents in the order below.
+
+| Document | Content |
+|---|---|
+| [01-overview.md](01-overview.md) | What Thetis is. The repository layout. The components. |
+| [02-kernel.md](02-kernel.md) | The kernel modules, the container, the service tokens, and the line-count limit. |
+| [03-fence.md](03-fence.md) | The fence, the process sandbox, the userspace agent, and the wire protocol. |
+| [04-pipeline.md](04-pipeline.md) | Phases, enumeration, steps, the built-in provider call, the tool loop, and turn events. |
+| [05-packages.md](05-packages.md) | The package manifest, package types, install rules, the store, and the registry. |
+| [06-sessions-and-users.md](06-sessions-and-users.md) | Users, roles, moderation, sessions, subagents, and the session API. |
+| [07-providers.md](07-providers.md) | The provider contract, model resolution, and the OpenRouter package. |
+| [08-cli.md](08-cli.md) | All commands of the `thetis` command-line gateway. |
+| [09-configuration.md](09-configuration.md) | The configuration file, every field, the defaults, and the data directory. |
+| [10-development.md](10-development.md) | How to build, run, test, and change Thetis. Code rules. |
+| [11-testing.md](11-testing.md) | The test suites, the fixtures, and how to write new tests. |
+| [12-security.md](12-security.md) | Trust boundaries, what the system enforces, and what it does not enforce. |
+| [13-limitations-and-roadmap.md](13-limitations-and-roadmap.md) | Known gaps and the recommended order of future work. |
+| [14-glossary.md](14-glossary.md) | Definitions of all terms. |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
+
+## Conventions in these documents
+
+- Paths are relative to the `runtime` directory unless the text says otherwise.
+- `<root>` is the `runtime` directory. It is the git repository and the npm workspace root. `$THETIS_HOME` is the data directory.
+- Code identifiers are in `monospace`. File paths are in `monospace`.
+- "Must" gives a requirement. "Can" gives a permission. "Does" gives a fact about current behavior.
+- A **Note** gives extra information. A **Caution** warns about a possible loss of data or a security effect.
