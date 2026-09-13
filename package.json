@@ -7,12 +7,14 @@
     "packages/*"
   ],
   "bin": {
-    "thetis": "bin/thetis.js"
+    "thetis": "bin/thetis.js",
+    "thetis-web": "bin/thetis-web.js"
   },
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo",
-    "test": "npm run build && node --test \"packages/kernel/dist/test/**/*.test.js\"",
+    "test": "npm run build && node --test \"packages/*/dist/test/**/*.test.js\"",
+    "web": "node bin/thetis-web.js",
     "thetis": "node bin/thetis.js"
   },
   "devDependencies": {

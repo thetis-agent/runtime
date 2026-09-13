@@ -18,6 +18,9 @@
     },
     {
       "path": "packages/gateway-cli"
+    },
+    {
+      "path": "packages/gateway-web"
     }
   ]
 }
