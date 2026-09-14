@@ -212,6 +212,8 @@ The registry is the file `$THETIS_HOME/registry.json`. It is in the service plan
 
 This repair makes a moved checkout or a moved data directory work without a reinstall.
 
+Each `PackageInfo` carries `everyone: true` when every person gets the package: it is in `systemPackages["*"]`, promoted (section 14), or marked for everyone (section 15). `PackageManager.forEveryone()` is that list. A shipped package one person installed for themselves has no mark.
+
 ## 10. System packages
 
 The configuration field `systemPackages` lists the packages that the kernel links into a userspace when the userspace is created:

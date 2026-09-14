@@ -62,7 +62,7 @@ Errors carry a plain sentence in `{ error }`. Kernel codes map to statuses as in
 { "name": "@alice/hello", "version": "0.1.0", "type": "tool", "scope": "me", "steps": [{ "id": "mark", "phase": "prompt" }], "tools": ["greet"], "service": false }
 ```
 
-`scope` is `everyone` for a `@thetis/*` package and `me` otherwise. The browser reads these fields by name.
+`scope` is `everyone` when every person gets the package (it is in `systemPackages["*"]`, promoted, or marked for everyone; the kernel reports this as `everyone` on the package) and `me` otherwise. A shipped `@thetis/*` package one person installed for themselves is `me`. The browser reads these fields by name.
 
 ## 5. How the gateway reaches the kernel
 
