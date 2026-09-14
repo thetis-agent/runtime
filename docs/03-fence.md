@@ -241,10 +241,11 @@ Code inside the fence reaches the kernel through `env.kernel`. Every method runs
 | `kernel.packages.list()` | `packages.list` | Returns the installed packages. |
 | `kernel.sessions.create(parent?, as?)` | `sessions.create` | Creates a session. Returns a session reference. |
 | `kernel.sessions.ask(session, input, as?)` | `sessions.ask` | Runs one turn to completion. Returns the final assistant text. |
-| `kernel.sessions.send(session, input, onEvent, as?)` | `sessions.send` | Runs one turn. Each `TurnEvent` arrives through `onEvent`. Resolves at the end. |
+| `kernel.sessions.send(session, input, onEvent, opts?)` | `sessions.send` | Runs one turn. Each `TurnEvent` arrives through `onEvent`. Resolves at the end. `opts.model` names the model for this turn; steps may still change `call.model`. |
 | `kernel.sessions.cancel(session, as?)` | `sessions.cancel` | Stops the running turn. Returns `false` when no turn runs. |
 | `kernel.sessions.list(as?)` | `sessions.list` | Lists the sessions. |
 | `kernel.sessions.inspect(session, as?)` | `sessions.inspect` | Returns one session record with its status. |
+| `kernel.models()` | `models` | Returns `{ model, models }`: the configured default and every model the providers visible to this userspace serve. |
 | `kernel.auth.login(id, password)` | `auth.login` | Returns `{ token, user }` or `null`. System userspace only. |
 | `kernel.auth.authenticate(token)` | `auth.authenticate` | Returns `{ id, role }` or `null`. System userspace only. |
 | `kernel.auth.logout(token)` | `auth.logout` | Revokes the token. System userspace only. |

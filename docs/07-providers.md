@@ -101,7 +101,7 @@ The package depends on `@thetis/prompt-cache` for the policy, the planner, the w
 
 ### 4.4 Model ids
 
-Model ids are OpenRouter ids, for example `anthropic/claude-sonnet-5`. The default is in `config.model`. A step can set `call.model` to any id the provider serves.
+Model ids are OpenRouter ids, for example `anthropic/claude-sonnet-5`. The default is in `config.model`. A caller of `sessions.send` can name a model for one turn, which is how the web gateway applies the model a person chose for a conversation. A step can set `call.model` to any id the provider serves.
 
 ## 5. Adding a provider
 

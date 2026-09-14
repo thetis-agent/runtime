@@ -156,7 +156,7 @@ Tool results never end the turn. The model sees the error text and can react.
 
 ## 8. Turn events
 
-`sessions.send` returns an `AsyncIterable<TurnEvent>`. The events are:
+`sessions.send(user, session, input, opts?)` returns an `AsyncIterable<TurnEvent>`. `opts.model` sets the initial `call.model` for the turn instead of `config.model`; steps may still change it. The events are:
 
 | Type | Fields | When |
 |---|---|---|

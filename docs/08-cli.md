@@ -140,7 +140,7 @@ The command line talks to a running kernel through the control socket with these
 | `journal.tail` | `limit`, `kind`, `target` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
 | `config.get` | | The configuration with secrets replaced by `•••`. |
 | `models` | `user` | Every model the providers visible to that userspace serve. |
-| `sessions.create`, `sessions.list`, `sessions.inspect`, `sessions.cancel`, `sessions.send` | `user`, `session`, `input`, `parent` | Session operations. `sessions.send` streams the turn events. |
+| `sessions.create`, `sessions.list`, `sessions.inspect`, `sessions.cancel`, `sessions.send` | `user`, `session`, `input`, `parent`, `model` | Session operations. `sessions.send` streams the turn events. `model` names the model for that turn. |
 
 ## 5. Option parsing
 
