@@ -12,7 +12,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
   "type": "module",
   "main": "index.js",
   "dependencies": {},
-  "peerDependencies": { "@thetis/kernel": "^0.1.0" },
+  "peerDependencies": { "@thetis/contracts": "^0.1.0" },
   "scripts": { "build": "tsc -b" },
   "thetis": {
     "type": "loader",
@@ -34,7 +34,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `description` | One sentence on what the package does. Shown in the control panel, in the marketplace index, and in the system prompt's package list. Every shipped package has one. |
 | `main` | The module the agent imports. Default `index.js`. Relative to the package directory. |
 | `dependencies` | When not empty and there is no build script, install runs `npm install --omit=dev`. |
-| `peerDependencies` | Each peer must be installed in the same userspace. `@thetis/kernel` is always satisfied. |
+| `peerDependencies` | Each peer must be installed in the same userspace. `@thetis/contracts`, `@thetis/lib`, and `@thetis/kernel` are always satisfied. |
 | `scripts.build` | When present, install runs `npm install` and then `npm run build`. |
 
 ### 1.2 The `thetis` field
@@ -133,7 +133,7 @@ export async function enumerate(ctx) {
 
 ### 3.5 Types for TypeScript packages
 
-Import types from `@thetis/kernel`: `PackageStepContext`, `Step`, `StepResult`, `Tool`, `ToolEnv`, `Provider`, `ProviderCall`, `ProviderEvent`, `EnumeratorContext`, `PackageInfo`, `Message`. Use `import type`. The kernel module is not available at run time inside a fence.
+Import types from `@thetis/contracts`: `PackageStepContext`, `Step`, `StepResult`, `Tool`, `ToolEnv`, `Provider`, `ProviderCall`, `ProviderEvent`, `EnumeratorContext`, `PackageInfo`, `Message`. Use `import type`. The contracts package has no code. The kernel is not available inside a fence.
 
 ## 4. Scopes and ownership
 
@@ -159,7 +159,7 @@ Import types from `@thetis/kernel`: `PackageStepContext`, `Step`, `StepResult`, 
 1. Obtain the package directory (section 5).
 2. Read and validate `package.json`.
 3. Check ownership (section 4).
-4. Check peer dependencies. Each peer except `@thetis/kernel` must be installed in this userspace. Error code `peer`.
+4. Check peer dependencies. Each peer except `@thetis/contracts`, `@thetis/lib`, and `@thetis/kernel` must be installed in this userspace. Error code `peer`.
 5. Build inside the fence:
    - with `scripts.build`: `npm install --no-audit --no-fund && npm run build`;
    - else with `dependencies`: `npm install --omit=dev --no-audit --no-fund`;

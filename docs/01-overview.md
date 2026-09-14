@@ -31,7 +31,11 @@ runtime/                 <root>. Git repository. npm workspace root.
   node_modules/          Installed dependencies and workspace links. Not committed.
   README.md              Short user guide.
   packages/              Git submodule. Its own repository. All packages, including the kernel.
-    kernel/              @thetis/kernel. The trusted service plane.
+    contracts/           @thetis/contracts. The types every package shares. No code.
+    lib/                 @thetis/lib. Mechanism with no policy, as subpath exports.
+    sandbox/             @thetis/sandbox. The process fence: bubblewrap, cgroups, egress.
+    kernel/              @thetis/kernel. The trusted service plane: who may do what.
+    host/                @thetis/host. The composition root and the control socket.
     userspace-agent/     @thetis/userspace-agent. Runs inside each fence.
     provider-openrouter/ @thetis/provider-openrouter. Provider package.
     harness-core/        @thetis/harness-core. Default prompt and tool attachment.
@@ -50,7 +54,10 @@ runtime/                 <root>. Git repository. npm workspace root.
 
 | Component | Package | Where it runs | Function |
 |---|---|---|---|
-| Kernel | `@thetis/kernel` | Host process (service plane) | Users, userspaces, sessions, pipeline, package manager, provider registry, fence control. |
+| Kernel | `@thetis/kernel` | Host process (service plane) | Users, sessions, pipeline, package ownership, provider registry. Decides; does not build the fence. |
+| Sandbox | `@thetis/sandbox` | Host process (service plane) | Builds the fence: one agent process per userspace under bubblewrap. |
+| Host | `@thetis/host` | Host process (service plane) | Wires the kernel to the sandbox. `createKernel`, the control socket. |
+| Contracts, lib | `@thetis/contracts`, `@thetis/lib` | Everywhere | The shared types, and the mechanism the service plane and the agent use. |
 | Userspace agent | `@thetis/userspace-agent` | Inside each fence | Loads package modules. Runs steps, tools, enumerators, and providers. |
 | Provider | `@thetis/provider-openrouter` | System userspace fence | Sends calls to OpenRouter. Streams the reply. |
 | Harness | `@thetis/harness-core` | Each user's fence | Limits history. Builds the system prompt. Attaches tools. |

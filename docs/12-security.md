@@ -4,7 +4,7 @@
 
 | Zone | Trust | Code that runs there |
 |---|---|---|
-| Service plane (the kernel process) | Trusted | `@thetis/kernel` and `@thetis/gateway-cli`. |
+| Service plane (the kernel process) | Trusted | `@thetis/kernel`, `@thetis/host`, `@thetis/sandbox`, `@thetis/lib`, `@thetis/contracts`, and `@thetis/gateway-cli`. |
 | The door | Trusted, runs in the host process. Copies bytes; never authenticates. | `@thetis/door`, started by `thetis serve`. |
 | System userspace `_system` | Fenced. Holds service secrets. The only fence that may log people in. | System providers, the login target `@thetis/gateway-login`, the marketplace service, and any `@thetis/*` package installed there. |
 | User userspace | Fenced. Untrusted code. Holds that person's authority and nobody else's. | The person's packages, the system packages linked into it, and that person's own `@thetis/gateway-web`. |

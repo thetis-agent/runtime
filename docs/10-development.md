@@ -43,15 +43,16 @@ The `.gitmodules` URL is `./packages`. Change it to the remote URL of the packag
 - `npm run build` runs `tsc -b` with the project references in `tsconfig.json`.
 - Each package compiles `src/**` and `test/**` into `dist/`. The layout is `dist/src/...` and `dist/test/...`.
 - `npm run clean` deletes all `dist` directories and build info files.
-- Packages import `@thetis/kernel` through the workspace link in `node_modules/@thetis/kernel`. That link points to `packages/kernel`.
+- Packages import `@thetis/contracts` through the workspace link in `node_modules/@thetis/contracts`. That link points to `packages/contracts`. `@thetis/lib` is imported by subpath, for example `@thetis/lib/ids`.
+- The service plane is five packages: `contracts`, `lib`, `sandbox`, `kernel`, `host`. See [02-kernel.md](02-kernel.md) section 1 for what each one holds and what it may import.
 
 The compiler options are in `tsconfig.base.json`: target ES2022, module NodeNext, strict, composite, declaration, source maps.
 
 ## 5. Test
 
 ```sh
-npm test                                   # build, then all kernel tests
-node --test "packages/kernel/dist/test/**/*.test.js"
+npm test                                   # build, then every package's tests
+node --test "packages/*/dist/test/**/*.test.js"
 THETIS_TEST_SANDBOX=none npm test           # force the unfenced mode
 THETIS_TEST_VERBOSE=1 npm test              # print agent stderr
 ```
@@ -71,13 +72,15 @@ The agent's `stderr` goes to the CLI's `stderr` with the prefix `[<user>]`.
 
 - TypeScript with strict mode. ECMAScript modules. Import paths end with `.js`.
 - Every class gets its dependencies through its constructor. No class creates its own dependencies. No global state.
-- The composition root `createKernel` in `src/kernel.ts` is the only place that constructs kernel services.
+- The composition root `createKernel` in `packages/host/src/kernel.ts` is the only place that constructs kernel services.
+- Mechanism goes to `@thetis/lib` or `@thetis/sandbox`. The decision about who may use it stays in `@thetis/kernel`. A part stays in the kernel only when delegating it would lose a guarantee that rests on the kernel being the one that does it.
+- The kernel imports only `@thetis/contracts` and `@thetis/lib`. Never the sandbox, never the host. The test `packages/kernel/test/boundaries.test.ts` fails on any other import.
 - One class has one responsibility. Split a class that grows two.
-- Depend on interfaces where a second implementation is plausible: `Fence` is the example.
+- Depend on interfaces where a second implementation is plausible: `Fence` and `Fences` in `@thetis/contracts` are the examples.
 - New capabilities go into packages. Add kernel code only for a new crossing of the fence or a new invariant.
-- The kernel must stay under 2,000 counted lines. Run `npm test` after each kernel change. The test prints the count.
+- The kernel must stay under 1,200 counted lines. Run `npm test` after each kernel change. The test prints the count.
 - Validate every value that crosses the fence into the kernel: step results, enumerator plans, manifests, RPC arguments.
-- Use `KernelError` with a code for every failure the caller must distinguish.
+- Use `CodedError` from `@thetis/lib/error` (exported by the kernel as `KernelError`) with a code for every failure the caller must distinguish.
 
 ## 8. Add a system package
 
@@ -89,34 +92,36 @@ The agent's `stderr` goes to the CLI's `stderr` with the prefix `[<user>]`.
      "extends": "../../tsconfig.base.json",
      "compilerOptions": { "rootDir": ".", "outDir": "dist" },
      "include": ["src/**/*.ts", "test/**/*.ts"],
-     "references": [{ "path": "../kernel" }]
+     "references": [{ "path": "../contracts" }]
    }
    ```
-4. Add `{ "path": "packages/<dir>" }` to `tsconfig.json` in `<root>`.
+   Declare `"@thetis/contracts": "^0.1.0"` under `peerDependencies` and `devDependencies` in `package.json`.
+4. Add `{ "path": "packages/<dir>" }` to `tsconfig.json` in `<root>`, after the packages it references.
 5. Run `npm install` so the workspace link exists. Run `npm run build`.
 6. Add the name to `systemPackages` in the config when it must be installed by default.
 
 ## 9. Change the kernel
 
-1. Read [02-kernel.md](02-kernel.md) to find the module.
-2. Change the class. Keep the constructor signature stable when possible. Update the factory in `src/kernel.ts` otherwise.
-3. Add or update a unit test in `packages/kernel/test/unit.test.ts`. Add an end-to-end case in `test/e2e.test.ts` when the change crosses the fence.
-4. Run `npm test`. Check the line count in the output.
-5. Update the document in `docs/` that describes the changed behavior.
+1. Read [02-kernel.md](02-kernel.md) to find the module and the layer.
+2. Decide the layer. A new decision goes in `packages/kernel`. A new mechanism goes in `packages/lib` or `packages/sandbox`. A new type goes in `packages/contracts`.
+3. Change the class. Keep the constructor signature stable when possible. Update the factory in `packages/host/src/kernel.ts` otherwise.
+4. Add or update a unit test in `packages/kernel/test/unit.test.ts` or `packages/lib/test/lib.test.ts`. Add an end-to-end case in `packages/host/test/e2e.test.ts` when the change crosses the fence.
+5. Run `npm test`. Check the line count and the boundary test in the output.
+6. Update the document in `docs/` that describes the changed behavior.
 
 ## 10. Change the agent or the protocol
 
-The agent is in `packages/userspace-agent/src/agent.ts`. The kernel side is `packages/kernel/src/fence/process-fence.ts`. Both must agree on the message shapes in [03-fence.md](03-fence.md) section 5.
+The agent is in `packages/userspace-agent/src/agent.ts`. The kernel side is `packages/sandbox/src/handle.ts`. Both use the framing in `@thetis/lib/rpc-frames` and must agree on the message shapes in [03-fence.md](03-fence.md) section 5.
 
 - Add a new operation: add a handler to `ops` in the agent. Add a caller in the kernel.
-- Add a new RPC method: add a case in `createRpcHandler` in `src/rpc.ts`. Add a client method in the agent's `kernel` object. Add the type to `KernelClient` in `src/types.ts`.
+- Add a new RPC method: add a case in `createRpcHandler` in `packages/kernel/src/rpc.ts`. Add a client method in the agent's `kernel` object. Add the type to `KernelClient` in `packages/contracts/src/guest.ts`.
 - The e2e tests start the real agent. Run them after each change.
 
 ## 11. Replace the fence
 
-1. Implement `Fence` and `FenceHandle` from `src/fence/fence.ts`.
+1. Implement `Fence` and `FenceHandle` from `@thetis/contracts`.
 2. Start the same agent, or another program that speaks the same protocol, inside the new environment.
-3. Bind it: `createKernel(config, (c) => c.bind(T.fence, () => new MyFence(...)))`.
+3. Bind it: `createKernel(config, (c) => c.bind(T.fence, () => new MyFence(...)))`, with `createKernel` and `T` from `@thetis/host`.
 4. Run the e2e tests with the new binding.
 
 ## 12. Debugging

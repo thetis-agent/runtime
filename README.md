@@ -34,7 +34,7 @@ tests it with `exec`, calls `install_package`, and the step and tool are live on
 | Path | Content |
 |---|---|
 | `bin/thetis.js` | Command-line entry point. |
-| `packages/` | Git submodule with all packages: `kernel`, `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `gateway-cli`, `gateway-web`, `gateway-login`, `door`. |
+| `packages/` | Git submodule with all packages. Service plane: `contracts`, `lib`, `sandbox`, `kernel`, `host`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `exa`, `gateway-web`, `gateway-login`. On the host: `gateway-cli`, `door`. |
 | `docs/` | Documentation. |
 | `deploy/` | The systemd unit for `thetis serve`. See [docs/15-web-gateway.md](docs/15-web-gateway.md). |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |

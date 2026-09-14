@@ -6,21 +6,37 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 
 | File | Type | Content |
 |---|---|---|
-| `test/loc.test.ts` | Guard | Counts kernel lines of code. Fails at 2,000 or more. Prints a per-file table. |
-| `test/unit.test.ts` | Unit | Container, user store, auth service, manifest validation, enumerator plan and validation, async queue. |
-| `test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
+| `packages/kernel/test/loc.test.ts` | Guard | Counts kernel lines of code. Fails at 1,200 or more. Prints a per-file table. |
+| `packages/kernel/test/boundaries.test.ts` | Guard | Reads every import of `@thetis/*` in `packages/*/src`. Fails when a layer imports upward, or when a package other than `host` and `gateway-cli` imports `@thetis/kernel`. See section 1.1. |
+| `packages/kernel/test/unit.test.ts` | Unit | User store, auth service, manifest validation, enumerator plan and validation, config and redaction. |
+| `packages/lib/test/lib.test.ts` | Unit | Container, async queue, package sources, the JSON directory store, the RPC framing. |
+| `packages/host/test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
 | `packages/gateway-web/test/gateway.test.ts` | End-to-end | The door, the login target, and one gateway per person, in-process and then inside real fences. See [15-web-gateway.md](15-web-gateway.md) section 10. |
 | `packages/prompt-cache/test/*.test.ts` | Unit | The planner, the policy and hint rules, both wire adapters, usage normalization, the fingerprint diagnosis, and the step. |
 | `packages/harness-core/test/history.test.ts` | Unit | The history window: the cut holds while the window fills and jumps on overflow. |
 
+### 1.1 The boundary rules
+
+| Package | May import |
+|---|---|
+| `contracts` | nothing from `@thetis` |
+| `lib` | `contracts` |
+| `sandbox` | `contracts`, `lib` |
+| `kernel` | `contracts`, `lib` |
+| `host` | `contracts`, `lib`, `sandbox`, `kernel` |
+
+Only `host` and `gateway-cli` may import `@thetis/kernel` in `src`. Tests are not checked: `packages/gateway-web/test` imports the host and the kernel.
+
 ## 2. The end-to-end suite
+
+The suite is in `packages/host/test/e2e.test.ts`. Its fixture is in `packages/host/test/fixtures`.
 
 ### 2.1 Setup
 
 The `before` hook:
 
 1. Creates a temporary directory.
-2. Creates `system-packages/` inside it with symbolic links to `packages/harness-core`, `packages/tool-exec`, `packages/prompt-cache`, and the fixture `test/fixtures/provider-echo`.
+2. Creates `system-packages/` inside it with symbolic links to `packages/harness-core`, `packages/tool-exec`, `packages/prompt-cache`, and the fixture `packages/host/test/fixtures/provider-echo`.
 3. Builds a config with `defaultConfig`, then sets: `systemPackagesDir` to that directory, `model` to `echo`, `fence.sandbox` from `THETIS_TEST_SANDBOX` (default `auto`), `systemPackages` to the four packages, `packages["@thetis/provider-echo"]` to `{ tag: "t1" }`, `packages["@thetis/prompt-cache"]` to `{ explicitVendors: ["echo"], ttl: "1h" }`, `requestTimeoutMs` to 60000.
 4. Calls `createKernel` and rebinds `T.log` to a function that prints only when `THETIS_TEST_VERBOSE` is set.
 5. Creates the users `alice` and `bob`.
@@ -48,7 +64,7 @@ The `after` hook shuts the kernel down and deletes the directory.
 
 ### 2.3 The fixture provider
 
-`test/fixtures/provider-echo/index.js` reacts to the last message:
+`packages/host/test/fixtures/provider-echo/index.js` reacts to the last message:
 
 | Last message | Reply |
 |---|---|
@@ -70,17 +86,18 @@ The `after` hook shuts the kernel down and deletes the directory.
 
 ## 4. Write a new test
 
-- Unit tests import kernel classes from `../src/...js`. Construct them directly with fakes. Use `mkdtempSync` for file stores and delete the directory in `finally`.
-- End-to-end tests add a `test(...)` to `e2e.test.ts` and use the shared `kernel`. Use `collect(kernel.sessions.send(...))` to gather events and text. Extend the fixture provider when a new model behavior is needed.
+- Unit tests import classes from `../src/...js` of their own package. Construct them directly with fakes. Use `mkdtempSync` for file stores and delete the directory in `finally`.
+- End-to-end tests add a `test(...)` to `packages/host/test/e2e.test.ts` and use the shared `kernel`. Use `collect(kernel.sessions.send(...))` to gather events and text. Extend the fixture provider when a new model behavior is needed.
 - A test of a fence crossing must run through the real agent. Do not mock the agent in an end-to-end test.
-- After a kernel change, run `npm test` and read the line count.
+- After a kernel change, run `npm test` and read the line count and the boundary test.
 
 ## 5. Run one file
 
 ```sh
 npm run build
 node --test packages/kernel/dist/test/unit.test.js
-node --test --test-name-pattern "tool loop" packages/kernel/dist/test/e2e.test.js
+node --test packages/kernel/dist/test/boundaries.test.js
+node --test --test-name-pattern "tool loop" packages/host/dist/test/e2e.test.js
 ```
 
 ## 6. What is not tested

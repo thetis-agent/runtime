@@ -189,7 +189,7 @@ A package is a directory with a `package.json`. Thetis reads the standard fields
   "version": "0.1.0",
   "type": "module",
   "main": "dist/index.js",
-  "peerDependencies": { "@thetis/kernel": "^0" },
+  "peerDependencies": { "@thetis/contracts": "^0" },
   "thetis": {
     "type": "loader",
     "steps": [ { "id": "embed-all-skills", "phase": "prompt", "export": "embedSkills" } ]
@@ -251,8 +251,8 @@ The `harness` variable is persisted per session at the end of each turn and hand
 
 | Concept | Implementation |
 |---|---|
-| Kernel | `packages/kernel` (`createKernel` composition root, `Container` for IoC) |
-| Fence | `ProcessFence` + `packages/userspace-agent`; bubblewrap namespaces when available |
+| Kernel | `packages/kernel`: authority only. Its vocabulary is `packages/contracts`; its mechanism is `packages/lib`; the composition root `createKernel` and the `Container` wiring are `packages/host` |
+| Fence | `ProcessFence` in `packages/sandbox` + `packages/userspace-agent`; bubblewrap namespaces when available |
 | Session API | `SessionApi` (`create`, `send`, `ask`, `inspect`, `list`) |
 | Enumerator | `Enumerator.defaultPlan` from config phases, replaceable via `config.enumerator` |
 | Built-in call step | `ProviderCallStep` (streams provider events, runs tools in the fence, loops) |

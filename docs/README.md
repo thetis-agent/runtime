@@ -5,7 +5,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | Document | Content |
 |---|---|
 | [01-overview.md](01-overview.md) | What Thetis is. The repository layout. The components. |
-| [02-kernel.md](02-kernel.md) | The kernel modules, the container, the service tokens, and the line-count limit. |
+| [02-kernel.md](02-kernel.md) | The layering rule, the five service-plane packages, the kernel modules, the container, the service tokens, and the line-count limit. |
 | [03-fence.md](03-fence.md) | The fence, the process sandbox, the userspace agent, and the wire protocol. |
 | [04-pipeline.md](04-pipeline.md) | Phases, enumeration, steps, the built-in provider call, the tool loop, and turn events. |
 | [05-packages.md](05-packages.md) | The package manifest, package types, install rules, the store, and the registry. |

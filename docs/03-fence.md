@@ -4,7 +4,7 @@ The fence is the boundary around one userspace. All package code runs inside a f
 
 ## 1. Interfaces
 
-The file `packages/kernel/src/fence/fence.ts` defines the contract.
+The file `packages/contracts/src/fence.ts` defines the contract. The package `@thetis/sandbox` implements it. The kernel sees only the interfaces.
 
 ```ts
 type KernelRpc = (method: string, args: unknown) => Promise<unknown>;
@@ -25,7 +25,7 @@ interface Fence {
 
 ## 2. The fence pool
 
-`FencePool` in `src/fence/pool.ts` keeps at most one open handle per userspace.
+`FencePool` in `packages/sandbox/src/pool.ts` implements the interface `Fences` and keeps at most one open handle per userspace.
 
 - `handle(us)` opens the fence on the first call. Later calls return the same handle.
 - `request(us, op, payload, onEvent, signal)` sends one request. When the error code is `fence`, the pool drops the handle. The next request opens a new agent.
@@ -33,7 +33,7 @@ interface Fence {
 
 ## 3. The process fence
 
-`ProcessFence` in `src/fence/process-fence.ts` is the current implementation. It starts one long-lived Node process per userspace. The process runs `packages/userspace-agent/dist/src/agent.js`.
+`ProcessFence` in `packages/sandbox/src/process-fence.ts` is the current implementation. The bubblewrap arguments are in `src/bwrap.ts`. The agent process and its frames are in `src/handle.ts`. It starts one long-lived Node process per userspace. The process runs `packages/userspace-agent/dist/src/agent.js`.
 
 ### 3.1 Sandbox modes
 
@@ -72,7 +72,7 @@ The option `fence.network` decides what the fence can reach:
 | `pids` | 512 | Processes and threads. |
 | `cpuPercent` | 200 | CPU time; 100 is one core. |
 
-Limits need the kernel process to run in a delegated cgroup: `Delegate=yes` on the systemd unit (`deploy/thetis-runtime.service` has it), or `systemd-run --user --scope -p Delegate=yes node bin/thetis.js serve` for a development run. `Cgroups.detect` in `src/fence/cgroup.ts` moves the kernel into a child group, enables the controllers for siblings, and creates `fence-<user>` per fence. Without delegation the kernel logs `[fence] resource limits off` once and runs the fences unlimited.
+Limits need the kernel process to run in a delegated cgroup: `Delegate=yes` on the systemd unit (`deploy/thetis-runtime.service` has it), or `systemd-run --user --scope -p Delegate=yes node bin/thetis.js serve` for a development run. `Cgroups.detect` in `packages/sandbox/src/cgroup.ts` moves the kernel into a child group, enables the controllers for siblings, and creates `fence-<user>` per fence. Without delegation the kernel logs `[fence] resource limits off` once and runs the fences unlimited.
 
 ### 3.4 The launch gate
 

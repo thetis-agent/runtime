@@ -11,11 +11,11 @@
 | **Data directory** | `$THETIS_HOME`. Holds the config, users, registry, and userspaces. |
 | **Enumerator** | The component that produces the step list for a turn. The default is kernel code. A package can replace it. |
 | **Fence** | The boundary around one userspace. Also the interface `Fence` and its implementation `ProcessFence`. |
-| **Fence pool** | The class `FencePool`. One open fence per userspace. |
+| **Fence pool** | The class `FencePool` in `@thetis/sandbox`. One open fence per userspace. The kernel sees it as the interface `Fences`. |
 | **Gateway** | A package that exposes an endpoint. It uses the session API only. |
 | **Harness** | The variable `harness`. Per-session state that packages own. Also, broadly, the prompt, tools, memory, and subagents around the model. |
 | **Home** | The directory `<userspace>/home`. The working directory of tools and steps. |
-| **Kernel** | The package `@thetis/kernel`. The trusted service plane. |
+| **Kernel** | The package `@thetis/kernel`. The part of the trusted service plane that decides who may do what. `@thetis/host` wires it; `@thetis/sandbox` builds its fences; `@thetis/lib` holds its mechanism; `@thetis/contracts` holds its types. |
 | **Kernel client** | The object `env.kernel` inside a fence. Its methods become RPC calls to the kernel. |
 | **Manifest** | The `package.json` of a package, including the `thetis` field. |
 | **Message** | One entry of a conversation: `{ role, content, toolCalls?, toolCallId?, name? }`. |

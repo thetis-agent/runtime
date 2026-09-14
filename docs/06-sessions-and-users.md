@@ -55,7 +55,7 @@ A suspended user cannot create sessions, send turns, inspect sessions, or list s
 
 ## 2. Userspaces
 
-`UserspaceManager` in `src/userspaces.ts` gives the paths:
+`UserspaceLayout` in `packages/lib/src/userspace-layout.ts` gives the paths:
 
 ```
 $THETIS_HOME/userspaces/<user id>/     root
@@ -73,7 +73,7 @@ $THETIS_HOME/userspaces/<user id>/     root
 
 ## 3. Sessions
 
-A session is one conversation with its harness state. `SessionStore` in `src/sessions/store.ts` writes each session to `<userspace>/sessions/<id>.json`.
+A session is one conversation with its harness state. `SessionApi` in `packages/kernel/src/sessions/api.ts` writes each session through a `JsonDirStore` to `<userspace>/sessions/<id>.json`.
 
 ```ts
 interface SessionRecord {

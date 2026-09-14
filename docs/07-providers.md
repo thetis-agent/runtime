@@ -111,4 +111,4 @@ Model ids are OpenRouter ids, for example `anthropic/claude-sonnet-5`. The defau
 4. For a user provider: install it from a conversation or with `thetis packages install <path> --user <id>`.
 5. Set `config.model` or `call.model` to a model id the provider serves.
 
-The test fixture `packages/kernel/test/fixtures/provider-echo` is a complete minimal provider.
+The test fixture `packages/host/test/fixtures/provider-echo` is a complete minimal provider.
