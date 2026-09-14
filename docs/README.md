@@ -23,6 +23,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [17-control-panel.md](17-control-panel.md) | The control panel of the web gateway: sections, routes, and the role checks. |
 | [18-marketplace.md](18-marketplace.md) | Registries, the marketplace service, the index file, search, and install. |
 | [19-exa.md](19-exa.md) | The Exa tools: web search, contents, summaries, answers, research runs, and the configuration key. |
+| [20-tools.md](20-tools.md) | The tools the model works with: bounded file tools, the plan, and questions for the person. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
 
 ## Conventions in these documents

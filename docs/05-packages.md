@@ -234,7 +234,7 @@ The kernel finds a system package by name. It scans every directory in `systemPa
 
 The model performs this cycle with the tools of `@thetis/tool-exec`:
 
-1. `write_file` writes `packages/<name>/package.json` and `packages/<name>/index.js` under the home directory.
+1. `write_path` writes `packages/<name>/package.json` and `packages/<name>/index.js` under the home directory.
 2. `exec` runs `node` to test the module.
 3. `install_package` with `source: "packages/<name>"` installs it.
 4. On the next turn the new steps run and the new tools are attached.

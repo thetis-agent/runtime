@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo",
-    "test": "npm run build && node --test \"packages/*/dist/test/**/*.test.js\"",
+    "test": "npm run build && node --test \"packages/*/dist/test/**/*.test.js\" \"packages/*/test/**/*.test.js\"",
     "thetis": "node bin/thetis.js"
   },
   "devDependencies": {

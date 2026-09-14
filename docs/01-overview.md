@@ -63,7 +63,7 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Harness | `@thetis/harness-core` | Each user's fence | Limits history. Builds the system prompt. Attaches tools. |
 | Prompt cache | `@thetis/prompt-cache` | Each user's fence (step); the provider (library) | Advises the provider on caching. Records prefix diagnostics. |
 | Marketplace | `@thetis/marketplace` | System userspace fence | Mirrors the registries. Writes the index the control panel searches. |
-| Tools | `@thetis/tool-exec` | Each user's fence | `exec`, `read_file`, `write_file`, `install_package`, `uninstall_package`, `spawn_subagent`. |
+| Tools | `@thetis/tool-exec`, `@thetis/tools-files`, `@thetis/tools-plan` | Each user's fence | `exec`, `install_package`, `uninstall_package`, `spawn_subagent`; `read_path`, `edit_path`, `write_path`, `search_files`, `find_files`, `get_directory`; `todo_*`, `ask_user`. See [20-tools.md](20-tools.md). |
 | Gateway | `@thetis/gateway-cli` | Host process | The `thetis` command. Uses the session API only. Starts the door under `serve`. |
 | Web gateway | `@thetis/gateway-web` | Each person's fence | The browser interface of one person, on a unix socket. |
 | Login | `@thetis/gateway-login` | System userspace fence | Password to cookie. |
