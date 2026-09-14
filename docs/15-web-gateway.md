@@ -168,7 +168,7 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 
 | File | Content |
 |---|---|
-| `src/index.ts` | `startService(env)`: listens on `run/web.sock` for the user in `THETIS_USER`, returns `{ stop }`. |
+| `src/index.ts` | `startService(env)`: listens on `run/web.sock` for the user in `THETIS_USER`, returns `{ stop }`. `stop` closes every open connection, because an event stream never ends on its own and an uninstall would otherwise wait for it. |
 | `src/server.ts` | `createGateway(kernel, store, { user, base, env })`: routes under `base`, the cookie check, static files, the event stream. `kernel` is a `KernelClient`. |
 | `src/panel.ts`, `src/http.ts` | The control panel routes and the HTTP helpers. See [17-control-panel.md](17-control-panel.md). |
 | `src/turns.ts` | `TurnHub`. |
