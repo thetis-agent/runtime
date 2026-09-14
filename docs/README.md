@@ -22,6 +22,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [16-prompt-cache.md](16-prompt-cache.md) | Prompt caching: the policy, the breakpoints, the hint, the diagnostics, and the rules for package authors. |
 | [17-control-panel.md](17-control-panel.md) | The control panel of the web gateway: sections, routes, and the role checks. |
 | [18-marketplace.md](18-marketplace.md) | Registries, the marketplace service, the index file, search, and install. |
+| [19-exa.md](19-exa.md) | The Exa tools: web search, contents, summaries, answers, research runs, and the configuration key. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
 
 ## Conventions in these documents

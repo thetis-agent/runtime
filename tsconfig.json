@@ -33,6 +33,9 @@
     },
     {
       "path": "packages/gateway-web"
+    },
+    {
+      "path": "packages/exa"
     }
   ]
 }

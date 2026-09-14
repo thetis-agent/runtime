@@ -83,6 +83,7 @@ Known keys:
 | `@thetis/marketplace` | `registries`, `refreshMinutes` | The registries to mirror. See [18-marketplace.md](18-marketplace.md). |
 | `@thetis/gateway-web` | none | Runs in each person's fence on a unix socket. See [15-web-gateway.md](15-web-gateway.md). |
 | `@thetis/gateway-login` | `secure` | Adds `Secure` to the login cookie. Set it when TLS terminates in front of the door. |
+| `@thetis/exa` | `apiKey`, `baseUrl`, `timeoutMs`, `defaults` | The Exa API key and the tool defaults. See [19-exa.md](19-exa.md). |
 
 ## 5. Changing the configuration
 
