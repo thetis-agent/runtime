@@ -35,7 +35,7 @@ The descriptions the model reads say, for each file tool, to prefer it over `cat
 
 ## 3. The plan tools
 
-The plan of a conversation is `plans/<session id>.json` in the home. Every plan tool returns the whole rendered plan, one item per line, then a tally:
+The plan of a conversation is `plans/<session id>.json` in the home. Every plan tool returns the whole rendered plan, one item per line, then a tally. The web page reads that result: a `todo_*` call draws one quiet line in the transcript and the chat bar's `todo done/total` chip opens the plan as a list ([15-web-gateway.md](15-web-gateway.md) section 1).
 
 ```
 [x] t-1 Read the failing test
