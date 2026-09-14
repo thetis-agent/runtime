@@ -22,7 +22,7 @@ $THETIS_HOME/
 2. Read `thetis.config.json` when it exists. Copy its top-level fields over the defaults. The `fence` object is merged one level deep.
 3. Replace every `${NAME}` in every string with `env[NAME]`. A missing variable becomes an empty string.
 
-`saveConfig` writes the config without `home`, `systemPackagesDir`, `agentPath`, `fence.readOnly`, and `fence.hidden`. Those fields are derived from `projectRoot` at load time. The saved file stays valid when the checkout moves.
+`saveConfig` writes the config without `home`, `systemPackagesDir`, `promotedPackagesDir`, `agentPath`, `fence.readOnly`, and `fence.hidden`. Those fields are derived from `projectRoot` at load time. The saved file stays valid when the checkout moves.
 
 ## 3. Fields
 
@@ -30,6 +30,7 @@ $THETIS_HOME/
 |---|---|---|---|
 | `home` | string | the `home` argument | The data directory. Derived. |
 | `systemPackagesDir` | string | `<root>/packages` | Where the kernel looks for `@thetis/*` packages. Derived. |
+| `promotedPackagesDir` | string | `<home>/packages` | Where promoted packages live. Derived. Bound read-only into every fence. See [05-packages.md](05-packages.md) section 14. |
 | `agentPath` | string | `<root>/packages/userspace-agent/dist/src/agent.js` | The agent the fence starts. Derived. |
 | `model` | string | `anthropic/claude-sonnet-5` | The initial `call.model` of every turn. |
 | `phases` | string[] | `["history","prompt","tools","call","after"]` | The phase order. |
@@ -48,7 +49,7 @@ Defaults for the object fields:
 ```json
 "systemPackages": {
   "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache"],
-  "_system": ["@thetis/provider-openrouter"]
+  "_system": ["@thetis/provider-openrouter", "@thetis/marketplace"]
 },
 "packages": {
   "@thetis/provider-openrouter": {
@@ -75,6 +76,7 @@ Known keys:
 | `@thetis/provider-openrouter` | `apiKey`, `baseUrl`, `headers`, `defaults`, `cache` | See [07-providers.md](07-providers.md) and [16-prompt-cache.md](16-prompt-cache.md). |
 | `@thetis/harness-core` | `historyWindow`, `historyKeep` | The window over the conversation: at most `historyWindow` messages (default 80); after an overflow, `historyWindow * historyKeep` remain (default 0.5). |
 | `@thetis/prompt-cache` | `ttl`, `systemTtl`, `anchorStride`, `maxBreakpoints`, `explicitVendors`, `overrides`, `enabled`, `diagnostics`, `affinity` | The hint and the diagnostics. See [16-prompt-cache.md](16-prompt-cache.md). |
+| `@thetis/marketplace` | `registries`, `refreshMinutes` | The registries to mirror. See [18-marketplace.md](18-marketplace.md). |
 | `@thetis/gateway-web` | `host`, `port`, `secure` | See [15-web-gateway.md](15-web-gateway.md). |
 
 ## 5. Changing the configuration

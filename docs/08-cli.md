@@ -51,6 +51,7 @@ thetis users passwd <id> [--password <text>]
 thetis packages list [--user <id>]
 thetis packages install <source> [--user <id>]
 thetis packages uninstall <name> [--user <id>]
+thetis packages promote <name> --user <id>
 thetis install <source> [--user <id>]
 thetis uninstall <name> [--user <id>]
 ```
@@ -103,6 +104,8 @@ thetis serve
 
 Runs the kernel until `SIGINT` or `SIGTERM`. It opens the control socket, arms the service supervisor, and starts every service that installed packages declare, in every userspace. See [05-packages.md](05-packages.md) section 13. Ctrl+C removes the socket, closes every fence, and stops every service. A second `serve` while one runs fails with `a thetis daemon is already running`. A stale socket file from a crash is replaced.
 
+`promote` makes a user's package the default for everyone: it becomes `@thetis/<basename>` and is installed into every userspace. Admin scope. See [05-packages.md](05-packages.md) section 14.
+
 ### 2.9 `models`
 
 ```
@@ -123,17 +126,31 @@ Prints every model id and its provider package, separated by a tab. Without `--u
 | `error` | A red line `error: <message>`. |
 | `step.start`, `step.end`, `usage` | Only with `--verbose`. |
 
-## 4. Option parsing
+## 4. Control methods
+
+The command line talks to a running kernel through the control socket with these methods. The web gateway reaches the same table for admins through `operator.<method>` over the fence RPC. `user` names the target user; it defaults to `_system`.
+
+| Method | Arguments | Effect |
+|---|---|---|
+| `ping` | | `pong`. |
+| `users.list`, `users.create`, `users.remove`, `users.setStatus`, `users.setRole`, `users.passwd` | `id`, `role`, `status`, `password` | User administration. |
+| `packages.list`, `packages.install`, `packages.uninstall` | `user`, `source`, `name`, `actor` | Package management in that user's userspace. `actor` names who installs; the ownership rules use the actor's role. The CLI sends `_system`; the operator channel sends the admin. |
+| `packages.promote` | `user`, `name` | Makes the package the default for everyone. Returns `{ name, userspaces }`. |
+| `config.get` | | The configuration with secrets replaced by `•••`. |
+| `models` | `user` | Every model the providers visible to that userspace serve. |
+| `sessions.create`, `sessions.list`, `sessions.inspect`, `sessions.cancel`, `sessions.send` | `user`, `session`, `input`, `parent` | Session operations. `sessions.send` streams the turn events. |
+
+## 5. Option parsing
 
 - `--key value` sets `key` to `value`.
 - `--key` followed by another `--` option or nothing sets `key` to `true`.
 - All other arguments are positional.
 
-## 5. Exit codes
+## 6. Exit codes
 
 The process exits with `1` and prints the error message when a command throws. All other cases exit with `0`. A turn error is printed as an event. It does not change the exit code.
 
-## 6. Trust model of the CLI
+## 7. Trust model of the CLI
 
 See [15-web-gateway.md](15-web-gateway.md) for the browser interface.
 

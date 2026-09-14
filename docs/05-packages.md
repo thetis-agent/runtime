@@ -137,7 +137,7 @@ Import types from `@thetis/kernel`: `PackageStepContext`, `Step`, `StepResult`, 
 
 | Scope | Owner | Install rule |
 |---|---|---|
-| `@thetis/*` | The system | Shipped in `<root>/packages`. An admin or the system user can install one into any userspace. |
+| `@thetis/*` | The system | Shipped in `<root>/packages`, or promoted into `$THETIS_HOME/packages`. An admin or the system user can install one into any userspace. |
 | `@<user>/*` | That user | Only that user can install it, and only into that user's userspace. |
 
 `PackageManager.checkOwnership` enforces the rule. The error code is `unauthorized`.
@@ -149,7 +149,7 @@ Import types from `@thetis/kernel`: `PackageStepContext`, `Step`, `StepResult`, 
 | Source | Detection | Action |
 |---|---|---|
 | System name | `@thetis/<name>` with no further `/` | Link the shipped package. Requires role `admin` or `system`. |
-| Git URL | Starts with `http://`, `https://`, `git@`, `git://`, or `ssh://`, or ends with `.git` | `git clone --depth 1` into `<store>/src/<slug>` inside the fence. |
+| Git URL | Starts with `http://`, `https://`, `git@`, `git://`, `ssh://`, or `file://`, or ends with `.git`. An optional `#<dir>` names a directory inside the repository. | `git clone --depth 1` into `<store>/src/<slug>` inside the fence. With `#<dir>`, the package is `<slug>/<dir>`. A `dir` that leaves the clone is refused with the code `unauthorized`. |
 | Local path | Anything else | Resolve relative to the userspace home. The path must stay inside the userspace root. |
 
 ## 6. The install procedure
@@ -220,7 +220,7 @@ The configuration field `systemPackages` lists the packages that the kernel link
 
 `"*"` applies to every userspace. A user id applies to that userspace only. `PackageManager.seedSystem` runs when a userspace is created and when a userspace has no packages.
 
-The kernel finds a system package by name. It scans every directory in `systemPackagesDir` (default `<root>/packages`) and reads the `name` field of each `package.json`.
+The kernel finds a system package by name. It scans every directory in `systemPackagesDir` (default `<root>/packages`) and then in `promotedPackagesDir` (default `$THETIS_HOME/packages`), and reads the `name` field of each `package.json`.
 
 ## 11. Uninstall
 
@@ -264,3 +264,20 @@ export async function startService(env) {
 A one-shot CLI command never arms the supervisor. `thetis send` does not start a gateway.
 
 `publish` is recorded and not enforced. The process fence shares the host network, so a port bound by a service is reachable on the host. See [12-security.md](12-security.md).
+
+## 14. Promote: make a package the default for everyone
+
+An admin can make a user's package a system package. The control method is `packages.promote { user, name }`. The command is `thetis packages promote <name> --user <id>`. The web gateway offers it in the control panel as **Make it the default for everyone**.
+
+`PackageManager.promote(us, name)`:
+
+1. The package must be recorded for `user`, owned by `user`, and not a system package. Otherwise the code is `invalid`.
+2. The package directory is copied to `$THETIS_HOME/packages/<basename>`, with its built `node_modules`. A target that exists is refused.
+3. The `name` in the copied `package.json` becomes `@thetis/<basename>`.
+4. The name is added to `systemPackages["*"]` and the configuration file is saved.
+
+The control handler then removes the owner's original `@<user>/<basename>` and installs `@thetis/<basename>` into every existing userspace. New userspaces get it from `systemPackages["*"]`. Services the package declares start at once when the supervisor is armed.
+
+The promoted directory is bound read-only into every fence, after `$THETIS_HOME` is hidden. See [03-fence.md](03-fence.md).
+
+**Caution:** promotion copies the package as it is. A later change to the owner's source does not reach the promoted copy. Promote again under a new name, or edit the copy in `$THETIS_HOME/packages` on the host.

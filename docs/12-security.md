@@ -12,7 +12,7 @@ The kernel treats every value from a fence as untrusted input. It validates step
 
 ## 2. What the fence enforces (mode `bwrap`)
 
-- Filesystem: the agent writes only inside its userspace root. The operating system, `<root>/packages`, and `<root>/node_modules` are read-only. `$THETIS_HOME` is masked. `/home` and the host `/tmp` are not visible.
+- Filesystem: the agent writes only inside its userspace root. The operating system, `<root>/packages`, `<root>/node_modules`, and `$THETIS_HOME/packages` (the promoted packages) are read-only. The rest of `$THETIS_HOME` is masked. `/home` and the host `/tmp` are not visible.
 - Processes: the agent has its own PID namespace. It cannot see or signal host processes. It dies with the kernel.
 - IPC and hostname: separate namespaces.
 - Environment: only the variables listed in [03-fence.md](03-fence.md) section 3.2. The kernel's environment, including `OPENROUTER_API_KEY`, does not reach any fence.
@@ -33,6 +33,8 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 - Every session API call runs `users.authorize(id)`. Unknown and suspended users are rejected.
 - A session is found only in the caller's own userspace directory.
 - RPC from a fence runs as the userspace's own user. A fence cannot name another user. The system userspace is the exception: it may pass `as` and call `auth.*`, because a system gateway serves every user. Code installed there is trusted to that extent.
+- The system userspace may call an operator method (`operator.<method>`, the table of the control socket) only with `as` set to an admin. The kernel checks the role on every call. A gateway that hides a button is a courtesy, not the gate.
+- `packages.*` from the system userspace with `as` acts for that user: the target is that user's userspace, and the ownership rules apply to that user.
 - A user installs only into scope `@<own id>/*`. Only admins install `@thetis/*`.
 - A local install path must resolve inside the userspace root. `..` escapes are rejected.
 - A package enumerator can schedule only steps that installed packages declare.

@@ -23,11 +23,11 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | No network namespace | Port collisions between users. Reachability of host services. | `ProcessFence.spawn`: add `--unshare-net` and an egress path for providers. |
 | No quotas | One user can exhaust the host. | Fence implementation. |
 | No port publishing | `publish` is recorded and ignored. A service is reachable because the fence shares the host network, not because of a grant. | Service plane forwarder (L4), once the network is namespaced. |
-| No package sharing | A `@user/*` package cannot be given to another user. | `PackageRegistry` share operation plus a copy or link into the target store. |
+| No package sharing between named users | A `@user/*` package can be made the default for everyone (`packages.promote`), not given to one other user. | `PackageRegistry` share operation plus a link into the target store. |
 | Archive flags are gateway state | They live in the system userspace home. The CLI does not see them. | Acceptable. A session metadata field in the kernel would share them. |
 | No enumerator package shipped | The default plan is kernel code. | Write `@thetis/enumerator-default` and set `config.enumerator`. |
 | Gateway runs on the host | `@thetis/gateway-cli` is not fenced. | Acceptable for a CLI. A network gateway must run in the system userspace. |
-| Git installs untested | Regression risk. | Add an e2e case with a local bare repository. |
+| Marketplace registries are cloned whole | A large registry costs a full shallow clone per refresh and per install. | Sparse checkout, or an index published by the registry itself. |
 | Conversation grows without bound | Large session files. `call.messages` is bounded by `trimHistory`; the saved conversation is not. | A `memory` package that summarizes into `harness`, written so the prefix of the call stays append-only. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
 | Cache accounting is per reply only | No per-session or per-user totals. | A gateway or a service package that sums the `usage` of the `message` events. |
 | Subagent turns block the parent tool call | Long subagent tasks hit `requestTimeoutMs`. | Background sessions with a poll or a notify RPC. |
@@ -40,7 +40,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 2. **A memory package.** A `history` step that summarizes old messages into `harness.summary` and an `after` step that updates it. Keeps sessions usable for long.
 3. **Network isolation.** `--unshare-net` plus a per-userspace egress proxy for provider calls, or move to a microVM.
 4. **Quotas.** cgroups for the process fence, or the microVM limits.
-5. **Package sharing.** Registry share operation and `@thetis/*` promotion.
+5. **Package sharing with a named user.** Registry share operation. Promotion to `@thetis/*` exists.
 6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change.
 7. **Cache keep-alive and a native Anthropic provider.** See [16-prompt-cache.md](16-prompt-cache.md) section 11.
 

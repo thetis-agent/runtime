@@ -20,6 +20,9 @@
       "path": "packages/tool-exec"
     },
     {
+      "path": "packages/marketplace"
+    },
+    {
       "path": "packages/gateway-cli"
     },
     {

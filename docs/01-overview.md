@@ -36,6 +36,7 @@ runtime/                 <root>. Git repository. npm workspace root.
     provider-openrouter/ @thetis/provider-openrouter. Provider package.
     harness-core/        @thetis/harness-core. Default prompt and tool attachment.
     prompt-cache/        @thetis/prompt-cache. Prompt caching policy, planner, wire adapters, diagnostics.
+    marketplace/         @thetis/marketplace. Mirrors package registries and writes the search index.
     tool-exec/           @thetis/tool-exec. Code execution and package install tools.
     gateway-cli/         @thetis/gateway-cli. The command-line gateway.
     gateway-web/         @thetis/gateway-web. The web gateway.
@@ -52,6 +53,7 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Provider | `@thetis/provider-openrouter` | System userspace fence | Sends calls to OpenRouter. Streams the reply. |
 | Harness | `@thetis/harness-core` | Each user's fence | Limits history. Builds the system prompt. Attaches tools. |
 | Prompt cache | `@thetis/prompt-cache` | Each user's fence (step); the provider (library) | Advises the provider on caching. Records prefix diagnostics. |
+| Marketplace | `@thetis/marketplace` | System userspace fence | Mirrors the registries. Writes the index the control panel searches. |
 | Tools | `@thetis/tool-exec` | Each user's fence | `exec`, `read_file`, `write_file`, `install_package`, `uninstall_package`, `spawn_subagent`. |
 | Gateway | `@thetis/gateway-cli` | Host process | The `thetis` command. Uses the session API only. |
 | Gateway | `@thetis/gateway-web` | System userspace fence | A browser interface. A `service` package started by `thetis serve`. See [15-web-gateway.md](15-web-gateway.md). |

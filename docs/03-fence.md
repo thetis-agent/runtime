@@ -70,8 +70,8 @@ The kernel does not pass its own environment. Secrets in the host environment do
 In mode `bwrap` the kernel starts `bwrap` with these arguments, in this order:
 
 1. `--dev /dev`, `--proc /proc`, `--tmpfs /tmp`.
-2. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`.
-3. `--tmpfs <path>` for each path in `fence.hidden`. The default hides `$THETIS_HOME`.
+2. `--tmpfs <path>` for each path in `fence.hidden`. The default hides `$THETIS_HOME`. This comes before the read-only binds, so a bind inside a hidden path still shows: the promoted packages directory `$THETIS_HOME/packages` is such a bind.
+3. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`.
 4. `--bind <userspace root> <userspace root>` and `--chdir <userspace home>`.
 5. `--unshare-pid`, `--unshare-ipc`, `--unshare-uts`, `--die-with-parent`, `--new-session`.
 6. `--setenv` for each variable in section 3.2.

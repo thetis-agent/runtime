@@ -21,7 +21,7 @@ interface UserRecord {
 | `admin` | All rights of `user`. Can install `@thetis/*` packages into any userspace. |
 | `system` | The user `_system` only. Owns the system userspace. Cannot be changed or removed. |
 
-**Note:** The kernel does not check the role of a gateway caller. The CLI trusts `--user`. A network gateway authenticates with `AuthService`. See section 7.
+**Note:** The kernel does not check the role of a gateway caller for session calls. The CLI trusts `--user`. A network gateway authenticates with `AuthService`. See section 7. The kernel does check the role for operator methods and for `@thetis/*` installs: see [12-security.md](12-security.md) section 4.
 
 ### 1.2 The system user
 
