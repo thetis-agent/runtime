@@ -47,6 +47,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `export` | string | The factory export of a provider or the function export of an enumerator. Default `createProvider` for providers. |
 | `service` | `{ export }` | A long-running process. The userspace agent starts the export when the fence opens under `thetis serve`. See section 13. |
 | `publish` | array | Declared ports. The kernel records the field. It does not act on it yet. |
+| `forkedFrom` | `{ name, version }` | Set on a fork. Installing the fork replaces the named package when it is installed in the same userspace. See section 16. |
 
 `validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install.
 
@@ -201,6 +202,8 @@ The registry is the file `$THETIS_HOME/registry.json`. It is in the service plan
 
 `kind` is `system`, `local`, or `git`. `ref` is the system directory, the local path relative to home, or the git URL. `userspaces` lists where the package is installed. A record with no userspaces is deleted.
 
+A fork's record also carries `forkedFrom` (from its manifest), `replaced` (the package it displaced), and `replacedSource` (where that package was installed from). See section 16.
+
 ## 9. Reading installed packages
 
 `PackageManager.installed(userspace)` returns the packages in registry order. For each record it reads the live manifest from the store link. When the link is dead:
@@ -228,7 +231,9 @@ The kernel finds a system package by name. It scans every directory in `systemPa
 
 ## 11. Uninstall
 
-`PackageManager.uninstall(userspace, name)` removes the store link and the registry entry for that userspace. It does not delete the package files. It does not stop processes.
+`PackageManager.uninstall(userspace, name)` stops the package's service, removes the store link, and removes the registry entry for that userspace. It does not delete the package files. When the record carries `replaced`, the displaced package comes back in the same call. See section 16.
+
+`PackageManager.delete(userspace, name)` uninstalls a package in the userspace's own scope and deletes its directory. The package must be a local package under the home directory. `@thetis/*` packages and anything outside the home are refused with the code `unauthorized`.
 
 ## 12. Lifecycle from a conversation
 
@@ -240,6 +245,8 @@ The model performs this cycle with the tools of `@thetis/tool-exec`:
 4. On the next turn the new steps run and the new tools are attached.
 
 The test `test/e2e.test.ts` verifies this cycle.
+
+To change a package that is already installed, the model uses `fork_package`, edits the copy, and installs it. See section 16.
 
 ## 13. Services
 
@@ -293,3 +300,74 @@ An admin can install a package for every person, now and later. The control meth
 - Any other source is installed for the admin first. A `@thetis/*` package from a registry is then linked into every person. A package in the admin's own scope is promoted (section 14), which covers every new person through the promoted directory.
 
 The system userspace is never included: it is not a person.
+
+## 16. Forks
+
+A fork is a copy of an installed package under the person's own scope. It runs in place of the original.
+
+### 16.1 The tool
+
+`fork_package` in `@thetis/tool-exec` takes `name` (an installed package, such as `@thetis/tools-plan`) and `as` (the directory name under `packages/` in the home; default the unscoped name). It:
+
+1. Copies the package's root, without `node_modules`, to `packages/<as>` under the home.
+2. Rewrites the copy's `package.json`:
+
+| Field | Change |
+|---|---|
+| `name` | `@<user>/<as>`. |
+| `version` | `<origin version>-fork.1`. When a package named `@<user>/<as>` is already installed with a version `<origin version>-fork.N`, the copy gets `fork.N+1`. |
+| `scripts` | Removed. |
+| `devDependencies` | Removed. |
+| `dependencies` | A dependency the original resolves is linked into the copy's `node_modules` and removed from the field. The rest stay, and install runs `npm install` for them. |
+| `thetis.forkedFrom` | `{ name, version }` of the original. |
+| everything else | Kept. |
+
+3. Returns the path, the original's name and version, the steps, tools and service the copy carries, and the next step: edit, then `install_package` with `source: "packages/<as>"`.
+
+The tool does not install. It refuses a package that is not installed in the caller's userspace and a target directory that exists.
+
+The mechanism is `forkPackage` in `@thetis/lib/pkg-fs`. The tool is thin.
+
+### 16.2 The replace rule
+
+`PackageManager.install` applies one rule: when the manifest carries `forkedFrom` and that package is installed in the same userspace, the fork replaces it in one operation.
+
+1. The original's service stops.
+2. The original's link and registry entry go.
+3. The fork's link comes. Its record gets `replaced` and `replacedSource`.
+4. The fork's service starts.
+
+Tool names and sockets never clash: the original is gone before the fork is live. When the original is not installed, the fork installs like any package.
+
+The ownership rules do not change. A person forks into `@<user>/*`. A promoted package that carries `forkedFrom` replaces its original in each userspace it is installed into, so an admin brings a fork under `@thetis/*` through promote (section 14), not through install. `seedSystem` does not apply the rule.
+
+### 16.3 The restore rule
+
+`PackageManager.uninstall` of a record with `replaced` puts the original back in the same call:
+
+- a `@thetis/*` system package is installed by name;
+- any other package is linked again from its recorded source and recorded for the userspace.
+
+The original's service starts when the supervisor is armed.
+
+### 16.4 Delete
+
+`delete_package` in `@thetis/tool-exec` takes `name`. It calls `PackageManager.delete`: the package is uninstalled, which restores the original when it was a fork, and its directory under `packages/` in the home is deleted. It returns what was removed and what came back. Only packages in the caller's own scope, installed from under the home, can be deleted. `uninstall_package` keeps its meaning: the link goes, the files stay.
+
+The control panel offers **Delete** beside **Remove** on a package of the person's own. See [17-control-panel.md](17-control-panel.md).
+
+### 16.5 TypeScript packages
+
+A shipped TypeScript package cannot rebuild inside a fence: the compiler is a development dependency, and the fence has no network. The fork therefore carries the built `dist/` and runs it as it is. The `main` field still points at `dist/src/index.js`. To change such a fork, edit the JavaScript in `dist/`, or build outside the fence and copy the result in.
+
+### 16.6 Example
+
+```
+fork_package { name: "@thetis/tools-plan" }
+  -> forked @thetis/tools-plan@0.1.0 to packages/tools-plan as @alice/tools-plan@0.1.0-fork.1; tools: todo_write, ...
+edit_path { path: "packages/tools-plan/index.js", ... }
+install_package { source: "packages/tools-plan" }
+  -> installed @alice/tools-plan@0.1.0-fork.1 (tool); tools: ...; replaced @thetis/tools-plan. Live on the next turn.
+delete_package { name: "@alice/tools-plan" }
+  -> deleted @alice/tools-plan and its files at .../packages/tools-plan; @thetis/tools-plan is back in place.
+```

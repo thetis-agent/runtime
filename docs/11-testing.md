@@ -59,6 +59,8 @@ The `after` hook shuts the kernel down and deletes the directory.
 | operator methods | Alice's handler is refused. An admin's handler lists users, another person's packages, and the journal. |
 | promote | The promoted package is in the promoted directory and every userspace; the configuration file is untouched; bob's fence can read it. |
 | suspended users | `create` fails for a suspended user. |
+| fork | `fork_package` through the fence copies the promoted `@thetis/hello` to `packages/hello2` with `forkedFrom` and does not install it. `install_package` replaces the original: the tool is offered once, the record carries `forkedFrom` and `replaced`. A second fork of the same name and a fork of a package that is not installed are refused. `packages.uninstall` over RPC puts the original back and keeps the files. |
+| fork with a service | With the supervisor armed, installing a fork of a service package stops the original's service and starts the fork's, in that order. `delete_package` stops the fork, deletes its directory, restores the original and starts its service. `delete_package` refuses `@thetis/*`. |
 | fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory, and cannot write the shared directory; it can read the promoted packages. Skipped without `bwrap`. |
 
 ### 2.3 The fixture provider

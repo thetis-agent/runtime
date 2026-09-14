@@ -237,7 +237,8 @@ Code inside the fence reaches the kernel through `env.kernel`. Every method runs
 | Method | RPC method | Behavior |
 |---|---|---|
 | `kernel.packages.install(source)` | `packages.install` | Installs a package into this userspace. Returns `PackageInfo`. |
-| `kernel.packages.uninstall(name)` | `packages.uninstall` | Removes the package link and registry entry. Stops its service first. |
+| `kernel.packages.uninstall(name)` | `packages.uninstall` | Removes the package link and registry entry. Stops its service first. Puts back the package a fork replaced. |
+| `kernel.packages.delete(name)` | `packages.delete` | Uninstalls a package of this userspace's own scope and deletes its directory under the home. Returns `{ name, path, restored? }`. |
 | `kernel.packages.list()` | `packages.list` | Returns the installed packages. |
 | `kernel.sessions.create(parent?, as?)` | `sessions.create` | Creates a session. Returns a session reference. |
 | `kernel.sessions.ask(session, input, as?)` | `sessions.ask` | Runs one turn to completion. Returns the final assistant text. |

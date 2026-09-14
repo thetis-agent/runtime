@@ -41,7 +41,7 @@ Every other package imports `@thetis/contracts` for its types. Only `@thetis/hos
 | `src/services.ts` | `ServiceSupervisor` | Starts and stops the services that packages declare. |
 | `src/packages/manifest.ts` | `readManifest`, `validateManifest`, `scopeOf`, `toInfo`, `declaresStep` | Manifest validation. |
 | `src/packages/registry.ts` | `PackageRegistry` | The service-plane record of packages. |
-| `src/packages/manager.ts` | `PackageManager` | Ownership and peer checks, seeding, promotion, install and uninstall orchestration, registry recording. |
+| `src/packages/manager.ts` | `PackageManager` | Ownership and peer checks, seeding, promotion, install and uninstall orchestration, the fork replace and restore rules, delete, registry recording. |
 | `src/providers.ts` | `ProviderRegistry` | Provider discovery, model resolution, provider calls. |
 | `src/sessions/api.ts` | `SessionApi`, `SESSION_ID` | The session API for gateways. Every call is authorized against a user. |
 | `src/pipeline/enumerator.ts` | `Enumerator`, `BUILTIN_CALL`, `isBuiltin` | Builds and validates the step list. |
@@ -57,7 +57,7 @@ Every other package imports `@thetis/contracts` for its types. Only `@thetis/hos
 |---|---|
 | `src/messages.ts` | `Message`, `ToolCall`, `ToolSpec`, `ProviderCall`, `ProviderEvent`, `ModelDescriptor`, `ModelChoices`. |
 | `src/pipeline.ts` | `StepRef`, `StepContext`, `StepResult`, `TurnEvent`, `TurnOptions`, `KERNEL_PACKAGE`, `PROVIDER_CALL_STEP`. |
-| `src/packages.ts` | `Manifest`, `ThetisField`, `PackageInfo`, `PackageRecord`, `SYSTEM_SCOPE`. |
+| `src/packages.ts` | `Manifest`, `ThetisField`, `ForkOrigin`, `PackageSource`, `PackageInfo`, `PackageRecord`, `DeletedPackage`, `SYSTEM_SCOPE`. |
 | `src/identity.ts` | `UserRecord`, `AuthUser`, `Userspace`, `SessionRecord`, `SessionSummaryRef`, `SYSTEM_USER`. |
 | `src/guest.ts` | What package code sees: `KernelClient`, `PackageQuery`, `StepEnv`, `Step`, `Tool`, `ToolEnv`, `Service`, `ServiceEnv`, `Provider`, `EnumeratorContext`. |
 | `src/fence.ts` | `Fence`, `FenceHandle`, `Fences`, `KernelRpc`, `EventSink`, `ExecResult`. |
@@ -78,7 +78,7 @@ Each module is a subpath export: `import { newId } from "@thetis/lib/ids"`.
 | `rpc-frames` | `PendingCalls`, `callHandler`, `readFrames`, `encodeFrame`. The `{ id, method, args }` framing. |
 | `ndjson-socket` | `RpcSocketServer`, `connectRpcSocket`. The framing over a Unix socket. |
 | `userspace-layout` | `UserspaceLayout`: `pathFor`, `exists`, `ensure`, `remove`. |
-| `pkg-fs` | `splitSource`, `isGitSource`, `cloneCommand`, `buildCommand`, `isInside`, `linkDir`, `removeLink`, `copyPackageAs`. |
+| `pkg-fs` | `splitSource`, `isGitSource`, `cloneCommand`, `buildCommand`, `isInside`, `linkDir`, `removeLink`, `copyPackageAs`, `findDependency`, `forkVersion`, `forkPackage`. |
 | `crypto` | `randomHex`, `scryptHex`. |
 
 ### 3.4 `@thetis/sandbox`
@@ -178,7 +178,7 @@ The test `packages/kernel/test/loc.test.ts` counts the lines in `packages/kernel
 - `import` statements, including multi-line imports;
 - re-export statements (`export * from`, `export { ... } from`).
 
-The test fails when the count is 1,200 or more. The test prints a per-file table. At the end of the MVP the count was 1,200 under the old limit of 2,000. After the split into contracts, lib, sandbox, kernel, and host it is 1,075.
+The test fails when the count is 1,200 or more. The test prints a per-file table. At the end of the MVP the count was 1,200 under the old limit of 2,000. After the split into contracts, lib, sandbox, kernel, and host it was 1,075. With package forks it is 1,117.
 
 To keep the count low:
 

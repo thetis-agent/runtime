@@ -8,7 +8,7 @@ The server names the sections a person can use. The browser draws only those.
 
 | Section | Who | Content |
 |---|---|---|
-| Packages | Everyone | One table of everything known here, one row per name: what is installed for the person (Only me, Everyone) and what the registries offer (Available). What each package brings. Install for yourself, add from a source, remove. An admin can pick whose packages to see, install for another person, install for everyone, and make a person's package the default for everyone. See [18-marketplace.md](18-marketplace.md). |
+| Packages | Everyone | One table of everything known here, one row per name: what is installed for the person (Only me, Everyone) and what the registries offer (Available). What each package brings. A fork carries a badge `fork of <name> <version>`. Install for yourself, add from a source, remove, delete a package of your own with its files. An admin can pick whose packages to see, install for another person, install for everyone, and make a person's package the default for everyone. See [18-marketplace.md](18-marketplace.md). |
 | People | Admins | Who can sign in. Add a person, change the role, suspend or activate, set a password, remove. |
 | Models | Admins | The default model and the models every provider in the system userspace serves. Read-only. |
 | Activity | Admins | The kernel's journal, newest first: who did what, turns, services. A filter by kind. See [12-security.md](12-security.md) section 9. |
@@ -35,7 +35,8 @@ All routes are under the person's prefix, `/<user>/api/...`, and need the login 
 | `GET /api/panel` | any | `{ user, role, sections }`. |
 | `GET /api/packages` | any | The person's packages as rows. See section 4. |
 | `POST /api/packages` `{ source }` | any | Installs into the person's own userspace. `201` with the row. `source` is a path under home, a git URL, `url#dir`, or, for admins, `@thetis/<name>`. |
-| `DELETE /api/packages/<name>` | any | Removes the package from the person's own userspace. |
+| `DELETE /api/packages/<name>` | any | Removes the package from the person's own userspace. The files stay. A fork's original comes back. |
+| `DELETE /api/packages/<name>?files=1` | any | Deletes the package: removes it and its directory under the home. Only for the person's own scope; `403` for `@thetis/*`. Returns `{ name, path, restored? }`. |
 | `GET /api/marketplace?q=&type=` | any | `{ updatedAt, registries, total, results }` from the index. `404` when no index exists; the Packages table then shows installed packages only. |
 | `GET /api/admin/users` | admin | All user records. |
 | `POST /api/admin/users` `{ id, role?, password? }` | admin | Creates the user. Sets the password when given. |
@@ -64,11 +65,13 @@ Errors carry a plain sentence in `{ error }`. Kernel codes map to statuses as in
 
 `scope` is `everyone` when every person gets the package (it is in `systemPackages["*"]`, promoted, or marked for everyone; the kernel reports this as `everyone` on the package) and `me` otherwise. A shipped `@thetis/*` package one person installed for themselves is `me`. The browser reads these fields by name.
 
+A fork's row also carries `forkedFrom` (`{ name, version }`) and, when the fork displaced that package here, `replaced` (its name). The row shows the badge `fork of @thetis/tools-plan 0.1.0`. The card lists **forked from** and **replaces**. A package in the person's own scope, seen from their own setup, gets a **Delete** button beside **Remove**. Its confirm popover states the name, what it was forked from, what comes back, and that the files under `packages/` go too. The admin's view of another person shows the badge and no Delete. See [05-packages.md](05-packages.md) section 16.
+
 ## 5. How the gateway reaches the kernel
 
 The gateway holds a `KernelClient` inside the system fence. Three calls carry the panel:
 
-- `kernel.packages.list()`, `install(source)`, `uninstall(name)`: the person's own packages. Identity is the fence.
+- `kernel.packages.list()`, `install(source)`, `uninstall(name)`, `delete(name)`: the person's own packages. Identity is the fence.
 - `kernel.operator.call(method, args)`: a control method, allowed when the fence's user is an admin. The kernel records that user as the actor. The method table is the one the command line uses. See [08-cli.md](08-cli.md) section 4.
 - `readIndex` and `search` from `@thetis/marketplace`, over the shared directory the gateway's environment names.
 
@@ -86,6 +89,6 @@ The gateway imports `@thetis/marketplace` for the index file and the search. Not
 
 ## 7. Tests
 
-`packages/gateway-web/test/gateway.test.ts` has a third user `root` with role `admin`. The cases: sections follow the role and admin routes are refused for a user; people are added, changed, and removed, and the journal says so; a person installs their own package, an admin promotes it, everyone gets it, and an admin installs a shipped package for everyone, which a person created afterwards is seeded with; the marketplace search reads the index and a missing index is a `404`.
+`packages/gateway-web/test/gateway.test.ts` has a third user `root` with role `admin`. The cases: sections follow the role and admin routes are refused for a user; people are added, changed, and removed, and the journal says so; a person installs their own package, an admin promotes it, everyone gets it, and an admin installs a shipped package for everyone, which a person created afterwards is seeded with; a fork's row says what it replaced, delete with files puts the original back, and a shipped package is refused; the marketplace search reads the index and a missing index is a `404`.
 
 The browser code has no automated test. Check it by hand: open the panel as an admin and as a user.

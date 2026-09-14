@@ -6,9 +6,9 @@ The model works through tools. Three shipped packages provide them, and every pe
 |---|---|---|
 | `@thetis/tools-files` | `read_path`, `edit_path`, `write_path`, `search_files`, `find_files`, `get_directory` | Files in the person's home, bounded and path-contained. |
 | `@thetis/tools-plan` | `todo_write`, `todo_add`, `todo_mark`, `todo_order`, `todo_read`, `ask_user` | A plan per conversation, and questions for the person. |
-| `@thetis/tool-exec` | `exec`, `install_package`, `uninstall_package`, `spawn_subagent` | The shell, packages, and subagents. |
+| `@thetis/tool-exec` | `exec`, `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `spawn_subagent` | The shell, packages, forks, and subagents. |
 
-Both tool packages are plain ECMAScript modules with no build step and no dependencies. `@thetis/tools-files` and `@thetis/tools-plan` were written by Thetis itself from a brief, tested, and then reviewed and shipped; see section 5.
+`@thetis/tools-files` and `@thetis/tools-plan` are plain ECMAScript modules with no build step and no dependencies. `@thetis/tool-exec` is TypeScript and imports `@thetis/lib/pkg-fs` for the fork mechanism. `@thetis/tools-files` and `@thetis/tools-plan` were written by Thetis itself from a brief, tested, and then reviewed and shipped; see section 5.
 
 ## 1. Rules every file tool follows
 
@@ -51,6 +51,15 @@ The plan of a conversation is `plans/<session id>.json` in the home. Every plan 
 | `todo_mark` | `ids`, `stage` (`pending`, `active`, `done`, `dropped`) | Only one item is active at a time. Marking a second one active returns the previous one to pending, and the reply says so. |
 | `todo_order` | `ids` | The listed ids come first in that order; the rest keep their relative order after them. |
 | `todo_read` | none | The plan as it is. |
+
+## 3.1 The package tools
+
+| Tool | Arguments | Effect |
+|---|---|---|
+| `install_package` | `source` | Installs from a path under the home, a git URL, or `url#dir`. A fork replaces its original. See [05-packages.md](05-packages.md) section 16. |
+| `uninstall_package` | `name` | Removes the link. The files stay. A fork's original comes back. |
+| `fork_package` | `name`, `as` (optional) | Copies an installed package to `packages/<as>` as `@<you>/<as>`, ready to edit. Does not install. |
+| `delete_package` | `name` | Uninstalls a package of your own scope and deletes its directory under `packages/`. Refuses `@thetis/*`. |
 
 ## 4. Questions for the person
 
