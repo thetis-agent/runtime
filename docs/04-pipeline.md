@@ -135,7 +135,7 @@ Whatever the provider call did before it stopped stays in the conversation: ever
 1. Copy `ctx.conversation` into a local list.
 2. Build `call` from `ctx.call`. When `call.messages` is empty, use a copy of the conversation. Otherwise keep `call.messages` as the steps built it.
 3. Resolve a provider for `call.model`. See [07-providers.md](07-providers.md).
-4. Repeat at most `config.maxToolRounds + 1` times:
+4. Repeat at most `config.maxToolRounds + 1` times. When the model still asks for tools after the last round, the turn ends with an `error` event of code `rounds` (`the turn reached its limit of 40 tool rounds; send a message to continue`); the work so far is kept, as in section 5.2, and the next message continues from it:
    1. Send `call` to the provider. Collect text deltas and tool calls. Emit `text`, `tool.call`, and `usage` events.
    2. When the provider emitted an `error` event, fail with the code `provider`.
    3. Build the assistant message `{ role: "assistant", content, toolCalls? }`. Append it to the conversation and to `call.messages`. Emit `message`.
