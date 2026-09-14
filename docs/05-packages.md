@@ -218,7 +218,7 @@ The configuration field `systemPackages` lists the packages that the kernel link
 { "*": ["@thetis/harness-core", "@thetis/tool-exec"], "_system": ["@thetis/provider-openrouter"] }
 ```
 
-`"*"` applies to every userspace. A user id applies to that userspace only. `PackageManager.seedSystem` runs when a userspace is created and when a userspace has no packages.
+`"*"` applies to every person's userspace, together with every promoted package. A user id applies to that userspace only. The system userspace `_system` gets only its own list: it is not a person. `PackageManager.seedSystem` runs when a userspace is created and when a userspace has no packages.
 
 The kernel finds a system package by name. It scans every directory in `systemPackagesDir` (default `<root>/packages`) and then in `promotedPackagesDir` (default `$THETIS_HOME/packages`), and reads the `name` field of each `package.json`.
 
@@ -274,9 +274,8 @@ An admin can make a user's package a system package. The control method is `pack
 1. The package must be recorded for `user`, owned by `user`, and not a system package. Otherwise the code is `invalid`.
 2. The package directory is copied to `$THETIS_HOME/packages/<basename>`, with its built `node_modules`. A target that exists is refused.
 3. The `name` in the copied `package.json` becomes `@thetis/<basename>`.
-4. The name is added to `systemPackages["*"]` and the configuration file is saved.
 
-The control handler then removes the owner's original `@<user>/<basename>` and installs `@thetis/<basename>` into every existing userspace. New userspaces get it from `systemPackages["*"]`. Services the package declares start at once when the supervisor is armed.
+The control handler then removes the owner's original `@<user>/<basename>` and installs `@thetis/<basename>` into every existing userspace. New userspaces get it because `seedSystem` links every package in the promoted directory. The configuration file is never written by the kernel. Services the package declares start at once when the supervisor is armed.
 
 The promoted directory is bound read-only into every fence, after `$THETIS_HOME` is hidden. See [03-fence.md](03-fence.md).
 

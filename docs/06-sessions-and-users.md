@@ -21,7 +21,7 @@ interface UserRecord {
 | `admin` | All rights of `user`. Can install `@thetis/*` packages into any userspace. |
 | `system` | The user `_system` only. Owns the system userspace. Cannot be changed or removed. |
 
-**Note:** The kernel does not check the role of a gateway caller for session calls. The CLI trusts `--user`. A network gateway authenticates with `AuthService`. See section 7. The kernel does check the role for operator methods and for `@thetis/*` installs: see [12-security.md](12-security.md) section 4.
+**Note:** Over the fence RPC, identity is the fence: a call acts as the userspace's own user, and no argument can name another user. The CLI trusts `--user` on the control socket. A network gateway runs in the person's own fence and resolves the login cookie with `auth.authenticate`, which the kernel answers only for that person. The kernel checks the role for operator methods and for `@thetis/*` installs: see [12-security.md](12-security.md) section 4.
 
 ### 1.2 The system user
 
@@ -65,7 +65,11 @@ $THETIS_HOME/userspaces/<user id>/     root
   sessions/<session id>.json            session records
 ```
 
-`SessionApi.userspaceFor(user)` creates the directories on first use and seeds the system packages.
+`SessionApi.userspaceFor(user)` creates the directories on first use and seeds the system packages. `ServiceSupervisor.ensure(id)` does the same at boot for every active user and when an operator creates a user, so a person's gateway runs before their first visit.
+
+```
+  run/                                  unix sockets of this userspace's services
+```
 
 ## 3. Sessions
 

@@ -39,7 +39,9 @@ runtime/                 <root>. Git repository. npm workspace root.
     marketplace/         @thetis/marketplace. Mirrors package registries and writes the search index.
     tool-exec/           @thetis/tool-exec. Code execution and package install tools.
     gateway-cli/         @thetis/gateway-cli. The command-line gateway.
-    gateway-web/         @thetis/gateway-web. The web gateway.
+    gateway-web/         @thetis/gateway-web. A person's web gateway, in their own fence.
+    gateway-login/       @thetis/gateway-login. The login target, in the system userspace.
+    door/                @thetis/door. The reverse proxy on the host port; a library the CLI uses.
 ```
 
 **Note:** The submodule URL in `.gitmodules` is `./packages`. Set it to the real remote URL of the packages repository before you push. Run `git submodule update --init` after a fresh clone of `runtime`.
@@ -55,7 +57,10 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Prompt cache | `@thetis/prompt-cache` | Each user's fence (step); the provider (library) | Advises the provider on caching. Records prefix diagnostics. |
 | Marketplace | `@thetis/marketplace` | System userspace fence | Mirrors the registries. Writes the index the control panel searches. |
 | Tools | `@thetis/tool-exec` | Each user's fence | `exec`, `read_file`, `write_file`, `install_package`, `uninstall_package`, `spawn_subagent`. |
-| Gateway | `@thetis/gateway-cli` | Host process | The `thetis` command. Uses the session API only. |
+| Gateway | `@thetis/gateway-cli` | Host process | The `thetis` command. Uses the session API only. Starts the door under `serve`. |
+| Web gateway | `@thetis/gateway-web` | Each person's fence | The browser interface of one person, on a unix socket. |
+| Login | `@thetis/gateway-login` | System userspace fence | Password to cookie. |
+| Door | `@thetis/door` | Host process | The one port; routes to the login target and to each person's socket. |
 | Gateway | `@thetis/gateway-web` | System userspace fence | A browser interface. A `service` package started by `thetis serve`. See [15-web-gateway.md](15-web-gateway.md). |
 
 ## 4. The two planes

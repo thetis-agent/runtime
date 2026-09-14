@@ -23,6 +23,12 @@
       "path": "packages/marketplace"
     },
     {
+      "path": "packages/door"
+    },
+    {
+      "path": "packages/gateway-login"
+    },
+    {
       "path": "packages/gateway-cli"
     },
     {

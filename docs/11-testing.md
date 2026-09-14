@@ -9,7 +9,7 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 | `test/loc.test.ts` | Guard | Counts kernel lines of code. Fails at 2,000 or more. Prints a per-file table. |
 | `test/unit.test.ts` | Unit | Container, user store, auth service, manifest validation, enumerator plan and validation, async queue. |
 | `test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
-| `packages/gateway-web/test/gateway.test.ts` | End-to-end | The web gateway over HTTP, in-process and inside the system fence. See [15-web-gateway.md](15-web-gateway.md) section 10. |
+| `packages/gateway-web/test/gateway.test.ts` | End-to-end | The door, the login target, and one gateway per person, in-process and then inside real fences. See [15-web-gateway.md](15-web-gateway.md) section 10. |
 | `packages/prompt-cache/test/*.test.ts` | Unit | The planner, the policy and hint rules, both wire adapters, usage normalization, the fingerprint diagnosis, and the step. |
 | `packages/harness-core/test/history.test.ts` | Unit | The history window: the cut holds while the window fills and jumps on overflow. |
 
@@ -40,9 +40,11 @@ The `after` hook shuts the kernel down and deletes the directory.
 | cancel mid-stream | `cancel` during a `slow:` reply ends the turn with the code `cancelled`. The partial text is saved as an assistant message. The session is idle and accepts the next turn. |
 | cancel a tool | `cancel` during `run: sleep 30` kills the process. The turn ends in under 10 seconds. |
 | control socket | A raw client pings, lists users, creates a session, streams a turn with `sessions.send`, and receives error codes. The socket file is removed on close. |
-| rpc scoping | Alice's handler refuses `as` and `auth.*`. The system handler lists bob's sessions with `as` and streams a turn for alice through `sessions.send`. |
+| rpc identity | Alice's handler cannot log in. The system handler logs alice in. Alice's handler resolves her token; bob's handler gets `null` for it and cannot revoke it. A turn streams through alice's own handler. |
+| operator methods | Alice's handler is refused. An admin's handler lists users, another person's packages, and the journal. |
+| promote | The promoted package is in the promoted directory and every userspace; the configuration file is untouched; bob's fence can read it. |
 | suspended users | `create` fails for a suspended user. |
-| fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory. Skipped without `bwrap`. |
+| fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory, and cannot write the shared directory; it can read the promoted packages. Skipped without `bwrap`. |
 
 ### 2.3 The fixture provider
 

@@ -32,13 +32,13 @@ A registry holds packages at its first or second directory level. Each package d
 "systemPackages": { "_system": ["@thetis/provider-openrouter", "@thetis/marketplace"] }
 ```
 
-`startService` refreshes on start and every `refreshMinutes`. A refresh clones each registry with `git clone --depth 1` into `home/marketplace/repos/<slug>` through the fence's `exec`, reads every `package.json`, and writes the index. A registry that fails keeps the packages of its last successful refresh and records the error.
+`startService` refreshes on start and every `refreshMinutes`. A refresh clones each registry with `git clone --depth 1` into `home/marketplace/repos/<slug>` through the fence's `exec`, reads every `package.json`, and writes the index. A registry that fails keeps the packages of its last successful refresh and records the error. The system fence has network mode `egress`, so a remote registry is reachable.
 
 Install it into a running daemon with `thetis packages install @thetis/marketplace`. The log line `indexed N packages from M registries` confirms the first refresh.
 
 ## 3. The index file
 
-`home/marketplace/index.json` in the system userspace. This file is the contract. Any package or gateway in that userspace can read it by path.
+`<shared>/marketplace/index.json`, where `<shared>` is `$THETIS_HOME/shared`: the directory the system userspace writes and every fence reads ([03-fence.md](03-fence.md) section 3.7). Package code reaches it as `env.shared`. This file is the contract. Any package or gateway in any fence can read it by path.
 
 ```json
 {
@@ -71,7 +71,7 @@ The ownership rules apply. A `@thetis/*` package installs for an admin. A `@<use
 
 ## 6. Library
 
-The gateway imports three functions: `readIndex(env)`, `search(index, query, opts)`, and `refresh(env, registries)`. `env` is any object with `readFile`, `writeFile`, and `exec` rooted in the userspace home, which the agent's `StepEnv` is.
+The gateway imports two functions: `readIndex(env)` and `search(index, query, opts)`. The service uses `refresh(env, registries)`. `env` is any object with `shared`, `readFile`, `writeFile`, and `exec`, which the agent's `StepEnv` is. Only the system userspace can write the shared directory, so only the service refreshes.
 
 ## 7. Tests
 

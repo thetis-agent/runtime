@@ -8,6 +8,8 @@
 | npm | 11 or later | Workspaces. |
 | git | any | Git installs and the repositories. |
 | bubblewrap (`bwrap`) | any | The sandbox. Optional. Without it the fence runs in mode `none`. |
+| `slirp4netns`, `unshare` | any | Outbound-only networking for fences. Optional. Without `slirp4netns` the fence uses the host network. |
+| cgroup v2 | | Per-fence limits. Optional. Needs a delegated cgroup: `Delegate=yes` on the unit, or `systemd-run --user --scope -p Delegate=yes node bin/thetis.js serve`. |
 
 ## 2. Set up
 

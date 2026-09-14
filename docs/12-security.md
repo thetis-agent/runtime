@@ -5,16 +5,19 @@
 | Zone | Trust | Code that runs there |
 |---|---|---|
 | Service plane (the kernel process) | Trusted | `@thetis/kernel` and `@thetis/gateway-cli`. |
-| System userspace `_system` | Fenced. Holds service secrets. May act for any user over RPC. | System providers, system gateways such as `@thetis/gateway-web`, and any `@thetis/*` package installed there. |
-| User userspace | Fenced. Untrusted code. | The user's packages and the system packages linked into it. |
+| The door | Trusted, runs in the host process. Copies bytes; never authenticates. | `@thetis/door`, started by `thetis serve`. |
+| System userspace `_system` | Fenced. Holds service secrets. The only fence that may log people in. | System providers, the login target `@thetis/gateway-login`, the marketplace service, and any `@thetis/*` package installed there. |
+| User userspace | Fenced. Untrusted code. Holds that person's authority and nobody else's. | The person's packages, the system packages linked into it, and that person's own `@thetis/gateway-web`. |
 
 The kernel treats every value from a fence as untrusted input. It validates step results, enumerator plans, manifests, and RPC arguments.
 
 ## 2. What the fence enforces (mode `bwrap`)
 
-- Filesystem: the agent writes only inside its userspace root. The operating system, `<root>/packages`, `<root>/node_modules`, and `$THETIS_HOME/packages` (the promoted packages) are read-only. The rest of `$THETIS_HOME` is masked. `/home` and the host `/tmp` are not visible.
-- Processes: the agent has its own PID namespace. It cannot see or signal host processes. It dies with the kernel.
+- Filesystem: the agent writes only inside its userspace root and, for the system userspace, the shared directory. The operating system, `<root>/packages`, `<root>/node_modules`, `$THETIS_HOME/packages` (the promoted packages), and `$THETIS_HOME/shared` are read-only. The rest of `$THETIS_HOME` is masked. `/home` and the host `/tmp` are not visible.
+- Processes: the agent has its own user and PID namespaces, no capabilities, and cannot create a nested user namespace. It cannot see or signal host processes. It dies with the kernel.
 - IPC and hostname: separate namespaces.
+- Network, in mode `egress` (the default when `slirp4netns` is installed): a private network namespace with outbound NAT. The fence reaches the internet and the local network; it cannot reach the host's loopback and cannot bind a host port. Mode `none` gives no network at all.
+- Resources: memory, process count, and CPU per fence through cgroup v2, when the kernel runs in a delegated cgroup.
 - Environment: only the variables listed in [03-fence.md](03-fence.md) section 3.2. The kernel's environment, including `OPENROUTER_API_KEY`, does not reach any fence.
 - Configuration: a package receives only its own `config.packages[<name>]` entry. The provider key reaches only the system userspace.
 
@@ -22,8 +25,10 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
 ## 3. What the fence does not enforce
 
-- **Network.** The fence shares the host network namespace. Code in any userspace can reach any address the host can reach, including services on `localhost`. Ports bound by two users collide.
-- **Resource limits.** No CPU, memory, or disk quotas. A package can exhaust host resources.
+- **Network, in mode `host`.** Without `slirp4netns` the fence shares the host network namespace and can reach `localhost` services and bind host ports.
+- **Egress policy.** Mode `egress` is all-or-nothing: no per-package destination list. Routable machines on the local network stay reachable.
+- **Disk.** No disk quota. A package can fill the filesystem.
+- **Resource limits without delegation.** Without a delegated cgroup there are no memory, process, or CPU limits.
 - **Time limits on tools.** `exec` has a default timeout of 120000 milliseconds. A tool can pass a larger value.
 - **Mode `none`.** No isolation at all. The agent runs as the host user with full access.
 - **Kernel exploits.** `bwrap` is a user-namespace sandbox, not a virtual machine. The design target is a microVM per userspace.
@@ -32,9 +37,9 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
 - Every session API call runs `users.authorize(id)`. Unknown and suspended users are rejected.
 - A session is found only in the caller's own userspace directory.
-- RPC from a fence runs as the userspace's own user. A fence cannot name another user. The system userspace is the exception: it may pass `as` and call `auth.*`, because a system gateway serves every user. Code installed there is trusted to that extent.
-- The system userspace may call an operator method (`operator.<method>`, the table of the control socket) only with `as` set to an admin. The kernel checks the role on every call. A gateway that hides a button is a courtesy, not the gate.
-- `packages.*` from the system userspace with `as` acts for that user: the target is that user's userspace, and the ownership rules apply to that user.
+- RPC from a fence runs as the userspace's own user. No argument can name another user. There is no `as`.
+- `auth.login` is answered only for the system userspace. `auth.authenticate` and `auth.logout` are answered for any fence, but only when the token names that fence's own user; the system userspace may resolve any token.
+- A fence whose user is an admin may call operator methods (`operator.<method>`, the table of the control socket). The kernel checks the role on every call and records the fence's user as the actor. A gateway that hides a button is a courtesy, not the gate.
 - A user installs only into scope `@<own id>/*`. Only admins install `@thetis/*`.
 - A local install path must resolve inside the userspace root. `..` escapes are rejected.
 - A package enumerator can schedule only steps that installed packages declare.
@@ -42,18 +47,21 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
 ## 5. Authentication
 
-The kernel has none. The CLI trusts `--user`. Anyone who can run the CLI on the host is an operator. A network gateway must:
+The kernel holds passwords and login tokens: `AuthService` in the service plane ([06-sessions-and-users.md](06-sessions-and-users.md) section 7). The CLI trusts `--user`; anyone who can run the CLI on the host is an operator.
 
-1. Authenticate the caller.
-2. Map the caller to a user id.
-3. Call the session API with that id only.
+For browsers, three parts share the work and none of them holds more than it needs:
 
-The kernel holds the identity for this: `AuthService` keeps passwords and login tokens in the service plane ([06-sessions-and-users.md](06-sessions-and-users.md) section 7). `@thetis/gateway-web` exchanges a password for a token over RPC and keeps the token in a cookie. See [15-web-gateway.md](15-web-gateway.md) section 9. The cookie is `HttpOnly` and `SameSite=Strict`. It is `Secure` only with the `secure` configuration key. The server binds to `127.0.0.1` by default.
+1. **The door** on the host port routes by path prefix and never authenticates. A prefix is routing, not authority.
+2. **The login target** in the system userspace exchanges a password for a token, sets the cookie, and sends the browser to `/<person>/`.
+3. **The person's gateway** in that person's own fence resolves the cookie with `auth.authenticate`, which the kernel answers only when the token names that person. A cookie for someone else is a `401`, whatever the URL says.
+
+The cookie is `HttpOnly` and `SameSite=Strict`, `Path=/`. It is `Secure` with the login target's `secure` key. The door binds `127.0.0.1` by default. See [15-web-gateway.md](15-web-gateway.md).
 
 ## 6. Secrets
 
 - Passwords are scrypt hashes in `$THETIS_HOME/auth.json`, mode `0600`. No fence can read the file.
 - The control socket `$THETIS_HOME/thetis.sock` has mode `0600`. It gives operator rights to anyone who can open it, the same rights as running the CLI on the host.
+- The gateway sockets `<userspace>/run/*.sock` have mode `0660`. The door and the userspace's own code reach them; a fence cannot see another userspace's `run/`.
 - The OpenRouter key is in `<root>/.env`. `.gitignore` excludes it. The `thetis config` command prints the interpolated key.
 - The key was pasted into the conversation that created this project. Rotate it when the project leaves development.
 - The config file references the key as `${OPENROUTER_API_KEY}`. Do not write the literal key into the config file.
@@ -68,7 +76,20 @@ The kernel holds the identity for this: `AuthService` keeps passwords and login 
 
 ## 8. Recommendations before multi-tenant use
 
-1. Replace `ProcessFence` with a microVM fence, or add `--unshare-net` with an explicit egress proxy for provider calls.
-2. Add per-userspace quotas (cgroups or the microVM limits).
-3. Put TLS in front of the web gateway.
-4. Add a size limit for `conversation` and `harness` in `PipelineRunner.apply`.
+1. Put TLS in front of the door.
+2. Run the kernel in a delegated cgroup so the limits apply.
+3. Add a size limit for `conversation` and `harness` in `PipelineRunner.apply`.
+4. Consider a microVM fence for a stronger boundary than user namespaces.
+
+## 9. The journal
+
+`$THETIS_HOME/journal.jsonl` is the append-only record of what happened: one JSON object per line with `at`, `kind`, `actor`, `target`, and `data`. The kernel writes it; no fence can read it. It rolls to `journal.1.jsonl` past 16 MiB.
+
+| Kind | Actor | Target | Data |
+|---|---|---|---|
+| `user.create`, `user.remove`, `user.role`, `user.status`, `user.password` | the admin, or `operator` from the CLI | the user | `role`, `status` |
+| `package.install`, `package.uninstall`, `package.promote` | the admin or `operator` | the userspace | `name`, `version`, `source`, `promoted`, `userspaces` |
+| `turn.start`, `turn.end` | the person | the session | `turn`, `ms`, `error`, and `reported`: the usage the provider reported, summed |
+| `service.start`, `service.stop`, `service.fail` | (the kernel) | the userspace | `package`, `error` |
+
+`reported` values come from package code and are named so. Admins read the journal with `journal.tail` on the control socket or in the control panel's Activity section.

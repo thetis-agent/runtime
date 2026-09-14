@@ -7,10 +7,10 @@ The MVP defined in [ARCHITECTURE.md](ARCHITECTURE.md) section 2 is complete:
 | Component | State |
 |---|---|
 | Kernel | Config-driven pipeline, built-in provider call, session persistence. 1,210 counted lines. |
-| Fence | Process sandbox with bubblewrap. Filesystem and process isolation. No network isolation. |
+| Fence | Process sandbox with bubblewrap: filesystem, process, user, and network isolation; cgroup limits. |
 | Package manager | Scoped store per userspace. Install from a local path, a git URL, or a system name. |
 | Provider | `@thetis/provider-openrouter`. |
-| Gateway | `@thetis/gateway-cli` on the host. `@thetis/gateway-web` as a service package in the system userspace. |
+| Gateway | `@thetis/gateway-cli` on the host. `@thetis/gateway-web` in each person's fence, `@thetis/gateway-login` in the system userspace, `@thetis/door` on the host port. |
 | Tool | `@thetis/tool-exec`. |
 
 Verified: a user asked Thetis in a conversation to add a prompt step and a tool. Thetis wrote the package, tested it with `node`, installed it, and both were active on the next turn.
@@ -19,10 +19,10 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 
 | Gap | Effect | Where to fix |
 |---|---|---|
-| No microVM fence | Shared network and kernel with the host. | Implement `Fence`; rebind `T.fence`. |
-| No network namespace | Port collisions between users. Reachability of host services. | `ProcessFence.spawn`: add `--unshare-net` and an egress path for providers. |
-| No quotas | One user can exhaust the host. | Fence implementation. |
-| No port publishing | `publish` is recorded and ignored. A service is reachable because the fence shares the host network, not because of a grant. | Service plane forwarder (L4), once the network is namespaced. |
+| No microVM fence | User namespaces, not a virtual machine, separate a fence from the host kernel. | Implement `Fence`; rebind `T.fence`. |
+| No egress policy | A fence with `egress` reaches any address; there is no per-package destination list. | A policy in the egress helper, or a proxy. |
+| No disk quota | One user can fill the filesystem. | A quota per userspace root. |
+| `publish` unused | A service is reachable through the door by convention (`run/web.sock`), not through a `publish` grant. | Make the door read `publish` when a second kind of published socket exists. |
 | No package sharing between named users | A `@user/*` package can be made the default for everyone (`packages.promote`), not given to one other user. | `PackageRegistry` share operation plus a link into the target store. |
 | Archive flags are gateway state | They live in the system userspace home. The CLI does not see them. | Acceptable. A session metadata field in the kernel would share them. |
 | No enumerator package shipped | The default plan is kernel code. | Write `@thetis/enumerator-default` and set `config.enumerator`. |
@@ -38,8 +38,8 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 
 1. **`@thetis/enumerator-default` as a package.** Small. Proves the replaceable enumerator path end to end. Add an e2e case.
 2. **A memory package.** A `history` step that summarizes old messages into `harness.summary` and an `after` step that updates it. Keeps sessions usable for long.
-3. **Network isolation.** `--unshare-net` plus a per-userspace egress proxy for provider calls, or move to a microVM.
-4. **Quotas.** cgroups for the process fence, or the microVM limits.
+3. **Disk quotas.** cgroups cover memory, processes and CPU; disk is open.
+4. **Egress policy.** Per-package destinations for the `egress` network mode.
 5. **Package sharing with a named user.** Registry share operation. Promotion to `@thetis/*` exists.
 6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change.
 7. **Cache keep-alive and a native Anthropic provider.** See [16-prompt-cache.md](16-prompt-cache.md) section 11.

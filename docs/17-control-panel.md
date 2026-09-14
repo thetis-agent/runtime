@@ -9,9 +9,10 @@ The server names the sections a person can use. The browser draws only those.
 | Section | Who | Content |
 |---|---|---|
 | Packages | Everyone | What is installed for the person, what each package brings, add and remove. An admin can pick whose packages to see and can make a package the default for everyone. |
-| Marketplace | Everyone, when the gateway has a userspace environment | Search the index the marketplace service wrote. Install for yourself. An admin can install for another person and refresh the index. See [18-marketplace.md](18-marketplace.md). |
+| Marketplace | Everyone | Search the index the marketplace service wrote to the shared directory. Install for yourself. An admin can install for another person. See [18-marketplace.md](18-marketplace.md). |
 | People | Admins | Who can sign in. Add a person, change the role, suspend or activate, set a password, remove. |
 | Models | Admins | The default model and the models every provider in the system userspace serves. Read-only. |
+| Activity | Admins | The kernel's journal, newest first: who did what, turns, services. A filter by kind. See [12-security.md](12-security.md) section 9. |
 | Overview | Admins | The configuration as the kernel reports it, with secrets hidden. Read-only. |
 
 Words on screen follow the same rules as the rest of the interface. A package "runs for" **Only me** or **Everyone**. An admin does not "promote"; the button says **Make it the default for everyone**. The code and the API say `promote`.
@@ -21,14 +22,14 @@ Words on screen follow the same rules as the rest of the interface. A package "r
 A role check happens three times:
 
 1. The browser draws only the sections and buttons the server listed. This is a courtesy.
-2. The gateway refuses `/api/admin/*` and the marketplace refresh with `403` when the person's role is `user`.
-3. The kernel refuses every operator method unless the userspace is the system userspace and the `as` user is an admin. See [12-security.md](12-security.md) section 4.
+2. The gateway refuses `/api/admin/*` with `403` when the person's role is `user`.
+3. The kernel refuses every operator method unless the fence's own user is an admin. See [12-security.md](12-security.md) section 4.
 
-The gateway reads the role from `kernel.auth.authenticate`. It never trusts a role from the browser.
+The gateway reads the role from `kernel.auth.authenticate`, which the kernel answers only for the person the gateway serves. It never trusts a role from the browser.
 
 ## 3. Routes
 
-All routes need the login cookie. Non-GET routes need a same-site request. Package names in a path are URL-encoded as one segment, for example `/api/packages/%40alice%2Fhello`.
+All routes are under the person's prefix, `/<user>/api/...`, and need the login cookie of that person. Non-GET routes need a same-site request. Package names in a path are URL-encoded as one segment, for example `/alice/api/packages/%40alice%2Fhello`.
 
 | Route | Who | Effect |
 |---|---|---|
@@ -37,7 +38,6 @@ All routes need the login cookie. Non-GET routes need a same-site request. Packa
 | `POST /api/packages` `{ source }` | any | Installs into the person's own userspace. `201` with the row. `source` is a path under home, a git URL, `url#dir`, or, for admins, `@thetis/<name>`. |
 | `DELETE /api/packages/<name>` | any | Removes the package from the person's own userspace. |
 | `GET /api/marketplace?q=&type=` | any | `{ updatedAt, registries, total, results }`. `404` when no index exists. |
-| `POST /api/marketplace/refresh` | admin | Refreshes every registry the index names. |
 | `GET /api/admin/users` | admin | All user records. |
 | `POST /api/admin/users` `{ id, role?, password? }` | admin | Creates the user. Sets the password when given. |
 | `POST /api/admin/users/<id>/role` `{ role }` | admin | `user` or `admin`. Not for your own account. |
@@ -50,6 +50,7 @@ All routes need the login cookie. Non-GET routes need a same-site request. Packa
 | `POST /api/admin/packages/<name>/promote` `{ user }` | admin | Makes the person's package the default for everyone. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 14. |
 | `GET /api/admin/models` | admin | `{ model, models }`: the default model and what the providers serve. |
 | `GET /api/admin/config` | admin | The configuration with secrets replaced by `•••`. |
+| `GET /api/admin/journal?limit=&kind=` | admin | The newest journal rows. |
 
 An install builds inside the target person's fence. It can take minutes. The gateway does not time the request out; the fence request timeout applies.
 
@@ -67,9 +68,9 @@ Errors carry a plain sentence in `{ error }`. Kernel codes map to statuses as in
 
 The gateway holds a `KernelClient` inside the system fence. Three calls carry the panel:
 
-- `kernel.packages.list(as)`, `install(source, as)`, `uninstall(name, as)`: the person's own packages. The kernel resolves the person's userspace and applies the ownership rules.
-- `kernel.operator.call(method, { as, ...args })`: a control method for an admin. The method table is the one the command line uses. See [08-cli.md](08-cli.md) section 4.
-- `readIndex`, `search`, `refresh` from `@thetis/marketplace`, over the gateway's own userspace environment.
+- `kernel.packages.list()`, `install(source)`, `uninstall(name)`: the person's own packages. Identity is the fence.
+- `kernel.operator.call(method, args)`: a control method, allowed when the fence's user is an admin. The kernel records that user as the actor. The method table is the one the command line uses. See [08-cli.md](08-cli.md) section 4.
+- `readIndex` and `search` from `@thetis/marketplace`, over the shared directory the gateway's environment names.
 
 The gateway imports `@thetis/marketplace` for the index file and the search. Nothing else in the gateway imports a domain package. The browser imports nothing from the server.
 
@@ -80,7 +81,7 @@ The gateway imports `@thetis/marketplace` for the index file and the search. Not
 | `src/panel.ts` | The routes of section 3. |
 | `src/http.ts` | `HttpError`, `json`, `readJson`, `field`. |
 | `assets/views/panel.js` | The launcher, the shell, the navigation. |
-| `assets/views/panel-packages.js`, `panel-marketplace.js`, `panel-people.js`, `panel-models.js`, `panel-overview.js` | One section each. |
+| `assets/views/panel-packages.js`, `panel-marketplace.js`, `panel-people.js`, `panel-models.js`, `panel-activity.js`, `panel-overview.js` | One section each. |
 | `assets/lib/panel-ui.js` | Tables, badges, fields, buttons, the confirm popover, key/value lists. |
 
 ## 7. Tests

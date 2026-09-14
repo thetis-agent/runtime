@@ -22,7 +22,7 @@ $THETIS_HOME/
 2. Read `thetis.config.json` when it exists. Copy its top-level fields over the defaults. The `fence` object is merged one level deep.
 3. Replace every `${NAME}` in every string with `env[NAME]`. A missing variable becomes an empty string.
 
-`saveConfig` writes the config without `home`, `systemPackagesDir`, `promotedPackagesDir`, `agentPath`, `fence.readOnly`, and `fence.hidden`. Those fields are derived from `projectRoot` at load time. The saved file stays valid when the checkout moves.
+`saveConfig` writes the config without `home`, `systemPackagesDir`, `promotedPackagesDir`, `sharedDir`, `agentPath`, `fence.readOnly`, and `fence.hidden`. The kernel never calls it; only `thetis init` does. Those fields are derived from `projectRoot` at load time. The saved file stays valid when the checkout moves.
 
 ## 3. Fields
 
@@ -31,6 +31,8 @@ $THETIS_HOME/
 | `home` | string | the `home` argument | The data directory. Derived. |
 | `systemPackagesDir` | string | `<root>/packages` | Where the kernel looks for `@thetis/*` packages. Derived. |
 | `promotedPackagesDir` | string | `<home>/packages` | Where promoted packages live. Derived. Bound read-only into every fence. See [05-packages.md](05-packages.md) section 14. |
+| `sharedDir` | string | `<home>/shared` | Written by the system userspace, read by every fence. Derived. See [03-fence.md](03-fence.md) section 3.7. |
+| `door.host`, `door.port` | string, number | `127.0.0.1`, `8777` | The one host port. `thetis serve` binds it. See [15-web-gateway.md](15-web-gateway.md). |
 | `agentPath` | string | `<root>/packages/userspace-agent/dist/src/agent.js` | The agent the fence starts. Derived. |
 | `model` | string | `anthropic/claude-sonnet-5` | The initial `call.model` of every turn. |
 | `phases` | string[] | `["history","prompt","tools","call","after"]` | The phase order. |
@@ -39,6 +41,8 @@ $THETIS_HOME/
 | `systemPackages` | object | see below | System packages to link per userspace. Seeding runs when a userspace is created. An existing userspace gets a new system package with `thetis packages install @thetis/<name> --user <id>`. |
 | `packages` | object | see below | Per-package configuration. |
 | `fence.sandbox` | `auto`, `bwrap`, `none` | `auto` | The sandbox mode. |
+| `fence.network` | `auto`, `egress`, `none`, `host` | `auto` | What a fence can reach. See [03-fence.md](03-fence.md) section 3.2. |
+| `fence.limits` | `{ memoryMb, pids, cpuPercent }` | `1024`, `512`, `200` | Per-fence resource limits. Need a delegated cgroup. See [03-fence.md](03-fence.md) section 3.3. |
 | `fence.readOnly` | string[] | `[<root>/packages, <root>/node_modules]` | Extra read-only binds. Derived. |
 | `fence.hidden` | string[] | `[<home>]` | Paths masked with an empty tmpfs. Derived. |
 | `maxToolRounds` | number | `40` | Maximum tool rounds per provider call step. |
@@ -48,8 +52,8 @@ Defaults for the object fields:
 
 ```json
 "systemPackages": {
-  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache"],
-  "_system": ["@thetis/provider-openrouter", "@thetis/marketplace"]
+  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache", "@thetis/gateway-web"],
+  "_system": ["@thetis/provider-openrouter", "@thetis/gateway-login", "@thetis/marketplace"]
 },
 "packages": {
   "@thetis/provider-openrouter": {
@@ -77,7 +81,8 @@ Known keys:
 | `@thetis/harness-core` | `historyWindow`, `historyKeep` | The window over the conversation: at most `historyWindow` messages (default 80); after an overflow, `historyWindow * historyKeep` remain (default 0.5). |
 | `@thetis/prompt-cache` | `ttl`, `systemTtl`, `anchorStride`, `maxBreakpoints`, `explicitVendors`, `overrides`, `enabled`, `diagnostics`, `affinity` | The hint and the diagnostics. See [16-prompt-cache.md](16-prompt-cache.md). |
 | `@thetis/marketplace` | `registries`, `refreshMinutes` | The registries to mirror. See [18-marketplace.md](18-marketplace.md). |
-| `@thetis/gateway-web` | `host`, `port`, `secure` | See [15-web-gateway.md](15-web-gateway.md). |
+| `@thetis/gateway-web` | none | Runs in each person's fence on a unix socket. See [15-web-gateway.md](15-web-gateway.md). |
+| `@thetis/gateway-login` | `secure` | Adds `Secure` to the login cookie. Set it when TLS terminates in front of the door. |
 
 ## 5. Changing the configuration
 

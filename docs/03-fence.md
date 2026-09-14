@@ -43,13 +43,42 @@ The option `sandbox` has three values:
 |---|---|
 | `auto` | Use `bwrap` when the probe `bwrap --ro-bind / / --unshare-pid -- true` succeeds. Otherwise use `none`. |
 | `bwrap` | Always use bubblewrap. |
-| `none` | Start the agent directly with `cwd` set to the userspace home. No isolation. |
+| `none` | Start the agent directly with `cwd` set to the userspace home. No isolation, no limits, the host network. |
 
 `ProcessFence.mode` reports the resolved mode.
 
 **Caution:** In mode `none` the agent can read and write any file the host user can. Use `none` for development only.
 
-### 3.2 Environment variables of the agent
+### 3.2 Network modes
+
+The option `fence.network` decides what the fence can reach:
+
+| Value | Behavior |
+|---|---|
+| `auto` | `egress` when `/usr/bin/slirp4netns` exists and the sandbox is `bwrap`, else `host`. |
+| `egress` | A private network namespace with outbound NAT through `slirp4netns`. The fence can reach the internet and the local network. It cannot reach the host's loopback and cannot bind a host port. DNS goes to the helper at `10.0.2.3`. |
+| `none` | A private network namespace with no interface. |
+| `host` | The host's network namespace, as before. |
+
+`ProcessFence.networkMode` reports the resolved mode. In `egress` mode `unshare --map-root-user --net` creates the namespace before bubblewrap starts, because `slirp4netns` cannot enter a namespace bubblewrap made itself. The helper runs as a child of the kernel, is placed in the fence's cgroup, and stops with the fence.
+
+### 3.3 Resource limits
+
+`fence.limits` gives each fence a cgroup v2 group with `memory.max`, `memory.swap.max` 0, `pids.max`, and `cpu.max`:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `memoryMb` | 1024 | Memory of the fence and its helper. |
+| `pids` | 512 | Processes and threads. |
+| `cpuPercent` | 200 | CPU time; 100 is one core. |
+
+Limits need the kernel process to run in a delegated cgroup: `Delegate=yes` on the systemd unit (`deploy/thetis-runtime.service` has it), or `systemd-run --user --scope -p Delegate=yes node bin/thetis.js serve` for a development run. `Cgroups.detect` in `src/fence/cgroup.ts` moves the kernel into a child group, enables the controllers for siblings, and creates `fence-<user>` per fence. Without delegation the kernel logs `[fence] resource limits off` once and runs the fences unlimited.
+
+### 3.4 The launch gate
+
+The agent starts behind a gate. The kernel spawns `/bin/sh -c 'printf ready >&6; read -r go <&5 || exit 97; exec "$@"' sh bwrap ...`. The shell reports on descriptor 6 that its namespaces exist, the kernel places the process in its cgroup and, in `egress` mode, brings the network up, then writes to descriptor 5. Only then does bubblewrap run. A failure before the gate opens kills the process and fails the open with the code `fence`.
+
+### 3.5 Environment variables of the agent
 
 The kernel gives the agent this environment and nothing else:
 
@@ -58,35 +87,36 @@ The kernel gives the agent this environment and nothing else:
 | `PATH` | The directory of the running Node binary, then the host `PATH`. |
 | `HOME` | The userspace home directory. |
 | `LANG` | The host `LANG`, or `C.UTF-8`. |
-| `THETIS_USERSPACE` | The userspace root directory. |
-| `THETIS_HOME_DIR` | The userspace home directory. |
+| `THETIS_USERSPACE` | The userspace root. |
+| `THETIS_HOME_DIR` | The userspace home. |
+| `THETIS_STORE` | The package store. |
+| `THETIS_SHARED` | The shared directory. See section 3.7. |
 | `THETIS_USER` | The user id. |
-| `THETIS_STORE` | The userspace store directory. |
 
 The kernel does not pass its own environment. Secrets in the host environment do not reach the fence.
 
-### 3.3 Bubblewrap arguments
+### 3.6 The bubblewrap command
 
-In mode `bwrap` the kernel starts `bwrap` with these arguments, in this order:
+In mode `bwrap` the kernel builds the command in this order:
 
 1. `--dev /dev`, `--proc /proc`, `--tmpfs /tmp`.
-2. `--tmpfs <path>` for each path in `fence.hidden`. The default hides `$THETIS_HOME`. This comes before the read-only binds, so a bind inside a hidden path still shows: the promoted packages directory `$THETIS_HOME/packages` is such a bind.
-3. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`.
-4. `--bind <userspace root> <userspace root>` and `--chdir <userspace home>`.
-5. `--unshare-pid`, `--unshare-ipc`, `--unshare-uts`, `--die-with-parent`, `--new-session`.
-6. `--setenv` for each variable in section 3.2.
-7. `-- <node> <agent.js>`.
+2. `--tmpfs <path>` for each path in `fence.hidden`. The default hides `$THETIS_HOME`. This comes before the read-only binds, so a bind inside a hidden path still shows.
+3. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`. The defaults include `<root>/packages`, `<root>/node_modules`, and the promoted packages `$THETIS_HOME/packages`.
+4. The shared directory: `--bind` for the system userspace, `--ro-bind` for everyone else.
+5. In `egress` mode: `--ro-bind $THETIS_HOME/fence-resolv.conf /etc/resolv.conf`.
+6. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
+7. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts --cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
+8. `--setenv` for each variable of section 3.5.
 
-The result is:
+The agent sees the operating system read-only, its own userspace read-write, the shared directory, and the promoted packages. It does not see `$THETIS_HOME`, other userspaces, `/home`, or the host `/tmp`. It has no capabilities and cannot make a nested user namespace.
 
-- The agent sees the operating system read-only.
-- The agent sees `<root>/packages` and `<root>/node_modules` read-only. System packages load from there.
-- The agent sees its own userspace root read-write.
-- The agent does not see `$THETIS_HOME`, other userspaces, `/home`, or the host `/tmp`.
-- The agent has its own process table. The agent dies with the kernel.
-- The network is shared with the host. See [12-security.md](12-security.md).
+### 3.7 The shared directory
 
-**Note:** `bwrap` creates empty mount-point directories for the parents of a bind. The agent can list these empty directories. It cannot read their real content.
+`$THETIS_HOME/shared` is written by the system userspace and read by every fence. `@thetis/marketplace` writes its index there. Package code reaches it as `env.shared`. The kernel gives it no meaning.
+
+### 3.8 The `run` directory
+
+`<userspace>/run` holds the unix sockets a service of that userspace listens on. `@thetis/gateway-web` listens on `run/web.sock`; `@thetis/gateway-login` on `run/login.sock` in the system userspace. The door on the host connects to them. See [15-web-gateway.md](15-web-gateway.md).
 
 ## 4. The userspace agent
 

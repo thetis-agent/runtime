@@ -1,20 +1,28 @@
 # 15 Web gateway
 
-The package `@thetis/gateway-web` provides a browser interface. It is a `gateway` package with a `service` declaration. It is installed like any package and runs inside the system userspace. It reaches the kernel only through the fence's RPC. See [03-fence.md](03-fence.md) section 6.
+The browser interface is three packages and the door:
+
+| Part | Package | Where it runs | Function |
+|---|---|---|---|
+| The door | `@thetis/door` | The host process, started by `thetis serve` | Binds the one host port (`config.door`). Routes `/login`, `/logout`, and `/` to the login target and `/<person>/...` to that person's gateway socket. Copies bytes. Never authenticates. |
+| The login target | `@thetis/gateway-login` | The system userspace fence, on `run/login.sock` | Exchanges a password for a token, sets the cookie, sends the browser to `/<person>/`. Signs out. |
+| A person's gateway | `@thetis/gateway-web` | That person's own fence, on `run/web.sock` | Serves the page and the API under `/<person>/`. Holds that person's authority and nobody else's. |
+
+One gateway process per person costs one Node process per person. What it buys: a bug in a gateway reaches one person; a person can replace their own gateway package; a gateway binds a unix socket, never a port, so the fence keeps its private network namespace.
 
 ## 1. Functions
 
 | Function | How |
 |---|---|
-| Sign in and sign out | A password per user, set by an operator with `thetis users passwd`. A cookie holds the login token. The kernel owns both. See [06-sessions-and-users.md](06-sessions-and-users.md) section 7. |
+| Sign in and sign out | A password per user, set by an operator with `thetis users passwd` or by an admin in the control panel. The login target sets a cookie; the person's gateway checks it with the kernel. See section 9. |
 | List conversations | The sidebar. Most recent first. Search filters as you type. |
 | Archive a conversation | The row menu. Archived rows move to a section at the foot of the sidebar. The menu restores them. |
 | Start a conversation | The `+` button, or a message sent with no conversation open. |
 | Send a message | The composer. Enter sends. Shift+Enter adds a newline. |
 | See the reply as it streams | Text appears under a caret. A tool call opens a card. The result closes it. |
-| See a turn that runs in another tab, or after a reload | The page receives the turn in progress when it connects. See section 5. |
+| See a turn that runs in another tab, or after a reload | The page receives the turn in progress when it connects. See section 6. |
 | Stop a turn | The Stop button. The turn ends with the note "Turn stopped." Text streamed before the stop is kept. |
-| Manage packages, search the marketplace, and, for admins, people, models, and the configuration | The **Control panel** link in the sidebar footer. See [17-control-panel.md](17-control-panel.md). |
+| Manage packages, search the marketplace, and, for admins, people, models, activity, and the configuration | The **Control panel** link in the sidebar footer. See [17-control-panel.md](17-control-panel.md). |
 
 Subagent sessions are not listed. There is no rename, no delete, no model picker, and no file upload.
 
@@ -23,28 +31,28 @@ Subagent sessions are not listed. There is no rename, no delete, no model picker
 ```sh
 thetis users add alice
 thetis users passwd alice --password secret   # or: echo secret | thetis users passwd alice
-thetis install @thetis/gateway-web             # into the system userspace; needs an operator on the host
-thetis serve                                   # starts every installed service and waits
+thetis serve                                   # the door, the login target, and one gateway per person
 ```
 
-Open `http://127.0.0.1:8777`. `thetis serve` stops on Ctrl+C. It closes every fence, which stops every service.
+The defaults install `@thetis/gateway-login` into the system userspace and `@thetis/gateway-web` into every person's userspace (`systemPackages`, [09-configuration.md](09-configuration.md)). At boot `thetis serve` creates and seeds the userspace of every active user and starts their services, so `/alice/` answers before alice's first visit. A user added while the daemon runs gets the same at once.
 
-`thetis uninstall @thetis/gateway-web` stops the server when a `serve` process runs in the same kernel, and removes the package. See [08-cli.md](08-cli.md).
+Open `http://127.0.0.1:8777/login`. `thetis serve` stops on Ctrl+C. It closes every fence, which stops every service.
 
-While `thetis serve` runs, `thetis install` and `thetis uninstall` reach it through the control socket, so the service starts or stops at once. See [08-cli.md](08-cli.md).
+`thetis uninstall @thetis/gateway-web --user alice` stops alice's gateway when a `serve` process runs in the same kernel, and removes the package; the door then answers `/alice/` with `503`.
 
 ### 2.1 Deployment on this host
 
-`deploy/thetis-runtime.service` runs `thetis serve` as a systemd service under the checkout's user. Install it once:
+`deploy/thetis-runtime.service` runs `thetis serve` as a systemd service under the checkout's user, with `Delegate=yes` so the fences get their limits. Install it once:
 
 ```sh
 sudo cp deploy/thetis-runtime.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now thetis-runtime.service
-sudo systemctl disable thetis-web.service    # the previous front door, which also binds 8777 at boot
 ```
 
-Public TLS for `thetis.example.com` terminates at the Caddy on `10.0.0.10`, which forwards to this host at `10.0.0.20:8777`. The configuration for that is `{ "host": "10.0.0.20", "port": 8777, "secure": true }`. From this host, check through Caddy directly, because the route through the public address times out from inside the network:
+To move an existing deployment from the old single gateway to the door, run `deploy/migrate-to-door.sh` once. It installs the unit, restarts, removes the old gateway from the system userspace, installs the login target there, and installs a gateway for every existing person.
+
+Public TLS for `thetis.example.com` terminates at the Caddy on `10.0.0.10`, which forwards to this host at `10.0.0.20:8777`. The configuration is `door: { "host": "10.0.0.20", "port": 8777 }` and `packages["@thetis/gateway-login"]: { "secure": true }`. From this host, check through Caddy directly, because the route through the public address times out from inside the network:
 
 ```sh
 curl --resolve thetis.example.com:443:10.0.0.10 https://thetis.example.com/login
@@ -53,29 +61,34 @@ curl --resolve thetis.example.com:443:10.0.0.10 https://thetis.example.com/login
 ## 3. Configuration
 
 ```json
+"door": { "host": "127.0.0.1", "port": 8777 },
 "packages": {
-  "@thetis/gateway-web": { "host": "127.0.0.1", "port": 8777, "secure": false }
+  "@thetis/gateway-login": { "secure": false }
 }
 ```
 
 | Key | Default | Meaning |
 |---|---|---|
-| `host` | `127.0.0.1` | The bind address. |
-| `port` | `8777` | The port. The manifest declares `publish: [{ port: 8777, to: "host" }]`. The kernel records this and does not act on it. The fence shares the host network, so the port is reachable on the host. |
-| `secure` | `false` | Adds `Secure` to the cookie. Set it when TLS terminates in front of the gateway. |
+| `door.host` | `127.0.0.1` | The bind address of the door. |
+| `door.port` | `8777` | The port of the door. |
+| `@thetis/gateway-login`.`secure` | `false` | Adds `Secure` to the cookie. Set it when TLS terminates in front of the door. |
 
-**Caution:** `host: "0.0.0.0"` exposes the gateway to the network. The login cookie travels in clear text over HTTP. Put a TLS terminator in front of the gateway and set `secure` to `true`.
+`@thetis/gateway-web` has no configuration. It listens on `<userspace>/run/web.sock` and serves under `/<user>/`, both from `THETIS_USER`.
+
+**Caution:** `door.host: "0.0.0.0"` exposes the door to the network. The login cookie travels in clear text over HTTP. Put a TLS terminator in front of the door and set `secure` to `true`.
 
 ## 4. Files
 
-The gateway keeps UI state only: which conversations each user archived, and the usage each reply reported, keyed by the reply's index in the conversation. The file is `home/gateway-web/state.json` in the system userspace. The usage is recorded after a turn ends without an error; the transcript shows it as a header over the reply (`cached 96% · 2.5k in · 4 out · $0.0100`). The header reads the fields `cache_read_tokens`, `prompt_tokens`, `completion_tokens`, and `cost` by name. See [16-prompt-cache.md](16-prompt-cache.md) section 7.1. Credentials and tokens are the kernel's, in `$THETIS_HOME/auth.json`, which no fence can read.
+A gateway keeps UI state only: which conversations the person archived, and the usage each reply reported, keyed by the reply's index in the conversation. The file is `home/gateway-web/state.json` in the person's own userspace. The usage is recorded after a turn ends without an error; the transcript shows it as a header over the reply (`cached 96% · 2.5k in · 4 out · $0.0100`). The header reads the fields `cache_read_tokens`, `prompt_tokens`, `completion_tokens`, and `cost` by name. See [16-prompt-cache.md](16-prompt-cache.md) section 7.1. Credentials and tokens are the kernel's, in `$THETIS_HOME/auth.json`, which no fence can read.
 
 ## 5. HTTP routes
+
+The door serves `/login`, `/login/assets/*`, `/logout`, and `/` from the login target, and everything under `/<user>/` from that user's gateway. A path whose first segment is not a known, active person is `404`; a person whose gateway is not running is `503`. The routes below are the gateway's, relative to `/<user>`; the page uses `<base href="/<user>/">` and relative URLs.
 
 | Method and path | Effect |
 |---|---|
 | `GET /` | The app page. Redirects to `/login` without a valid cookie. |
-| `GET /login` | The sign-in page. |
+| `GET /login` | The sign-in page, from the login target. |
 | `POST /login` | Form fields `id`, `password`, `next`. Calls `auth.login`. On success: sets the cookie and redirects to `next`. On failure: redirects to `/login?error=refused`. With `Content-Type: application/json` the route answers JSON instead. |
 | `POST /logout` | Calls `auth.logout`. Clears the cookie. Redirects to `/login`. |
 | `GET /assets/<file>` | Static files from `packages/gateway-web/assets`. |
@@ -145,27 +158,30 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 
 | File | Content |
 |---|---|
-| `src/index.ts` | `startService(env)`: reads the configuration, starts the server, returns `{ stop }`. |
-| `src/server.ts` | `createGateway(kernel, store, opts)`: routes, cookie, static files, the event stream. `kernel` is a `KernelClient`. |
+| `src/index.ts` | `startService(env)`: listens on `run/web.sock` for the user in `THETIS_USER`, returns `{ stop }`. |
+| `src/server.ts` | `createGateway(kernel, store, { user, base, env })`: routes under `base`, the cookie check, static files, the event stream. `kernel` is a `KernelClient`. |
+| `src/panel.ts`, `src/http.ts` | The control panel routes and the HTTP helpers. See [17-control-panel.md](17-control-panel.md). |
 | `src/turns.ts` | `TurnHub`. |
 | `src/store.ts` | `GatewayStore`: archive flags and per-reply usage. `ArchiveStore` is the former name. |
 | `src/client.ts` | `clientFromRpc(rpc)`: the `KernelClient` shape over a raw RPC function, for tests and in-process hosts. |
-| `src/panel.ts`, `src/http.ts` | The control panel routes and the HTTP helpers. See [17-control-panel.md](17-control-panel.md). |
 | `assets/` | The browser code. Plain ECMAScript modules. No build step, no dependency. |
+| `packages/gateway-login/src/server.ts` | `createLogin(kernel, { secure })`: `/login`, `/logout`, `/`, and the login page's assets. |
+| `packages/door/src/index.ts` | `createDoor({ loginSocket, socketFor })`: the reverse proxy on the host port. |
 
-Browser modules: `app.js` wires the store, the views, and the event stream. `lib/store.js` holds `user`, `sessions`, `current`, `running`, `pending`, `creating`, `connection`. `lib/api.js` wraps `fetch` and `EventSource`; a `401` sends the page to `/login`. `lib/markdown.js` builds DOM nodes and never uses `innerHTML`. `views/sessions.js`, `views/transcript.js`, and `views/composer.js` are the conversation views; `views/panel*.js` and `lib/panel-ui.js` are the control panel.
+Browser modules: `app.js` wires the store, the views, and the event stream. `lib/store.js` holds `user`, `sessions`, `current`, `running`, `pending`, `creating`, `connection`, `panel`. `lib/api.js` wraps `fetch` and `EventSource` with paths relative to the page's `<base>`; a `401` sends the page to `/login`. `lib/markdown.js` builds DOM nodes and never uses `innerHTML`. `views/sessions.js`, `views/transcript.js`, and `views/composer.js` are the conversation views; `views/panel*.js` and `lib/panel-ui.js` are the control panel.
 
-The page is served with a Content Security Policy that allows only same-origin scripts, styles, and connections. Inline scripts and styles do not run.
+The page is served with a Content Security Policy that allows only same-origin scripts, styles, and connections. Inline scripts and styles do not run. `index.html` carries `<base href="{{base}}/">`; the server fills the placeholder with the person's prefix.
 
 ## 9. Trust model
 
-- The gateway is package code. It runs inside the system userspace fence, like a system provider. It cannot read `$THETIS_HOME`.
-- The kernel gives the system userspace two rights that no other fence has: `auth.*` methods, and an `as` argument that names the user a session call acts for. The gateway uses `as` only with the user id that `auth.authenticate` returned for the request's cookie. This is the system gateway of ARCHITECTURE.md section 8.1.
-- The kernel does not check roles for session calls. For the control panel the gateway checks the role, and the kernel checks it again on every operator method. See [17-control-panel.md](17-control-panel.md) section 2.
+- The door is host code. It routes by the first path segment and copies bytes. It never reads the cookie.
+- The login target is package code in the system userspace, the only fence the kernel lets call `auth.login`. It sees passwords once, on the way to the kernel, and never a conversation.
+- A person's gateway is package code in that person's fence. It reaches the kernel through the fence's RPC as that person. It cannot name another person, and the kernel answers `auth.authenticate` only for a token of that person, so a copied or guessed prefix changes nothing: bob's cookie at `/alice/` is a `401`.
+- The kernel does not check roles for session calls. For the control panel the gateway checks the role, and the kernel checks it again on every operator method, against the fence's own user. See [17-control-panel.md](17-control-panel.md) section 2.
 - Passwords are set by an operator on the host or by an admin in the control panel. There is no self-service registration or password change.
 
 ## 10. Tests
 
-`packages/gateway-web/test/gateway.test.ts` starts a real kernel with the echo provider fixture. Fourteen cases drive the server in-process through `createRpcHandler` for the system userspace: redirects and refusals without a cookie; login failure and success; a suspended user and a password change; create, list, send, and the stream of one turn; `409` on a busy session and cancel; the snapshot for a page that connects mid-turn; archive and restore; isolation between two users; refusal of a cross-site `POST`; logout; and the four control panel cases of [17-control-panel.md](17-control-panel.md) section 7. The last case installs `@thetis/gateway-web` into the system userspace, boots the supervisor, signs in and runs a turn through the service inside the fence, and checks that uninstall stops it. `npm test` runs all of them.
+`packages/gateway-web/test/gateway.test.ts` starts a real kernel with the echo provider fixture, then one gateway per person (`alice`, `bob`, and the admin `root`) on unix sockets over each person's own RPC handler, the login target over the system handler, and the door in front. Fourteen cases run through the door: redirects and refusals without a cookie and for a stranger; login refused and accepted, with `next` kept inside the person's prefix; a suspended person and a password change; create, list, send, and the stream of one turn; `409` on a busy session and cancel; the snapshot for a page that connects mid-turn; archive and restore; isolation, including bob's cookie at alice's gateway; refusal of a cross-site `POST`; logout; and the control panel cases of [17-control-panel.md](17-control-panel.md) section 7. The last case installs `@thetis/gateway-login` into the system userspace and `@thetis/gateway-web` into alice's, boots the supervisor, and drives the same path through a real door into the fences, then checks that uninstall stops alice's gateway. `npm test` runs all of them.
 
-The browser code has no automated test. Check it by hand: `thetis serve`, sign in, send a message, stop a turn, reload during a turn, archive a conversation.
+The browser code has no automated test. Check it by hand with a throwaway data directory: `THETIS_HOME=.devhome thetis init`, set `door.port`, add people, `thetis serve`, sign in, open the control panel as an admin and as a user.
