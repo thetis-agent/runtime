@@ -8,14 +8,13 @@ The server names the sections a person can use. The browser draws only those.
 
 | Section | Who | Content |
 |---|---|---|
-| Packages | Everyone | What is installed for the person, what each package brings, add and remove. An admin can pick whose packages to see and can make a package the default for everyone. |
-| Marketplace | Everyone | Search the index the marketplace service wrote to the shared directory. Install for yourself. An admin can install for another person. See [18-marketplace.md](18-marketplace.md). |
+| Packages | Everyone | One table of everything known here, one row per name: what is installed for the person (Only me, Everyone) and what the registries offer (Available). What each package brings. Install for yourself, add from a source, remove. An admin can pick whose packages to see, install for another person, install for everyone, and make a person's package the default for everyone. See [18-marketplace.md](18-marketplace.md). |
 | People | Admins | Who can sign in. Add a person, change the role, suspend or activate, set a password, remove. |
 | Models | Admins | The default model and the models every provider in the system userspace serves. Read-only. |
 | Activity | Admins | The kernel's journal, newest first: who did what, turns, services. A filter by kind. See [12-security.md](12-security.md) section 9. |
 | Overview | Admins | The configuration as the kernel reports it, with secrets hidden. Read-only. |
 
-Words on screen follow the same rules as the rest of the interface. A package "runs for" **Only me** or **Everyone**. An admin does not "promote"; the button says **Make it the default for everyone**. The code and the API say `promote`.
+Words on screen follow the same rules as the rest of the interface. A package's state is **Only me**, **Everyone**, or **Available**. An admin does not "promote"; the buttons say **Install for everyone** and **Make it the default for everyone**. The code and the API say `installEveryone` and `promote`.
 
 ## 2. The three checks
 
@@ -37,7 +36,7 @@ All routes are under the person's prefix, `/<user>/api/...`, and need the login 
 | `GET /api/packages` | any | The person's packages as rows. See section 4. |
 | `POST /api/packages` `{ source }` | any | Installs into the person's own userspace. `201` with the row. `source` is a path under home, a git URL, `url#dir`, or, for admins, `@thetis/<name>`. |
 | `DELETE /api/packages/<name>` | any | Removes the package from the person's own userspace. |
-| `GET /api/marketplace?q=&type=` | any | `{ updatedAt, registries, total, results }`. `404` when no index exists. |
+| `GET /api/marketplace?q=&type=` | any | `{ updatedAt, registries, total, results }` from the index. `404` when no index exists; the Packages table then shows installed packages only. |
 | `GET /api/admin/users` | admin | All user records. |
 | `POST /api/admin/users` `{ id, role?, password? }` | admin | Creates the user. Sets the password when given. |
 | `POST /api/admin/users/<id>/role` `{ role }` | admin | `user` or `admin`. Not for your own account. |
@@ -48,6 +47,7 @@ All routes are under the person's prefix, `/<user>/api/...`, and need the login 
 | `POST /api/admin/packages` `{ user, source }` | admin | Installs into that person's userspace. |
 | `DELETE /api/admin/packages/<name>?user=<id>` | admin | Removes from that person's userspace. |
 | `POST /api/admin/packages/<name>/promote` `{ user }` | admin | Makes the person's package the default for everyone. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 14. |
+| `POST /api/admin/packages/everyone` `{ source }` | admin | Installs a package for everyone, now and later. A shipped `@thetis/<name>` is marked for everyone and linked into every person. Any other source is installed for the admin and then promoted. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 15. |
 | `GET /api/admin/models` | admin | `{ model, models }`: the default model and what the providers serve. |
 | `GET /api/admin/config` | admin | The configuration with secrets replaced by `•••`. |
 | `GET /api/admin/journal?limit=&kind=` | admin | The newest journal rows. |
@@ -81,11 +81,11 @@ The gateway imports `@thetis/marketplace` for the index file and the search. Not
 | `src/panel.ts` | The routes of section 3. |
 | `src/http.ts` | `HttpError`, `json`, `readJson`, `field`. |
 | `assets/views/panel.js` | The launcher, the shell, the navigation. |
-| `assets/views/panel-packages.js`, `panel-marketplace.js`, `panel-people.js`, `panel-models.js`, `panel-activity.js`, `panel-overview.js` | One section each. |
+| `assets/views/panel-packages.js`, `panel-people.js`, `panel-models.js`, `panel-activity.js`, `panel-overview.js` | One section each. The packages view merges the installed list with the marketplace index by name. |
 | `assets/lib/panel-ui.js` | Tables, badges, fields, buttons, the confirm popover, key/value lists. |
 
 ## 7. Tests
 
-`packages/gateway-web/test/gateway.test.ts` has a third user `root` with role `admin`. The cases: sections follow the role and admin routes are refused for a user; people are added, changed, and removed; a person installs their own package, an admin promotes it, and everyone gets it; the marketplace search reads the index and a missing index is a `404`.
+`packages/gateway-web/test/gateway.test.ts` has a third user `root` with role `admin`. The cases: sections follow the role and admin routes are refused for a user; people are added, changed, and removed, and the journal says so; a person installs their own package, an admin promotes it, everyone gets it, and an admin installs a shipped package for everyone, which a person created afterwards is seeded with; the marketplace search reads the index and a missing index is a `404`.
 
 The browser code has no automated test. Check it by hand: open the panel as an admin and as a user.

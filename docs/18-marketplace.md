@@ -1,6 +1,6 @@
 # 18 Marketplace
 
-The marketplace is the set of registries this installation trusts. A registry is one git repository that holds package directories. The package `@thetis/marketplace` in `packages/marketplace` mirrors the registries and writes an index. The control panel searches the index and installs from it. See [17-control-panel.md](17-control-panel.md).
+The marketplace is the set of registries this installation trusts. A registry is one git repository that holds package directories. The package `@thetis/marketplace` in `packages/marketplace` mirrors the registries and writes an index. The control panel's Packages section shows the index beside what is installed, one row per name, and installs from it. See [17-control-panel.md](17-control-panel.md).
 
 ## 1. Registries
 
@@ -65,7 +65,7 @@ Install it into a running daemon with `thetis packages install @thetis/marketpla
 
 ## 5. Install
 
-The panel installs a result by sending its `source` to `POST /api/packages` (for yourself) or `POST /api/admin/packages` (an admin, for someone). The kernel clones the registry into the person's own store and uses the directory after `#`. See [05-packages.md](05-packages.md) section 5.
+The panel installs an available package by sending its `source` to `POST /api/packages` (for yourself), `POST /api/admin/packages` (an admin, for someone), or `POST /api/admin/packages/everyone` (an admin, for everyone). A `@thetis/*` package that this installation ships is sent by name, so the built copy is linked rather than cloned. Anything else the kernel clones into the person's own store, using the directory after `#`. See [05-packages.md](05-packages.md) sections 5 and 15.
 
 The ownership rules apply. A `@thetis/*` package installs for an admin. A `@<user>/*` package installs for that user only.
 

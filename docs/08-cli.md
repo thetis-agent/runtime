@@ -136,6 +136,7 @@ The command line talks to a running kernel through the control socket with these
 | `users.list`, `users.create`, `users.remove`, `users.setStatus`, `users.setRole`, `users.passwd` | `id`, `role`, `status`, `password` | User administration. |
 | `packages.list`, `packages.install`, `packages.uninstall` | `user`, `source`, `name`, `actor` | Package management in that user's userspace. `actor` names who installs; the ownership rules use the actor's role. The CLI sends `_system`; the operator channel sends the admin. |
 | `packages.promote` | `user`, `name` | Makes the package the default for everyone. Returns `{ name, userspaces }`. |
+| `packages.installEveryone` | `source`, `actor` | Installs a package for every person, now and later. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 15. |
 | `journal.tail` | `limit`, `kind`, `target` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
 | `config.get` | | The configuration with secrets replaced by `•••`. |
 | `models` | `user` | Every model the providers visible to that userspace serve. |

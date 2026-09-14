@@ -280,3 +280,12 @@ The control handler then removes the owner's original `@<user>/<basename>` and i
 The promoted directory is bound read-only into every fence, after `$THETIS_HOME` is hidden. See [03-fence.md](03-fence.md).
 
 **Caution:** promotion copies the package as it is. A later change to the owner's source does not reach the promoted copy. Promote again under a new name, or edit the copy in `$THETIS_HOME/packages` on the host.
+
+## 15. Install for everyone
+
+An admin can install a package for every person, now and later. The control method is `packages.installEveryone { source }`. The control panel offers it on an available package as **Install for everyone**.
+
+- A shipped system package (`@thetis/<name>` in `<root>/packages`) is linked into every existing person's userspace and marked `everyone` in the registry record. `seedSystem` links every marked package into each new person's userspace. The configuration file is not written.
+- Any other source is installed for the admin first. A `@thetis/*` package from a registry is then linked into every person. A package in the admin's own scope is promoted (section 14), which covers every new person through the promoted directory.
+
+The system userspace is never included: it is not a person.

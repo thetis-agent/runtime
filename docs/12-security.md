@@ -88,7 +88,7 @@ The cookie is `HttpOnly` and `SameSite=Strict`, `Path=/`. It is `Secure` with th
 | Kind | Actor | Target | Data |
 |---|---|---|---|
 | `user.create`, `user.remove`, `user.role`, `user.status`, `user.password` | the admin, or `operator` from the CLI | the user | `role`, `status` |
-| `package.install`, `package.uninstall`, `package.promote` | the admin or `operator` | the userspace | `name`, `version`, `source`, `promoted`, `userspaces` |
+| `package.install`, `package.uninstall`, `package.promote`, `package.everyone` | the admin or `operator` | the userspace, or the package for `everyone` | `name`, `version`, `source`, `promoted`, `userspaces` |
 | `turn.start`, `turn.end` | the person | the session | `turn`, `ms`, `error`, and `reported`: the usage the provider reported, summed |
 | `service.start`, `service.stop`, `service.fail` | (the kernel) | the userspace | `package`, `error` |
 
