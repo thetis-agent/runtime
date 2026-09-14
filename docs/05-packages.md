@@ -8,6 +8,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 {
   "name": "@alice/example",
   "version": "0.1.0",
+  "description": "Adds a greeting tool and a context step.",
   "type": "module",
   "main": "index.js",
   "dependencies": {},
@@ -30,6 +31,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 |---|---|
 | `name` | Required. Must match `@<scope>/<name>`. The scope gives ownership. See section 4. |
 | `version` | Required. A string. |
+| `description` | One sentence on what the package does. Shown in the control panel, in the marketplace index, and in the system prompt's package list. Every shipped package has one. |
 | `main` | The module the agent imports. Default `index.js`. Relative to the package directory. |
 | `dependencies` | When not empty and there is no build script, install runs `npm install --omit=dev`. |
 | `peerDependencies` | Each peer must be installed in the same userspace. `@thetis/kernel` is always satisfied. |

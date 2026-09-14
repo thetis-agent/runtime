@@ -207,7 +207,7 @@ The package `@thetis/harness-core` provides three steps. They are the reference 
 | Step | Phase | Behavior |
 |---|---|---|
 | `trimHistory` | `history` | Sets `call.messages` to a window over the conversation. The window holds at most `historyWindow` messages, default 80. The start of the window is kept in `harness["@thetis/harness-core"].cut`. It moves only when the window overflows. It then jumps so that `historyWindow * historyKeep` messages remain, default half. The cut lands on a `user` message. This keeps an assistant tool call with its tool results, and keeps the prefix of the call identical for many turns, which a prompt cache needs. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
-| `systemPrompt` | `prompt` | Appends the guide text, the installed package list, the content of `home/THETIS.md`, and `harness.notes` to `call.system`. |
+| `systemPrompt` | `prompt` | Appends the guide text, the installed package list with each package's description, the content of `home/THETIS.md`, and `harness.notes` to `call.system`. |
 | `attachTools` | `tools` | Adds every tool declared by every installed package to `call.tools`. The first package with a given tool name wins. |
 
 The package `@thetis/prompt-cache` adds a fourth default step, `cacheHints` in the `call` phase. See [16-prompt-cache.md](16-prompt-cache.md).
