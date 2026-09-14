@@ -13,7 +13,6 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 | `packages/host/test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
 | `packages/gateway-web/test/gateway.test.ts` | End-to-end | The door, the login target, and one gateway per person, in-process and then inside real fences. See [15-web-gateway.md](15-web-gateway.md) section 10. |
 | `packages/prompt-cache/test/*.test.ts` | Unit | The planner, the policy and hint rules, both wire adapters, usage normalization, the fingerprint diagnosis, and the step. |
-| `packages/harness-core/test/history.test.ts` | Unit | The history window: the cut holds while the window fills and jumps on overflow. |
 
 ### 1.1 The boundary rules
 

@@ -219,7 +219,7 @@ A cache rewards an append-only prefix. Package code that builds the call must fo
 
 - **Keep the system prompt frozen within a session.** Do not put the time, a random id, or a per-turn value into `call.system`. Put per-turn context at the end of `call.messages`.
 - **Do not change the tool list or the model mid-conversation.** Both invalidate the whole prefix.
-- **Append to the conversation. Do not edit it.** Do not delete a failed tool round from the middle. A stale result costs 0.1x as a cached read. Removing it re-writes the suffix at 1.25x. A `history` step that must shed context must cut at a stable point and keep the cut for many turns. `trimHistory` in `@thetis/harness-core` does this: see [04-pipeline.md](04-pipeline.md) section 10.
+- **Append to the conversation. Do not edit it.** Do not delete a failed tool round from the middle. A stale result costs 0.1x as a cached read. Removing it re-writes the suffix at 1.25x. A `history` step that must shed context must cut at a stable point and keep the cut for many turns.
 - **Serialize deterministically.** Do not build tool schemas from unordered sets.
 - **A fork must reuse the parent's prefix.** A subagent that copies its parent's `system` and `tools` byte for byte reads the parent's cache.
 

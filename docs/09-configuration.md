@@ -77,7 +77,6 @@ Known keys:
 | Package | Key | Meaning |
 |---|---|---|
 | `@thetis/provider-openrouter` | `apiKey`, `baseUrl`, `headers`, `defaults`, `cache` | See [07-providers.md](07-providers.md) and [16-prompt-cache.md](16-prompt-cache.md). |
-| `@thetis/harness-core` | `historyWindow`, `historyKeep` | The window over the conversation: at most `historyWindow` messages (default 80); after an overflow, `historyWindow * historyKeep` remain (default 0.5). |
 | `@thetis/prompt-cache` | `ttl`, `systemTtl`, `anchorStride`, `maxBreakpoints`, `explicitVendors`, `overrides`, `enabled`, `diagnostics`, `affinity` | The hint and the diagnostics. See [16-prompt-cache.md](16-prompt-cache.md). |
 | `@thetis/marketplace` | `registries`, `refreshMinutes` | The registries to mirror. See [18-marketplace.md](18-marketplace.md). |
 | `@thetis/gateway-web` | none | Runs in each person's fence on a unix socket. See [15-web-gateway.md](15-web-gateway.md). |

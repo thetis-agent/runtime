@@ -28,7 +28,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | No enumerator package shipped | The default plan is kernel code. | Write `@thetis/enumerator-default` and set `config.enumerator`. |
 | Gateway runs on the host | `@thetis/gateway-cli` is not fenced. | Acceptable for a CLI. A network gateway must run in the system userspace. |
 | Marketplace registries are cloned whole | A large registry costs a full shallow clone per refresh and per install. | Sparse checkout, or an index published by the registry itself. |
-| Conversation grows without bound | Large session files. `call.messages` is bounded by `trimHistory`; the saved conversation is not. | A `memory` package that summarizes into `harness`, written so the prefix of the call stays append-only. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
+| Conversation grows without bound | Large session files and calls. | A `memory` package that summarizes into `harness`, written so the prefix of the call stays append-only. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
 | Cache accounting is per reply only | No per-session or per-user totals. | A gateway or a service package that sums the `usage` of the `message` events. |
 | Subagent turns block the parent tool call | Long subagent tasks hit `requestTimeoutMs`. | Background sessions with a poll or a notify RPC. |
 | `models()` of OpenRouter lists 400+ ids | One HTTP call per 5 minutes per process. | Acceptable. Cache to disk if needed. |

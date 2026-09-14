@@ -132,7 +132,7 @@ The child session persists after the reply. A later call with the same id contin
 
 The runner appends the input messages to the saved conversation before the first step. Steps see the input as `ctx.turn.input` and at the end of `ctx.conversation`.
 
-The full conversation is saved. Only `call.messages` is limited, by the `trimHistory` step of `@thetis/harness-core`. A step that must see everything reads `ctx.conversation`.
+The full conversation is saved and sent whole; the prompt cache markers keep the cost of the prefix low. A step reads it as `ctx.conversation`.
 
 ## 7. Authentication
 
