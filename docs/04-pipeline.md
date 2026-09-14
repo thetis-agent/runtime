@@ -124,6 +124,10 @@ An invalid result ends the turn with an `error` event. The variables keep the va
 
 The turn ends with an `error` event of code `cancelled`, then `turn.end`. Text that the provider streamed before the cancel is kept as a partial `assistant` message in the conversation.
 
+### 5.2 What a stopped or failed turn keeps
+
+Whatever the provider call did before it stopped stays in the conversation: every assistant message, every tool call, and every tool result so far. Text streamed before the stop becomes a partial `assistant` message. A tool call that never ran gets a `tool` message `error: the turn was stopped before this tool ran` (or `failed`), so the record is still a conversation the provider accepts on the next turn. A provider refusal in the middle of a long turn therefore costs the next turn a retry, not the work already done.
+
 ## 6. The built-in provider call
 
 `ProviderCallStep.run(userspace, ctx, emit)` is the only step the kernel runs itself.

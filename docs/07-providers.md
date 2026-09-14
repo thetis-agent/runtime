@@ -77,6 +77,10 @@ The registry caches `models()` per provider and userspace for 300000 millisecond
 
 `defaults` holds request fields sent with every call, under `call.params`. Example: `{ "provider": { "order": ["anthropic"], "allow_fallbacks": true } }`.
 
+Set `defaults.max_tokens` (for example `8192`). OpenRouter reserves the model's full output allowance against the account's remaining credits for every request in flight; without a ceiling, a large prompt on a low balance is refused with `402 in_flight_budget_exhausted` although the call would have cost a fraction of that.
+
+`retries` (default `3`) is how many times a transient refusal is tried again: `429`, `408`, `409`, `425`, `5xx`, and a `402` whose body names `in_flight_budget`. The wait honors the `Retry-After` header, else the hint in the body, else a backoff of 1, 2, 4 seconds, capped at 120 seconds. A refusal that is final (`401`, an empty account) is reported at once.
+
 `cache` holds the prompt caching policy. See [16-prompt-cache.md](16-prompt-cache.md) section 6.
 
 `apiKey` falls back to the environment variable `OPENROUTER_API_KEY` of the agent process. The kernel does not pass that variable to the fence. Set the key in `config.packages`, or in `.env` from which the CLI interpolates `${OPENROUTER_API_KEY}` into the config.
