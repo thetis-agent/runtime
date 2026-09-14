@@ -69,7 +69,6 @@ The cookie is `HttpOnly` and `SameSite=Strict`, `Path=/`. It is `Secure` with th
 
 ## 7. Denial of service
 
-- A turn with a runaway tool loop stops after `maxToolRounds` (default 40) rounds.
 - A fence request stops after `requestTimeoutMs` (default 600000 milliseconds). The agent is killed and restarted.
 - Output of `exec` is capped at 30,000 characters per stream.
 - There is no limit on the number of sessions, the size of a conversation, or the size of the harness object.

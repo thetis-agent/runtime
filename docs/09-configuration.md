@@ -45,7 +45,6 @@ $THETIS_HOME/
 | `fence.limits` | `{ memoryMb, pids, cpuPercent }` | `1024`, `512`, `200` | Per-fence resource limits. Need a delegated cgroup. See [03-fence.md](03-fence.md) section 3.3. |
 | `fence.readOnly` | string[] | `[<root>/packages, <root>/node_modules]` | Extra read-only binds. Derived. |
 | `fence.hidden` | string[] | `[<home>]` | Paths masked with an empty tmpfs. Derived. |
-| `maxToolRounds` | number | `40` | Maximum tool rounds per provider call step. Reaching it ends the turn with the error code `rounds`; the work is kept. |
 | `requestTimeoutMs` | number | `600000` | Timeout of one fence request. |
 
 Defaults for the object fields:
