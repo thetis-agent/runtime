@@ -202,6 +202,10 @@ authored because gold that decides which package wins must not be written by any
 answer. `packages/bench/suites/skill-recall-v1/GOLD.md` records the revision, the sampling rule and the
 splits. `packages/bench/scripts/import-skillret.mjs` rebuilds it deterministically.
 
+Those bodies are other people's work, under MIT and Apache-2.0. Each record keeps its author, repository,
+source URL and licence, and `packages/bench/suites/skill-recall-v1/NOTICE.md` lists all 287 with their terms.
+A corpus that stripped them would be a redistribution without the terms it was given under.
+
 `tool-recall@1` is authored, because no public dataset knows about Thetis's own tools.
 `packages/bench/suites/tool-recall-v1/GOLD.md` says why that is defensible here and would not be for skills.
 
