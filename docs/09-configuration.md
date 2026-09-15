@@ -78,7 +78,7 @@ Known keys:
 |---|---|---|
 | `@thetis/provider-openrouter` | `apiKey`, `baseUrl`, `headers`, `defaults`, `cache` | See [07-providers.md](07-providers.md) and [16-prompt-cache.md](16-prompt-cache.md). |
 | `@thetis/prompt-cache` | `ttl`, `systemTtl`, `anchorStride`, `maxBreakpoints`, `explicitVendors`, `overrides`, `enabled`, `diagnostics`, `affinity` | The hint and the diagnostics. See [16-prompt-cache.md](16-prompt-cache.md). |
-| `@thetis/marketplace` | `registries`, `refreshMinutes` | The registries to mirror. See [18-marketplace.md](18-marketplace.md). |
+| `@thetis/marketplace` | `registries`, `refreshMinutes` | The registries to mirror. Ships with one, `https://github.com/thetis-agent/packages.git`, the approved extensions. Set `registries` to `[]` to index nothing and keep the refresh off the network. See [18-marketplace.md](18-marketplace.md). |
 | `@thetis/gateway-web` | none | Runs in each person's fence on a unix socket. See [15-web-gateway.md](15-web-gateway.md). |
 | `@thetis/gateway-login` | `secure` | Adds `Secure` to the login cookie. Set it when TLS terminates in front of the door. |
 | `@thetis/exa` | `apiKey`, `baseUrl`, `timeoutMs`, `defaults` | The Exa API key and the tool defaults. See [19-exa.md](19-exa.md). |

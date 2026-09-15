@@ -155,7 +155,7 @@ Import types from `@thetis/contracts`: `PackageStepContext`, `Step`, `StepResult
 | Source | Detection | Action |
 |---|---|---|
 | System name | `@thetis/<name>` with no further `/` | Link the shipped package. Requires role `admin` or `system`. |
-| Git URL | Starts with `http://`, `https://`, `git@`, `git://`, `ssh://`, or `file://`, or ends with `.git`. An optional `#<dir>` names a directory inside the repository. | `git clone --depth 1` into `<store>/src/<slug>` inside the fence. With `#<dir>`, the package is `<slug>/<dir>`. A `dir` that leaves the clone is refused with the code `unauthorized`. |
+| Git URL | Starts with `http://`, `https://`, `git@`, `git://`, `ssh://`, or `file://`, or ends with `.git`. An optional `#<dir>` names a directory inside the repository, and an optional `@<commit>` pins one commit. | Without a pin, `git clone --depth 1` into `<store>/src/<slug>` inside the fence. With one, `git fetch --depth 1 origin <commit>` into `<store>/src/<slug>-<commit prefix>`. With `#<dir>`, the package is that directory of the clone. A `dir` that leaves the clone is refused with the code `unauthorized`. |
 | Local path | Anything else | Resolve relative to the userspace home. The path must stay inside the userspace root. |
 
 ## 6. The install procedure
@@ -203,7 +203,7 @@ The registry is the file `$THETIS_HOME/registry.json`. It is in the service plan
 }
 ```
 
-`kind` is `system`, `local`, or `git`. `ref` is the system directory, the local path relative to home, or the git URL. `userspaces` lists where the package is installed. A record with no userspaces is deleted.
+`kind` is `system`, `local`, or `git`. `ref` is the system directory, the local path relative to home, or the git source. A git source from the marketplace carries its pin, so the record says exactly which commit is installed. See [18-marketplace.md](18-marketplace.md) section 6. `userspaces` lists where the package is installed. A record with no userspaces is deleted.
 
 A fork's record also carries `forkedFrom` (from its manifest), `replaced` (the package it displaced), and `replacedSource` (where that package was installed from). See section 16.
 
