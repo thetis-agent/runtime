@@ -52,11 +52,14 @@ thetis packages list [--user <id>]
 thetis packages install <source> [--user <id>]
 thetis packages uninstall <name> [--user <id>]
 thetis packages promote <name> --user <id>
+thetis packages outdated [--user <id>]
+thetis packages update [<name>] [--user <id>]
 thetis install <source> [--user <id>]
 thetis uninstall <name> [--user <id>]
 ```
 
 - `install` and `uninstall` at the top level are the same commands.
+- `outdated` compares each installed package's pin against the marketplace index and prints what is behind. `update` reinstalls those packages at the index's current commit, or one of them by name. Nothing updates on its own; these are the only way a package moves. See [18-marketplace.md](18-marketplace.md) section 7.
 - Without `--user`, the commands act on the system userspace as `_system`. This is how a system gateway is installed: `thetis install @thetis/gateway-web`.
 - `install` accepts a system name, a git URL, or a path inside the user's home. See [05-packages.md](05-packages.md) section 5.
 - `list` prints `name@version`, `type`, and the store path.

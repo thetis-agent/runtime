@@ -112,5 +112,28 @@ installed and a later refresh of the index does not move it.
 two installs at different commits must not share a directory — the second would replace the first's code
 underneath the link already using it.
 
-To move to a newer version, install again. The index will have refreshed, so the source it offers carries the
-newer commit, and the new copy replaces the old link.
+## 7. Updating
+
+Nothing updates on its own. The index says what is latest, the record says what is installed, and a person
+decides. There is no background updater and no setting that turns one on.
+
+```sh
+thetis packages outdated --user alice
+thetis packages update --user alice            # every package that is behind
+thetis packages update @thetis/exa --user alice  # one of them
+```
+
+The control panel says the same thing: a row whose registry has moved on carries an **update to \<version\>**
+badge and an **Update** button, and neither does anything until it is pressed.
+
+An update is an install of the newer pinned source. There is no separate code path, which is the point: a
+failed update cannot leave a half-updated package, because `install` links the new copy only after it has
+cloned, validated and built it. Until that succeeds the old link stands and the old package keeps running.
+
+**Note:** this applies to packages installed *from a registry*, which carry a pin. A package shipped with the
+service is linked from `<root>/packages` and tracks that checkout instead; it has no pin and is never
+reported as behind. Updating those means updating the checkout.
+
+Clones are kept under `<store>/src` named for the repository and commit. After a successful install the ones
+no installed package refers to are removed, so an installation does not grow by a copy of the registry every
+time it takes an update.
