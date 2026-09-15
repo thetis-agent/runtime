@@ -1,6 +1,6 @@
 # Plan: a data-driven web gateway skeleton, and the packages that extend it
 
-**Date:** 2026-09-15. **Status:** approved 2026-09-15 (a project has zero or more project directories, none by default). **Scope:** `@thetis/gateway-web` and the packages that will
+**Date:** 2026-09-15. **Status:** implemented 2026-09-15, phases 0–5 (a project has zero or more project directories, none by default). **Scope:** `@thetis/gateway-web` and the packages that will
 contribute UI to it. No kernel change until phase 5 (projects), and that one is a fence bind, not behavior.
 
 Each phase leaves `npm test` green and production usable. Phases 0 and 1 are the skeleton. Everything after
