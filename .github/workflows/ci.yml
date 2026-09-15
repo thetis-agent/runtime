@@ -126,11 +126,18 @@ jobs:
       # of real keys, not for the word "secret", so the placeholder in .env.example does not trip it.
       - name: Scan the working tree and every commit
         run: |
-          PAT='sk-or-v1-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xoxb-[0-9A-Za-z-]{20,}|BEGIN [A-Z ]*PRIVATE KEY'
+          # Key shapes, not the word "secret", so the placeholder in .env.example does not trip it.
+          PAT='sk-or-v1-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xoxb-[0-9A-Za-z-]{20,}'
+          # A private key has its header alone on a line. Matching the header anywhere would flag any code
+          # that checks for one -- the archived v2 release workflow validates the shape of a signing secret
+          # it never stores, and a scanner that cannot tell those apart teaches people to ignore it.
+          PEM='^[[:space:]]*-----BEGIN [A-Z ]*PRIVATE KEY-----[[:space:]]*$'
           fail=0
           for repo in . packages; do
+            # Every ref, not just main: an archived branch is still published.
             echo "scanning every commit of $repo"
-            hits=$(git -C "$repo" grep -nIE "$PAT" $(git -C "$repo" rev-list --all) 2>/dev/null | head -20 || true)
+            revs=$(git -C "$repo" rev-list --all)
+            hits=$( { git -C "$repo" grep -nIE "$PAT" $revs || true; git -C "$repo" grep -nIE "$PEM" $revs || true; } 2>/dev/null | head -20 )
             if [ -n "$hits" ]; then
               echo "$hits"
               echo "::error::$repo contains a credential-shaped string. Rotate the key first, then remove it from history."
