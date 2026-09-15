@@ -52,7 +52,7 @@ Defaults for the object fields:
 
 ```json
 "systemPackages": {
-  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache", "@thetis/tools-files", "@thetis/tools-plan", "@thetis/gateway-web", "@thetis/ui-tools", "@thetis/ui-context", "@thetis/projects", "@thetis/ui-admin"],
+  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache", "@thetis/tools-files", "@thetis/tools-plan", "@thetis/gateway-web", "@thetis/ui-tools", "@thetis/ui-context", "@thetis/projects", "@thetis/ui-admin", "@thetis/ui-marketplace"],
   "_system": ["@thetis/provider-openrouter", "@thetis/gateway-login", "@thetis/marketplace"]
 },
 "packages": {

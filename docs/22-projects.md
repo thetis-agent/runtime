@@ -35,6 +35,8 @@ An id is `p_` and 8 hexadecimal characters. A record whose `id` field disagrees 
 
 Both steps read through `ctx.env.readFile`, relative to the home, and treat a missing file as empty. A person without projects pays one small read per step per turn.
 
+The switch is visible in the page after the first turn: the **Tools** dock ([15-web-gateway.md](15-web-gateway.md) section 11.6) lists under **Turned off right now** every declared tool the conversation's last call did not carry, with a `withheld` badge, from the record `@thetis/harness-core` keeps after each call. The dock compares the declarations with that record and names the tools, not this package: whatever filters `call.tools` in the call phase shows up there the same way, and `@thetis/ui-tools` imports nothing from `@thetis/projects`. Until the first call the section reads "No call yet in this conversation."
+
 ## 4. Commands
 
 The page sends these through `POST /api/ext/@thetis/projects/<verb>` ([15-web-gateway.md](15-web-gateway.md) section 11.4). Any signed-in person may send them. Each answers `{ data }`. A refusal is a thrown error; the gateway answers `400 { error }` with the sentence.
@@ -55,7 +57,7 @@ The page sends these through `POST /api/ext/@thetis/projects/<verb>` ([15-web-ga
 
 The package declares `sidebar: [{ id: "head" }]` and `places: [{ id: "project" }]` ([15-web-gateway.md](15-web-gateway.md) section 11.1). Its browser module is `ui/index.js`; its stylesheet `ui/index.css` is scoped under `.pj-`.
 
-**The switcher** sits in the sidebar under the brand: a row `PROJECT <name>` with a caret. It opens a list: All conversations, each project with how many conversations it holds, then Settings for the chosen project, then New project…. Choosing a project narrows the conversation list through `ext.sessions.filter` to the sessions assigned to it; All shows every conversation. The choice is kept in `localStorage` under `thetis.project` and applies again when the page loads. While a project is chosen, a conversation the page has not seen before and that was created in the last two minutes is assigned to the project with one `assign` request, so `+` starts a conversation in the chosen project. Conversations that exist when the page loads are never assigned by the page.
+**The switcher** sits in the sidebar under the brand: a row `PROJECT <name>` with a caret. It opens a list: All conversations, each project with how many conversations it holds, then Settings for the chosen project, then New project…. Choosing a project narrows the conversation list through `ext.sessions.filter` to the sessions assigned to it; All shows every conversation. The choice is kept in `localStorage` under `thetis.project` and applies again when the page loads. While a project is chosen, a conversation the page has not seen before, that is not archived, and that was created in the last two minutes is assigned to the project with one `assign` request, so `+` starts a conversation in the chosen project. Conversations that exist when the page loads are never assigned by the page: the page adopts nothing until its first `list` has answered, and every conversation it knows of by then counts as existing.
 
 **The place** is the project's settings, opened from the switcher with `{ id }`, or with no id for a new project:
 

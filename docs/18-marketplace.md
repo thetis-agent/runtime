@@ -1,6 +1,6 @@
 # 18 Marketplace
 
-The marketplace is the set of registries this installation trusts. A registry is one git repository that holds package directories. The package `@thetis/marketplace` in `packages/marketplace` mirrors the registries and writes an index. The control panel's Packages section shows the index beside what is installed, one row per name, and installs from it. See [17-control-panel.md](17-control-panel.md).
+The marketplace is the set of registries this installation trusts. A registry is one git repository that holds package directories. The package `@thetis/marketplace` in `packages/marketplace` mirrors the registries and writes an index. The package `@thetis/ui-marketplace` in `packages/ui-marketplace` is the **Marketplace** place of the web gateway: a gallery of the index beside what is installed, one card per name, and one page per package. See section 9 and [17-control-panel.md](17-control-panel.md).
 
 An installation ships with one registry already configured: **`https://github.com/thetis-agent/packages.git`**, the approved extensions. The index always shows what is latest there. An install takes a copy and pins the commit it took, so a package cannot change under an installation that already has it. See section 6.
 
@@ -29,7 +29,7 @@ Replacing it replaces the set of extensions this installation trusts:
 | Key | Default | Meaning |
 |---|---|---|
 | `registries[].url` | required | A git URL. `file://` paths work when the path is readable inside the system fence, which is useful for a registry you are writing. |
-| `registries[].name` | the last path segment | Shown in the panel. |
+| `registries[].name` | the last path segment | Shown on the cards and the pages. |
 | `refreshMinutes` | `30` | How often the service refreshes. |
 
 **Note:** the refresh is a shallow `git clone` from the system userspace. An installation with no egress records the failure against the registry, keeps the packages it indexed before, and carries on; it does not fail a turn.
@@ -78,13 +78,15 @@ Install it into a running daemon with `thetis packages install @thetis/marketpla
 
 ## 5. Install
 
-The panel installs an available package by sending its `source` to `POST /api/packages` (for yourself), `POST /api/admin/packages` (an admin, for someone), or `POST /api/admin/packages/everyone` (an admin, for everyone). A `@thetis/*` package that this installation ships is sent by name, so the built copy is linked rather than cloned. Anything else the kernel clones into the person's own store, using the directory after `#`. See [05-packages.md](05-packages.md) sections 5 and 15.
+A package page installs an available package by sending its `source` through the commands of section 9: `install` (for yourself), `install-for` (an admin, for someone), or `install-everyone` (an admin, for everyone). A `@thetis/*` package that this installation ships is sent by name, so the built copy is linked rather than cloned. Anything else the kernel clones into the person's own store, using the directory after `#`. See [05-packages.md](05-packages.md) sections 5 and 15.
 
 The ownership rules apply. A `@thetis/*` package installs for an admin. A `@<user>/*` package installs for that user only.
 
 ## 6. Library
 
-Readers import `readIndex(env)`, `search(index, query, opts)`, and `readReadme(env, entry)`, which returns the README copy of section 8 for an index entry, or `undefined` when it has none. The service uses `refresh(env, registries)`. `env` is any object with `shared`, `readFile`, `writeFile`, and `exec`, which the agent's `StepEnv` is. Only the system userspace can write the shared directory, so only the service refreshes.
+Readers import `readIndex(env)`, `search(index, query, opts)`, `readReadme(env, entry)`, which returns the README copy of section 8 for an index entry, or `undefined` when it has none, and `behind(installed, index)`, which lists the installed packages whose pin is older than the index. The service uses `refresh(env, registries)`. `env` is any object with `shared`, `readFile`, `writeFile`, and `exec`, which the agent's `StepEnv` is. Only the system userspace can write the shared directory, so only the service refreshes.
+
+The one reader is `@thetis/ui-marketplace`, whose commands run inside each person's fence with the gateway's `StepEnv`. The web gateway itself imports nothing from this package.
 
 ## 7. Tests
 
@@ -124,8 +126,8 @@ thetis packages update --user alice            # every package that is behind
 thetis packages update @thetis/exa --user alice  # one of them
 ```
 
-The control panel says the same thing: a row whose registry has moved on carries an **update to \<version\>**
-badge and an **Update** button, and neither does anything until it is pressed.
+The marketplace place says the same thing: a card or a page whose registry has moved on carries an **update to
+\<version\>** badge, and the page an **Update to \<version\>** button, and neither does anything until it is pressed.
 
 An update is an install of the newer pinned source. There is no separate code path, which is the point: a
 failed update cannot leave a half-updated package, because `install` links the new copy only after it has
@@ -152,3 +154,27 @@ During a refresh the mirror widens its sparse checkout to `README.md` at the pac
 `<dir>` is the entry's `dir`; a `/` in it becomes `__`, so `nested/memo` is `nested__memo.md`. The copy is capped at 256 KiB (262144 bytes): a longer README is cut there and ends with the line `[README truncated at 256 KiB]`. The index entry gets `readme: true`; a package without a `README.md` (a `readme.md` is not one) gets `readme: false`. When a package drops out of a registry its copy is removed on that registry's next successful refresh. A registry that fails to refresh keeps its previous entries and their copies.
 
 `readReadme(env, entry)` reads the copy back through the same `env` the index is read with, so the marketplace UI needs no path of its own.
+
+## 9. The Marketplace place
+
+`@thetis/ui-marketplace` is a `ui` package in the default `systemPackages["*"]` ([09-configuration.md](09-configuration.md)). It declares one place, `marketplace`, which the web gateway draws as the link **Marketplace** in the sidebar footer beside **Control panel** ([15-web-gateway.md](15-web-gateway.md) section 11). The place opens in the main pane with the sidebar kept; the close button or the Escape key returns to the conversation.
+
+**The gallery.** A search box, one chip per package type (**All** first), a note (`registry thetis · refreshed 12 min ago · 23 packages`, or `n installed · no marketplace index yet`), and one card per package: the name, the description, the version, the type and the registry, and the badges **Only me**, **Everyone** or **Available · \<registry\>**, `fork of …`, `update to <version>`, and the benchmark badge. Installed packages come first. The search runs through the command `search`, so the index's ranking of section 4 applies; an installed package that no registry carries is matched on its name, type and description. Clicking a card opens the package's page.
+
+**A package page.** The crumb **Marketplace › \<name\>** leads back. On the left the README copy of section 8, rendered by the shell's markdown (DOM, never `innerHTML`), or the line *This package has no README.* On the right a card: the badges, the description, the facts (**installed** `<version> at <short commit>` for a copy taken from a registry; **registry** the tip version and the registry name; **update** when the two differ; **type**, **license**, **forked from**, **replaces**, **source**), then **Brings**: one pill per tool (the description as the tooltip, when the copy is installed here), the steps by phase, the service, the keywords, and the benchmark suites and last run. Under it the actions the state and the role allow:
+
+| Action | Who | Command | Effect |
+|---|---|---|---|
+| **Install for me** | anyone, when not installed | `install { source }` | `kernel.packages.install`: a shipped `@thetis/*` by name, anything else by its pinned source. |
+| **Update to \<version\>** | anyone, when behind | `update { name }` | An install of the newer pinned source, as `thetis packages update` does. Refused when nothing is newer. |
+| **Remove** | anyone, when installed | `remove { name }` | `kernel.packages.uninstall`. The files stay. A fork's original comes back. |
+| **Delete** | the owner of a `@<user>/*` package | `delete { name }` | `kernel.packages.delete`: the files under `packages/` go too. |
+| **Install for everyone** | admins, when not everyone's | `install-everyone { source }` | `packages.installEveryone` over the operator channel. See [05-packages.md](05-packages.md) section 15. |
+| **Make it the default for everyone** | admins, for a person's own package | `promote { user, name }` | `packages.promote`. See [05-packages.md](05-packages.md) section 14. |
+| **Install for \<person\>** | admins, from a picker of the people (`people`) | `install-for { user, source }` | `packages.install` for that person. `remove-for { user, name }` is the counterpart. |
+
+Every action sits behind a confirm popover that states the package and version, where it comes from, whom it is for, and one sentence on what happens next; nothing is sent until the person confirms. After an action the page is opened again, or the gallery when the package is gone from here.
+
+The commands answer `{ data }`. `search { q?, type? }` answers `{ indexed, updatedAt, registries, total, rows, user, role }`; `show { name }` the same facts with one `row` and the `readme` text or `null`. A row is `{ name, version, type, description, keywords, registry, source, installed, scope, pin, license, available, tip, update, readme, forkedFrom, replaced, steps, tools, service, bench }`: `scope` is `me`, `everyone`, or `null` when not installed; `pin` the short commit of a registry copy; `tip` the version the registry holds; `update` `{ version, from, to, source, registry }` or `null`. The gateway runs a command only when the person's role clears the declared one, and the kernel refuses an operator method from a fence whose user is not an admin, so a user who sends `install-everyone` by hand gets `403` before the package's code runs.
+
+Files: `ui-marketplace/package.json` (the place and the eleven commands), `index.js` (the commands), `lib/rows.js` (the merge of the installed list with the index, the update offer, the benchmark reports), `ui/index.js` (`install(ext)`), `ui/gallery.js`, `ui/page.js`, `ui/actions.js`, `ui/badges.js`, `ui/index.css` (under `.mk-`). Tests: `ui-marketplace/test/ui-marketplace.test.js` runs the commands over a fake environment; `gateway-web/test/gateway.test.ts` sends `search` and `show` through a real gateway with an index and a README copy in the shared directory, and the admin verbs from an admin and from a user.

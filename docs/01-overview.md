@@ -47,6 +47,7 @@ runtime/                 <root>. Git repository. npm workspace root.
     projects/            @thetis/projects. Named workspaces: project directories, instructions, tool switches, and the switcher in the web gateway.
     ui-tools/            @thetis/ui-tools. The Tools dock of the web gateway. Plain ESM, no build step.
     ui-admin/            @thetis/ui-admin. The admin sections of the control panel. Plain ESM, no build step.
+    ui-marketplace/      @thetis/ui-marketplace. The Marketplace place of the web gateway: the gallery and the package pages. Plain ESM, no build step.
     gateway-login/       @thetis/gateway-login. The login target, in the system userspace.
     door/                @thetis/door. The reverse proxy on the host port; a library the CLI uses.
 ```
@@ -65,7 +66,7 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Provider | `@thetis/provider-openrouter` | System userspace fence | Sends calls to OpenRouter. Streams the reply. |
 | Harness | `@thetis/harness-core` | Each user's fence | Limits history. Builds the system prompt. Attaches tools. |
 | Prompt cache | `@thetis/prompt-cache` | Each user's fence (step); the provider (library) | Advises the provider on caching. Records prefix diagnostics. |
-| Marketplace | `@thetis/marketplace` | System userspace fence | Mirrors the registries. Writes the index the control panel searches. |
+| Marketplace | `@thetis/marketplace` | System userspace fence | Mirrors the registries. Writes the index and the README copies that `@thetis/ui-marketplace` reads. |
 | Tools | `@thetis/tool-exec`, `@thetis/tools-files`, `@thetis/tools-plan` | Each user's fence | `exec`, `install_package`, `uninstall_package`, `spawn_subagent`; `read_path`, `edit_path`, `write_path`, `search_files`, `find_files`, `get_directory`; `todo_*`, `ask_user`. See [20-tools.md](20-tools.md). |
 | Projects | `@thetis/projects` | Each user's fence | Named workspaces: a `prompt` step that adds the project's directories and instructions, a `call` step that drops the tools it switched off, and the switcher and settings place in the web gateway. See [22-projects.md](22-projects.md). |
 | Gateway | `@thetis/gateway-cli` | Host process | The `thetis` command. Uses the session API only. Starts the door under `serve`. |
@@ -74,6 +75,7 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Tools dock | `@thetis/ui-tools` | The browser page; its one command in each person's fence | The Tools dock of the web gateway: every tool the conversation can call, one section per package. See [15-web-gateway.md](15-web-gateway.md) section 11.6. |
 | Context dock | `@thetis/ui-context` | The browser page; its one command in each person's fence | The Context dock of the web gateway: what the model received on the last call, as `@thetis/harness-core` recorded it. See [15-web-gateway.md](15-web-gateway.md) section 11.6. |
 | Admin panel | `@thetis/ui-admin` | The browser page; its commands in each admin's fence | The People, Models, Mounts, Activity and Overview sections of the control panel, and the commands behind them, each one operator method. See [17-control-panel.md](17-control-panel.md). |
+| Marketplace place | `@thetis/ui-marketplace` | The browser page; its commands in each person's fence | The Marketplace place of the web gateway: a gallery of what the registries offer and what is installed, one page per package with its README, and the install, update, remove and admin actions. See [18-marketplace.md](18-marketplace.md). |
 | Door | `@thetis/door` | Host process | The one port; routes to the login target and to each person's socket. |
 | Gateway | `@thetis/gateway-web` | System userspace fence | A browser interface. A `service` package started by `thetis serve`. See [15-web-gateway.md](15-web-gateway.md). |
 
