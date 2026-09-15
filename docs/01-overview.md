@@ -46,6 +46,7 @@ runtime/                 <root>. Git repository. npm workspace root.
     gateway-web/         @thetis/gateway-web. A person's web gateway, in their own fence.
     projects/            @thetis/projects. Named workspaces: project directories, instructions, tool switches, and the switcher in the web gateway.
     ui-tools/            @thetis/ui-tools. The Tools dock of the web gateway. Plain ESM, no build step.
+    ui-admin/            @thetis/ui-admin. The admin sections of the control panel. Plain ESM, no build step.
     gateway-login/       @thetis/gateway-login. The login target, in the system userspace.
     door/                @thetis/door. The reverse proxy on the host port; a library the CLI uses.
 ```
@@ -72,6 +73,7 @@ runtime/                 <root>. Git repository. npm workspace root.
 | Login | `@thetis/gateway-login` | System userspace fence | Password to cookie. |
 | Tools dock | `@thetis/ui-tools` | The browser page; its one command in each person's fence | The Tools dock of the web gateway: every tool the conversation can call, one section per package. See [15-web-gateway.md](15-web-gateway.md) section 11.6. |
 | Context dock | `@thetis/ui-context` | The browser page; its one command in each person's fence | The Context dock of the web gateway: what the model received on the last call, as `@thetis/harness-core` recorded it. See [15-web-gateway.md](15-web-gateway.md) section 11.6. |
+| Admin panel | `@thetis/ui-admin` | The browser page; its commands in each admin's fence | The People, Models, Mounts, Activity and Overview sections of the control panel, and the commands behind them, each one operator method. See [17-control-panel.md](17-control-panel.md). |
 | Door | `@thetis/door` | Host process | The one port; routes to the login target and to each person's socket. |
 | Gateway | `@thetis/gateway-web` | System userspace fence | A browser interface. A `service` package started by `thetis serve`. See [15-web-gateway.md](15-web-gateway.md). |
 

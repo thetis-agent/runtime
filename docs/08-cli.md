@@ -105,7 +105,7 @@ The loop reads from standard input. Piped input works: `printf 'hello\n/quit\n' 
 thetis serve
 ```
 
-Runs the kernel until `SIGINT` or `SIGTERM`. It opens the control socket, arms the service supervisor, and starts every service that installed packages declare, in every userspace. See [05-packages.md](05-packages.md) section 13. Ctrl+C removes the socket, closes every fence, and stops every service. A second `serve` while one runs fails with `a thetis daemon is already running`. A stale socket file from a crash is replaced.
+Runs the kernel until `SIGINT` or `SIGTERM`. It opens the control socket, arms the service supervisor, and starts every service that installed packages declare, in every userspace. See [05-packages.md](05-packages.md) section 13. Ctrl+C or `SIGTERM` closes the door, open browser streams included, removes the socket, and closes every fence, which stops every service; an agent that has not exited two seconds after its `SIGTERM` is killed. If the shutdown is still not complete after five seconds, `serve` logs what it was waiting on and exits anyway. A second `serve` while one runs fails with `a thetis daemon is already running`. A stale socket file from a crash is replaced.
 
 `promote` makes a user's package the default for everyone: it becomes `@thetis/<basename>` and is installed into every userspace. Admin scope. See [05-packages.md](05-packages.md) section 14.
 
