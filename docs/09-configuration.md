@@ -9,6 +9,7 @@ $THETIS_HOME/
   auth.json               Passwords and login tokens. Mode 0600.
   thetis.sock             The control socket while `thetis serve` runs. Mode 0600.
   registry.json           Package registry.
+  mounts.json             Per-user mounts: { "<user>": [ { "path", "mode" } ] }. Written by `mounts.set` only.
   userspaces/<user>/      One directory per user. See 06-sessions-and-users.md section 2.
 ```
 

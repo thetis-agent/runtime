@@ -13,12 +13,12 @@ The kernel treats every value from a fence as untrusted input. It validates step
 
 ## 2. What the fence enforces (mode `bwrap`)
 
-- Filesystem: the agent writes only inside its userspace root and, for the system userspace, the shared directory. The operating system, `<root>/packages`, `<root>/node_modules`, `$THETIS_HOME/packages` (the promoted packages), and `$THETIS_HOME/shared` are read-only. The rest of `$THETIS_HOME` is masked. `/home` and the host `/tmp` are not visible.
+- Filesystem: the agent writes only inside its userspace root, its `rw` mounts (section 10), and, for the system userspace, the shared directory. The operating system, `<root>/packages`, `<root>/node_modules`, `$THETIS_HOME/packages` (the promoted packages), `$THETIS_HOME/shared`, and the `ro` mounts are read-only. The rest of `$THETIS_HOME` is masked. `/home` and the host `/tmp` are not visible.
 - Processes: the agent has its own user and PID namespaces, no capabilities, and cannot create a nested user namespace. It cannot see or signal host processes. It dies with the kernel.
 - IPC and hostname: separate namespaces.
 - Network, in mode `egress` (the default when `slirp4netns` is installed): a private network namespace with outbound NAT. The fence reaches the internet and the local network; it cannot reach the host's loopback and cannot bind a host port. Mode `none` gives no network at all.
 - Resources: memory, process count, and CPU per fence through cgroup v2, when the kernel runs in a delegated cgroup.
-- Environment: only the variables listed in [03-fence.md](03-fence.md) section 3.2. The kernel's environment, including `OPENROUTER_API_KEY`, does not reach any fence.
+- Environment: only the variables listed in [03-fence.md](03-fence.md) section 3.5. The kernel's environment, including `OPENROUTER_API_KEY`, does not reach any fence.
 - Configuration: a package receives only its own `config.packages[<name>]` entry. The provider key reaches only the system userspace.
 
 The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
@@ -92,3 +92,9 @@ The cookie is `HttpOnly` and `SameSite=Strict`, `Path=/`. It is `Secure` with th
 | `service.start`, `service.stop`, `service.fail` | (the kernel) | the userspace | `package`, `error` |
 
 `reported` values come from package code and are named so. Admins read the journal with `journal.tail` on the control socket or in the control panel's Activity section.
+
+## 10. Mounts
+
+A mount is an admin's grant of one host directory into one person's fence. The directory appears inside the fence at its host path. `rw` lets the agent and its tools write there. `ro` lets them read only. Only an admin sets mounts, with `thetis mounts` or the operator method `mounts.set`. The kernel checks that the path is absolute and normalized, that the mode is `rw` or `ro`, that the list has at most 32 entries, and that the user exists and is not `_system`. Every change writes one journal row of kind `mounts` with the user and the full list. The change closes the person's fence. The fence reopens with the new binds, and the person's services restart.
+
+A mount is a hole in the fence, opened on purpose. The kernel does not check what the directory holds. A `rw` mount of a directory with secrets, with `.git`, or with code the host runs gives the agent those. A mount of a path under `$THETIS_HOME` or under another userspace shows that path to the person. The bind follows the host directory as it is now and later: files added on the host appear in the fence at once. A mount does not change the process, network, or resource rules of sections 2 and 3. In sandbox mode `none` a mount changes nothing on disk: the agent can already reach every host path. `THETIS_MOUNTS` still names the mounts, so the file tools treat them the same way in every mode.

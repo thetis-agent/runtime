@@ -71,6 +71,8 @@ $THETIS_HOME/userspaces/<user id>/     root
   run/                                  unix sockets of this userspace's services
 ```
 
+A userspace can carry mounts: host directories an admin binds into the fence at their host path. `Userspace.mounts` lists them. The layout reads them from `$THETIS_HOME/mounts.json` through the `MountStore` in `packages/lib/src/mounts.ts`. See [12-security.md](12-security.md) section 10 and [08-cli.md](08-cli.md) section 2.11.
+
 ## 3. Sessions
 
 A session is one conversation with its harness state. `SessionApi` in `packages/kernel/src/sessions/api.ts` writes each session through a `JsonDirStore` to `<userspace>/sessions/<id>.json`.

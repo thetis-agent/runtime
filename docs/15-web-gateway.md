@@ -105,6 +105,7 @@ The door serves `/login`, `/login/assets/*`, `/logout`, and `/` from the login t
 | `POST /api/sessions/<id>/model` | Body `{ model }`. Keeps the model for the conversation; every later turn is sent with it. An empty string restores the default. |
 | `POST /api/sessions/<id>/title` | Body `{ title }`. Names the conversation. An empty string restores the derived title. |
 | `/api/panel`, `/api/packages*`, `/api/marketplace*`, `/api/admin/*` | The control panel. See [17-control-panel.md](17-control-panel.md) section 3. |
+| `GET /api/ui`, `GET /ext/<scope>/<name>/<path>`, `POST /api/ext/<scope>/<name>/<verb>` | What installed packages add to the page. See section 11. |
 | `POST /api/sessions/<id>/send` | Body `{ text }`. Starts a turn with the conversation's model, when one was chosen. Answers `202 { session, startedAt, model }`. Answers `409` when a turn is running. |
 | `POST /api/sessions/<id>/cancel` | Stops the running turn. Answers `{ cancelled: boolean }`. |
 | `POST /api/sessions/<id>/archive` | Body `{ archived: boolean }`. |
@@ -126,7 +127,7 @@ interface SessionSummary {
 }
 ```
 
-Every `/api/*` route needs the cookie. The gateway calls `auth.authenticate` with the token on each request. A missing, expired, or revoked token answers `401`. A session of another user answers `404`. A `POST` with the header `Sec-Fetch-Site: cross-site` answers `403`.
+Every `/api/*` route and every `/ext/*` route needs the cookie. The gateway calls `auth.authenticate` with the token on each request. A missing, expired, or revoked token answers `401`. A session of another user answers `404`. A `POST` with the header `Sec-Fetch-Site: cross-site` answers `403`.
 
 Kernel error codes map to status codes: `not-found` 404, `unauthorized` 403, `busy` 409, `invalid` 400. Other errors answer `500`.
 
@@ -172,6 +173,8 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 | `src/index.ts` | `startService(env)`: listens on `run/web.sock` for the user in `THETIS_USER`, returns `{ stop }`. `stop` closes every open connection, because an event stream never ends on its own and an uninstall would otherwise wait for it. |
 | `src/server.ts` | `createGateway(kernel, store, { user, base, env })`: routes under `base`, the cookie check, static files, the event stream. `kernel` is a `KernelClient`. |
 | `src/panel.ts`, `src/http.ts` | The control panel routes and the HTTP helpers. See [17-control-panel.md](17-control-panel.md). |
+| `src/ui.ts` | `validateUi`, `composeUi`, `serveExt`, `runCommand`: the extension routes of section 11. |
+| `src/static.ts` | `serveFile` and the table of file types the page may load. Used for `/assets` and `/ext`. |
 | `src/turns.ts` | `TurnHub`. |
 | `src/store.ts` | `GatewayStore`: archive flags, names, chosen models, and per-reply usage. `ArchiveStore` is the former name. |
 | `src/client.ts` | `clientFromRpc(rpc)`: the `KernelClient` shape over a raw RPC function, for tests and in-process hosts. |
@@ -193,6 +196,85 @@ The page is served with a Content Security Policy that allows only same-origin s
 
 ## 10. Tests
 
-`packages/gateway-web/test/gateway.test.ts` starts a real kernel with the echo provider fixture, then one gateway per person (`alice`, `bob`, and the admin `root`) on unix sockets over each person's own RPC handler, the login target over the system handler, and the door in front. The cases run through the door: redirects and refusals without a cookie and for a stranger; login refused and accepted, with `next` kept inside the person's prefix; a suspended person and a password change; create, list, send, and the stream of one turn; `409` on a busy session and cancel; the snapshot for a page that connects mid-turn; archive and restore; the models list, a chosen model reaching the kernel and the list, and a name replacing the derived title; isolation, including bob's cookie at alice's gateway; refusal of a cross-site `POST`; logout; and the control panel cases of [17-control-panel.md](17-control-panel.md) section 7. The last case installs `@thetis/gateway-login` into the system userspace and `@thetis/gateway-web` into alice's, boots the supervisor, and drives the same path through a real door into the fences, then checks that uninstall stops alice's gateway. `npm test` runs all of them.
+`packages/gateway-web/test/gateway.test.ts` starts a real kernel with the echo provider fixture, then one gateway per person (`alice`, `bob`, and the admin `root`) on unix sockets over each person's own RPC handler, the login target over the system handler, and the door in front. The cases run through the door: redirects and refusals without a cookie and for a stranger; login refused and accepted, with `next` kept inside the person's prefix; a suspended person and a password change; create, list, send, and the stream of one turn; `409` on a busy session and cancel; the snapshot for a page that connects mid-turn; archive and restore; the models list, a chosen model reaching the kernel and the list, and a name replacing the derived title; isolation, including bob's cookie at alice's gateway; refusal of a cross-site `POST`; logout; and the control panel cases of [17-control-panel.md](17-control-panel.md) section 7. `test/ui.test.ts` covers section 11 with the fixtures `ui-good`, `ui-bad`, and `ui-dup` under `packages/host/test/fixtures`. The last case of `gateway.test.ts` installs `@thetis/gateway-login` into the system userspace and `@thetis/gateway-web` into alice's, boots the supervisor, and drives the same path through a real door into the fences, then checks that uninstall stops alice's gateway. `npm test` runs all of them.
 
 The browser code has no automated test. Check it by hand with a throwaway data directory: `THETIS_HOME=.devhome thetis init`, set `door.port`, add people, `thetis serve`, sign in, open the control panel as an admin and as a user.
+
+## 11. Extensions
+
+A package can add to the page. It declares what it adds in the `ui` field of its manifest. The gateway reads the field from `kernel.packages.list()` on each request. The kernel never reads it. See [05-packages.md](05-packages.md) section 1.2. The browser side of this seam is `assets/lib/ext.js`; this section covers the server.
+
+### 11.1 The declaration
+
+```json
+"thetis": {
+  "type": "tool",
+  "ui": {
+    "dir": "ui",
+    "entry": "index.js",
+    "style": "index.css",
+    "dock":     [ { "id": "todo", "label": "Todo", "icon": "M5 5h10v10H5z", "hint": "The plan", "wide": false } ],
+    "panel":    [ { "id": "people", "label": "People", "note": "Who can sign in.", "role": "admin" } ],
+    "chips":    [ { "id": "todo" } ],
+    "commands": [ { "verb": "plan", "export": "uiPlan", "label": "Read the plan" } ]
+  }
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `dir` | The directory of browser files, relative to the package root. Default `ui`. It must not leave the package. |
+| `entry` | An ES module, relative to `dir`. The page imports it and calls its default export `install(ext)`. Optional. It must be a `.js` file inside `dir`. |
+| `style` | A stylesheet, relative to `dir`. The page links it once. Optional. It must be a `.css` file inside `dir`. |
+| `dock`, `panel`, `places`, `sidebar`, `chips`, `composer`, `shelf`, `statusbar` | Slot entries. Each entry has an `id` that matches `^[a-z][a-z0-9_-]{0,31}$`. It can have `label`, `icon`, `hint`, `note`, `wide`, `role`, and `order` (default 100). |
+| `commands` | The verbs the package's own page may send. `verb` matches the same pattern as an id. `export` names a function export of the package's `main`. `role` is the least role that may send it. Default: any signed-in person. |
+
+The types are `UiDecl`, `UiEntryDecl`, and `UiCommandDecl` in `@thetis/contracts`.
+
+### 11.2 Composition
+
+`GET /api/ui` answers `{ extensions, refused }`. `extensions` has one entry per package with a valid `ui`, in install order:
+
+```json
+{ "package": "@alice/ui-good", "version": "0.1.0", "base": "ext/@alice/ui-good/", "entry": "index.js", "style": "index.css",
+  "dock": [ { "id": "good", "label": "Good", "order": 100 } ], "panel": [], "places": [], "sidebar": [], "chips": [ { "id": "good", "order": 100 } ],
+  "composer": [], "shelf": [], "statusbar": [], "commands": [ "echo" ] }
+```
+
+The rules:
+
+- A package without `ui` is skipped.
+- Every value is checked. Only the fields of section 11.1 cross to the browser. A string that is missing, empty, or too long, an id that does not match the pattern, an entry or verb declared twice in one package, a `dir`, `entry`, or `style` that leaves its directory or does not exist: each one refuses the package.
+- A `dock`, `places`, `sidebar`, `chips`, `composer`, `shelf`, or `statusbar` id belongs to the first installed package that declares it. A later package that declares the same id is refused. Panel ids are namespaced by package in the browser, so two packages may both declare `people`.
+- A refusal is `{ package, message }`. The package is left out. The rest still composes.
+- Entries and commands with a `role` above the person's role are left out. Commands are listed by verb only. The export names and the roles stay on the server.
+
+### 11.3 Files
+
+`GET /ext/<scope>/<name>/<path>` serves the file at `<store>/node_modules/<scope>/<name>/<dir>/<path>`. The route answers `404` when the package is not installed here, when its `ui` is refused, when the path leaves `dir`, when the file does not exist, and when the extension is not `.js`, `.css`, `.svg`, `.json`, or `.md`. The types are the ones `/assets` serves, plus `.md`. The response carries `Cache-Control: no-cache`. The route needs the cookie.
+
+The store is `env.store` of the service. An in-process gateway can set `GatewayOptions.store` instead.
+
+### 11.4 Commands
+
+`POST /api/ext/<scope>/<name>/<verb>` with a body `{ session?, args? }`. The checks run in this order:
+
+| Step | Refusal |
+|---|---|
+| The package is installed here, its `ui` is valid, and it declares `verb`. | `404` |
+| The person's role clears the command's `role`. | `403` |
+| `session`, when given, names one of the person's own sessions. | `404` |
+| `args`, when given, is an object. | `400` |
+| The package's `main` exports the named function. | `500` |
+| The export answers within 30 000 milliseconds (`GatewayOptions.commandTimeoutMs`). | `504` |
+| The answer, as JSON, is at most 262 144 bytes. | `502` |
+
+The gateway imports `main` from the store the way the userspace agent does: the file URL with `?v=<modification time>`, so a changed file is a new module. It calls the export with `(args, env)`. `env` is a `UiCommandEnv`: the `StepEnv` the service was started with (`cwd`, `root`, `store`, `shared`, `exec`, `readFile`, `writeFile`, `kernel`) plus `user`, `role`, and `session` when one was named. The handler runs in the person's own fence, as the person, with the authority the package's tools already have.
+
+The handler does not get the package's configuration. The kernel sends `config.packages[<name>]` only into that package's steps, tools, and service. A handler that needs it reads its own files.
+
+The result: a string becomes `{ text }`. Nothing becomes `{}`. An object is passed as `{ text?, data? }`; other fields are dropped. A thrown error answers `400 { error }` with its message.
+
+### 11.5 Trust
+
+The three routes need the cookie of the person the gateway serves. A command runs the code of a package that person installed, or an admin installed for them, in that person's fence. The gateway checks the declared role before the kernel sees anything; the kernel checks the fence's own user again on every operator method, as in [17-control-panel.md](17-control-panel.md) section 2. A package serves files only from under its own `dir`. It cannot name another package: its page gets `base` and its own verbs, nothing else.

@@ -212,6 +212,9 @@ The package `@thetis/harness-core` provides three steps. They are the reference 
 |---|---|---|
 | `systemPrompt` | `prompt` | Appends the guide text, the installed package list with each package's description, the content of `home/THETIS.md`, and `harness.notes` to `call.system`. |
 | `attachTools` | `tools` | Adds every tool declared by every installed package to `call.tools`. The first package with a given tool name wins. |
+| `recordCall` | `after` | Writes what the provider received to `harness["@thetis/harness-core"].lastCall`: `{ model, system, systemChars, tools, messages, at }`, with the whole `system`, the tool names, the count of `call.messages`, and an ISO time. It merges into the key, keeping the other fields there, and returns only `harness`. |
+
+`recordCall` runs after the built-in call, whose result is `ctx.call` with the reply and any tool rounds appended to `messages` (section 6); `model`, `system` and `tools` are therefore the ones that were sent, and `messages` counts the exchange rather than the request alone. It never returns `call`: that is the prefix the provider cache saw, and a record of it must not change it ([16-prompt-cache.md](16-prompt-cache.md) section 8). The whole system prompt is kept because a Context inspector shows it; it is per-session state on disk, which is acceptable.
 
 The package `@thetis/prompt-cache` adds a fourth default step, `cacheHints` in the `call` phase. See [16-prompt-cache.md](16-prompt-cache.md).
 

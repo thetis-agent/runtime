@@ -63,13 +63,14 @@ Install it into a running daemon with `thetis packages install @thetis/marketpla
       "description": "", "keywords": [],
       "registry": "thetis", "url": "file:///...", "dir": "prompt-cache",
       "source": "file:///...#prompt-cache",
-      "steps": [{ "id": "cache-hints", "phase": "call" }], "tools": [], "service": false
+      "steps": [{ "id": "cache-hints", "phase": "call" }], "tools": [], "service": false,
+      "readme": true
     }
   ]
 }
 ```
 
-`description` and `keywords` come from the standard `package.json` fields. Add them to a package to make it findable.
+`description` and `keywords` come from the standard `package.json` fields. Add them to a package to make it findable. `readme` is `true` when the package directory holds a `README.md` and a copy of it sits in the shared directory; see section 8.
 
 ## 4. Search
 
@@ -83,7 +84,7 @@ The ownership rules apply. A `@thetis/*` package installs for an admin. A `@<use
 
 ## 6. Library
 
-The gateway imports two functions: `readIndex(env)` and `search(index, query, opts)`. The service uses `refresh(env, registries)`. `env` is any object with `shared`, `readFile`, `writeFile`, and `exec`, which the agent's `StepEnv` is. Only the system userspace can write the shared directory, so only the service refreshes.
+Readers import `readIndex(env)`, `search(index, query, opts)`, and `readReadme(env, entry)`, which returns the README copy of section 8 for an index entry, or `undefined` when it has none. The service uses `refresh(env, registries)`. `env` is any object with `shared`, `readFile`, `writeFile`, and `exec`, which the agent's `StepEnv` is. Only the system userspace can write the shared directory, so only the service refreshes.
 
 ## 7. Tests
 
@@ -137,3 +138,17 @@ reported as behind. Updating those means updating the checkout.
 Clones are kept under `<store>/src` named for the repository and commit. After a successful install the ones
 no installed package refers to are removed, so an installation does not grow by a copy of the registry every
 time it takes an update.
+
+## 8. README copies
+
+A package page renders the package's README, and the page runs in whatever fence the person is in. The mirror clone lives in the system userspace home, which no other fence can read, so the README crosses through the shared directory the way the index does.
+
+During a refresh the mirror widens its sparse checkout to `README.md` at the package level (a partial clone fetches only those blobs) and, for each indexed package directory that holds a file of exactly that name, copies it to:
+
+```
+<shared>/marketplace/readme/<registry name>/<dir>.md
+```
+
+`<dir>` is the entry's `dir`; a `/` in it becomes `__`, so `nested/memo` is `nested__memo.md`. The copy is capped at 256 KiB (262144 bytes): a longer README is cut there and ends with the line `[README truncated at 256 KiB]`. The index entry gets `readme: true`; a package without a `README.md` (a `readme.md` is not one) gets `readme: false`. When a package drops out of a registry its copy is removed on that registry's next successful refresh. A registry that fails to refresh keeps its previous entries and their copies.
+
+`readReadme(env, entry)` reads the copy back through the same `env` the index is read with, so the marketplace UI needs no path of its own.

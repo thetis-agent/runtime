@@ -49,8 +49,9 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `publish` | array | Declared ports. The kernel records the field. It does not act on it yet. |
 | `forkedFrom` | `{ name, version }` | Set on a fork. Installing the fork replaces the named package when it is installed in the same userspace. See section 16. |
 | `bench` | object | Opts the package into benchmark suites. The kernel records the field and does not read it. See [21-benchmarks.md](21-benchmarks.md). |
+| `ui` | object | What the package adds to the web gateway's page: browser files, slot entries, and commands. The kernel records the field and does not read it. See [15-web-gateway.md](15-web-gateway.md) section 11. |
 
-`validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install. It does not reject fields it does not know, so `thetis.bench` reaches every step through `ctx.packages.list()` untouched. `@thetis/bench` validates that field, because the kernel never reads it.
+`validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install. It does not reject fields it does not know, so `thetis.bench` and `thetis.ui` reach every step through `ctx.packages.list()` untouched. `@thetis/bench` validates the first and `@thetis/gateway-web` the second, because the kernel never reads them.
 
 **Note:** a step declared with `phase: "bench"` is never scheduled. The default phases are `history`, `prompt`, `tools`, `call`, `after`, and only the bench adds `bench` to them. That is how a package carries benchmark code it can never run on an ordinary turn.
 

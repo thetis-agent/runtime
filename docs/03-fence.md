@@ -92,6 +92,7 @@ The kernel gives the agent this environment and nothing else:
 | `THETIS_STORE` | The package store. |
 | `THETIS_SHARED` | The shared directory. See section 3.7. |
 | `THETIS_USER` | The user id. |
+| `THETIS_MOUNTS` | A JSON list of the mounts bound into the fence, each `{ "path", "mode" }` with mode `rw` or `ro`. `[]` when there is none. Set in every sandbox mode. See [12-security.md](12-security.md) section 10. |
 
 The kernel does not pass its own environment. Secrets in the host environment do not reach the fence.
 
@@ -105,10 +106,11 @@ In mode `bwrap` the kernel builds the command in this order:
 4. The shared directory: `--bind` for the system userspace, `--ro-bind` for everyone else.
 5. In `egress` mode: `--ro-bind $THETIS_HOME/fence-resolv.conf /etc/resolv.conf`.
 6. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
-7. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts --cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
-8. `--setenv` for each variable of section 3.5.
+7. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
+8. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts --cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
+9. `--setenv` for each variable of section 3.5.
 
-The agent sees the operating system read-only, its own userspace read-write, the shared directory, and the promoted packages. It does not see `$THETIS_HOME`, other userspaces, `/home`, or the host `/tmp`. It has no capabilities and cannot make a nested user namespace.
+The agent sees the operating system read-only, its own userspace read-write, the shared directory, the promoted packages, and its mounts. It does not see `$THETIS_HOME`, other userspaces, `/home`, or the host `/tmp`. It has no capabilities and cannot make a nested user namespace.
 
 ### 3.7 The shared directory
 
