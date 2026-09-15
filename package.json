@@ -13,7 +13,8 @@
     "build": "tsc -b",
     "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo",
     "test": "npm run build && node --test \"packages/*/dist/test/**/*.test.js\" \"packages/*/test/**/*.test.js\"",
-    "thetis": "node bin/thetis.js"
+    "thetis": "node bin/thetis.js",
+    "bench": "node packages/bench/bin/bench.js"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",

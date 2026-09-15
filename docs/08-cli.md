@@ -114,6 +114,22 @@ thetis models [--user <id>]
 
 Prints every model id and its provider package, separated by a tab. Without `--user` it lists the models visible to the system userspace.
 
+### 2.10 `bench`
+
+```
+thetis bench run <suite> [--write] [--force] [--out <dir>] [--sandbox auto|bwrap|none] [--package <dir>]
+thetis bench verify [<package-dir>]
+```
+
+`run` measures the harness against a suite. `verify` checks a package's `thetis.bench` declaration and runs
+nothing. See [21-benchmarks.md](21-benchmarks.md).
+
+**Note:** `bench` is the one command that never uses the data directory and never connects to a running
+daemon. It starts a kernel in a temporary home and deletes it at the end, because the arms, the phases and
+the installed set all have to be controlled for the numbers to mean anything.
+
+The exit code is 1 when an arm claimed it surfaced something the assembled prompt does not show.
+
 ## 3. Event rendering
 
 `send` and `chat` render events as follows:

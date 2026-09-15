@@ -13,6 +13,13 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 | `packages/host/test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
 | `packages/gateway-web/test/gateway.test.ts` | End-to-end | The door, the login target, and one gateway per person, in-process and then inside real fences. See [15-web-gateway.md](15-web-gateway.md) section 10. |
 | `packages/prompt-cache/test/*.test.ts` | Unit | The planner, the policy and hint rules, both wire adapters, usage normalization, the fingerprint diagnosis, and the step. |
+| `packages/bench/test/metrics.test.ts` | Unit | Seeded resampling, paired differences, the sign-flip test, recall, overshoot, bits over random, and the ranking scores. |
+| `packages/bench/test/safety.test.ts` | Guard | A step declared in the `bench` phase is never scheduled under a production configuration. |
+| `packages/bench/test/provider.test.js` | Unit | The measuring provider: addressing through the model name, canary detection, the byte segments, the capture file, and the scripted reply. |
+| `packages/bench/test/report.test.ts` | Unit | The digest, what makes a report rewrite, the refusal to write through a store link, staleness, and peer omission. |
+| `packages/bench/test/arena.e2e.test.ts` | End-to-end | The bench phase, the assembled call, and a package caught claiming what it did not inject. |
+| `packages/bench/test/skills.e2e.test.ts` | End-to-end | Three mechanisms that share no representation, scored in one table. |
+| `packages/bench-probe/test/probe.test.js` | Unit | Claim normalisation and what the probe observes. |
 
 ### 1.1 The boundary rules
 
@@ -106,4 +113,5 @@ node --test --test-name-pattern "tool loop" packages/host/dist/test/e2e.test.js
 - The OpenRouter provider against the real API. Manual check: `node bin/thetis.js send --user <id> "hello"`. The line under the reply shows the cache accounting; a second turn in the same session must show `cached` above 80%.
 - Git installs. The code path is implemented and not exercised by a test.
 - The CLI parser and renderer.
+- The end-to-end benchmark probe. No suite calls a real model yet. See [21-benchmarks.md](21-benchmarks.md) section 11.
 - Behavior under a microVM fence.

@@ -1,0 +1,158 @@
+# Build, test and check that the benchmark artifacts in the repository still match what the code produces.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (sandbox ${{ matrix.sandbox }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # `auto` takes the real bubblewrap fence where the runner allows it; `none` proves the unfenced path
+        # still works, which is what a developer without user namespaces gets.
+        sandbox: [auto, none]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install bubblewrap
+        if: matrix.sandbox == 'auto'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bubblewrap
+
+      - name: Report which fence this run will use
+        if: matrix.sandbox == 'auto'
+        run: |
+          bwrap --ro-bind / / --dev /dev true \
+            && echo "bubblewrap works: the fenced tests will run for real" \
+            || echo "::warning::bubblewrap is present but cannot unshare here; fenced cases will skip"
+
+      - run: npm ci
+      - run: npm run build
+
+      # Includes the line-count guard on the kernel and the layering guard. Both are tests, so a change that
+      # puts mechanism in the kernel or imports upward fails here rather than in review.
+      - run: npm test
+        env:
+          THETIS_TEST_SANDBOX: ${{ matrix.sandbox }}
+
+  bench:
+    name: benchmarks are current
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bubblewrap
+      - run: npm ci
+      - run: npm run build
+
+      # Every suite is deterministic and needs no model, so the reports committed to the repository must be
+      # exactly what this code produces. A change to scoring that nobody regenerated shows up here.
+      - name: Regenerate every report
+        run: |
+          for suite in assembly-cost@1 tool-recall@1 skill-recall@1; do
+            npm run bench -- run "$suite" --write
+          done
+
+      - name: The committed reports match the code
+        run: |
+          fail=0
+          for repo in . packages; do
+            if ! git -C "$repo" diff --exit-code --stat; then
+              echo "::error::$repo has benchmark reports that do not match this code."
+              fail=1
+            fi
+          done
+          if [ "$fail" = 1 ]; then
+            echo "Run 'npm run bench -- run <suite> --write' for each suite and commit the result."
+            echo "If the numbers changed because scoring changed, bump packages/bench/package.json too:"
+            echo "the scorer version is part of a report's digest, and without a bump the old report stands."
+            exit 1
+          fi
+          echo "every committed report is what this code produces"
+
+      # A retriever that is not deterministic cannot be compared with anything, so a second run must write
+      # nothing at all.
+      - name: A second run writes nothing
+        run: |
+          for suite in assembly-cost@1 tool-recall@1 skill-recall@1; do
+            written=$(npm run --silent bench -- run "$suite" --write | grep -c ' written ' || true)
+            if [ "$written" != "0" ]; then
+              echo "::error::$suite wrote $written files on an unchanged rerun; something in it is not deterministic"
+              exit 1
+            fi
+          done
+          echo "all three suites are stable across runs"
+
+  secrets:
+    name: no credentials in the tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      # Deliberately a grep rather than a third-party scanner: this repository carries no runtime
+      # dependencies and a credential scan is not worth its first supply-chain risk. It looks for the shapes
+      # of real keys, not for the word "secret", so the placeholder in .env.example does not trip it.
+      - name: Scan the working tree and every commit
+        run: |
+          PAT='sk-or-v1-[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xoxb-[0-9A-Za-z-]{20,}|BEGIN [A-Z ]*PRIVATE KEY'
+          fail=0
+          for repo in . packages; do
+            echo "scanning every commit of $repo"
+            hits=$(git -C "$repo" grep -nIE "$PAT" $(git -C "$repo" rev-list --all) 2>/dev/null | head -20 || true)
+            if [ -n "$hits" ]; then
+              echo "$hits"
+              echo "::error::$repo contains a credential-shaped string. Rotate the key first, then remove it from history."
+              fail=1
+            fi
+          done
+          if [ "$fail" != 0 ]; then exit 1; fi
+          echo "no credential-shaped strings in either repository"
+
+      - name: Files that must never be committed
+        run: |
+          fail=0
+          for repo in . packages; do
+            # .env.example is the template and is meant to be here; every other .env is not.
+            bad=$(git -C "$repo" ls-files \
+              | grep -E '(^|/)\.env($|\.)|(^|/)\.thetis/|\.pem$|\.key$|(^|/)id_rsa' \
+              | grep -v '\.env\.example$' || true)
+            if [ -n "$bad" ]; then
+              echo "$bad"
+              echo "::error::$repo tracks a file that the ignore rules are supposed to keep out"
+              fail=1
+            fi
+          done
+          if [ "$fail" != 0 ]; then exit 1; fi
+          echo "no ignored-by-policy files are tracked"

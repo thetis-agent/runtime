@@ -30,6 +30,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | Marketplace registries are cloned whole | A large registry costs a full shallow clone per refresh and per install. | Sparse checkout, or an index published by the registry itself. |
 | Conversation grows without bound | Large session files and calls. | A `memory` package that summarizes into `harness`, written so the prefix of the call stays append-only. See [16-prompt-cache.md](16-prompt-cache.md) section 8. |
 | Cache accounting is per reply only | No per-session or per-user totals. | A gateway or a service package that sums the `usage` of the `message` events. |
+| No end-to-end benchmark probe | Every benchmark figure is about what the harness made available, never about whether a task was answered. Gold says which capability a person thought a question needs, not which one this harness needs. | Pin a model, run tasks behind a cost ceiling, and derive the tags by ablation. See [21-benchmarks.md](21-benchmarks.md) section 11. |
 | Subagent turns block the parent tool call | Long subagent tasks hit `requestTimeoutMs`. | Background sessions with a poll or a notify RPC. |
 | `models()` of OpenRouter lists 400+ ids | One HTTP call per 5 minutes per process. | Acceptable. Cache to disk if needed. |
 | Config `${VAR}` with a missing variable becomes `""` | Silent misconfiguration. | Warn in `loadConfig`. |
@@ -41,8 +42,9 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 3. **Disk quotas.** cgroups cover memory, processes and CPU; disk is open.
 4. **Egress policy.** Per-package destinations for the `egress` network mode.
 5. **Package sharing with a named user.** Registry share operation. Promotion to `@thetis/*` exists.
-6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change.
-7. **Cache keep-alive and a native Anthropic provider.** See [16-prompt-cache.md](16-prompt-cache.md) section 11.
+6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change. The benchmark contract they opt into already exists, with three reference mechanisms to be measured against: see [21-benchmarks.md](21-benchmarks.md).
+7. **The end-to-end benchmark probe.** It is what turns imported judgements into gold derived from this harness, by ablation on a pinned model.
+8. **Cache keep-alive and a native Anthropic provider.** See [16-prompt-cache.md](16-prompt-cache.md) section 11.
 
 ## 4. Open design questions
 

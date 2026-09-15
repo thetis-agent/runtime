@@ -1,0 +1,1680 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-15T05:26:04.209Z",
+  "digest": "sha256:072209b8aadee6ce294c15bc5ea151a410400a2647c3a94ca86859f308e85329",
+  "inputs": {
+    "probe": "A",
+    "suite": {
+      "id": "skill-recall@1",
+      "version": "1.0.0",
+      "sha256": "sha256:08430bfd7dbdd04f1890d834d2f492b701af9698b9fbb3776eeb162cd7fd2be8",
+      "tasks": 90,
+      "controls": 10,
+      "description": "Given a request, which capabilities did the harness make reachable, how far away were they, and what did the rest cost? Every arm imports the same corpus into whatever shape it likes, and is scored only on what reached the assembled call."
+    },
+    "arms": [
+      {
+        "id": "none",
+        "packages": []
+      },
+      {
+        "id": "flat-skills",
+        "packages": [
+          "@flat/skills@1.0.0"
+        ]
+      },
+      {
+        "id": "l1-skills",
+        "packages": [
+          "@l1/skills@1.0.0"
+        ]
+      },
+      {
+        "id": "rank-skills",
+        "packages": [
+          "@rank/skills@1.0.0"
+        ]
+      }
+    ],
+    "floor": "none",
+    "scorer": "@thetis/bench@0.3.0",
+    "seed": "c40e7ffc6d16b0bb8a49b758bd0242bb652695095384c8b3da664bcdc1653c9e",
+    "model": null,
+    "sandbox": "auto",
+    "corpus": {
+      "id": "caps@1",
+      "version": "1.0.0",
+      "sha256": "sha256:6ac7b87badf7c408f5862f09b86c9bafac0048e57c5a39a9abd9234943ff714d",
+      "records": 287
+    }
+  },
+  "shared": {
+    "none": {
+      "bytes_system": {
+        "mean": 4306,
+        "lower": 4306,
+        "upper": 4306,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_tools": {
+        "mean": 2,
+        "lower": 2,
+        "upper": 2,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_messages": {
+        "mean": 1070.0777777777778,
+        "lower": 960.3222222222222,
+        "upper": 1177.911111111111,
+        "mde": 108.79444444444442,
+        "n": 90
+      },
+      "bytes_turn1": {
+        "mean": 5378.077777777778,
+        "lower": 5267.166666666667,
+        "upper": 5492.777777777777,
+        "mde": 112.8055555555552,
+        "n": 90
+      },
+      "bytes_last": {
+        "mean": 5378.077777777778,
+        "lower": 5266.355555555556,
+        "upper": 5483.988888888889,
+        "mde": 108.8166666666666,
+        "n": 90
+      },
+      "prefix_stable": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 90
+      },
+      "prefix_divergences": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "tools_n": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "steps_n": {
+        "mean": 4,
+        "lower": 4,
+        "upper": 4,
+        "mde": 0,
+        "n": 90
+      },
+      "assemble_ms": {
+        "mean": 2.077777777777778,
+        "lower": 1.9222222222222223,
+        "upper": 2.2333333333333334,
+        "mde": 0.15555555555555556,
+        "n": 90
+      },
+      "non_ascii_ratio": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "recall_reach": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "recall_direct": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "completeness": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "undershoot": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 80
+      },
+      "overshoot_count": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "fetch_rounds": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "direct_n": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      }
+    },
+    "flat-skills": {
+      "bytes_system": {
+        "mean": 95484,
+        "lower": 95484,
+        "upper": 95484,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_tools": {
+        "mean": 2,
+        "lower": 2,
+        "upper": 2,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_messages": {
+        "mean": 1070.0777777777778,
+        "lower": 964.1555555555556,
+        "upper": 1182.2222222222222,
+        "mde": 109.0333333333333,
+        "n": 90
+      },
+      "bytes_turn1": {
+        "mean": 96556.07777777778,
+        "lower": 96445.06666666667,
+        "upper": 96658.34444444445,
+        "mde": 106.6388888888905,
+        "n": 90
+      },
+      "bytes_last": {
+        "mean": 96556.07777777778,
+        "lower": 96444.26666666666,
+        "upper": 96664.1,
+        "mde": 109.91666666667152,
+        "n": 90
+      },
+      "prefix_stable": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 90
+      },
+      "prefix_divergences": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "tools_n": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "steps_n": {
+        "mean": 7,
+        "lower": 7,
+        "upper": 7,
+        "mde": 0,
+        "n": 90
+      },
+      "assemble_ms": {
+        "mean": 14.544444444444444,
+        "lower": 14.277777777777779,
+        "upper": 14.822222222222223,
+        "mde": 0.27222222222222214,
+        "n": 90
+      },
+      "non_ascii_ratio": {
+        "mean": 0.01899999999999997,
+        "lower": 0.01899999999999997,
+        "upper": 0.01899999999999997,
+        "mde": 0,
+        "n": 90
+      },
+      "recall_reach": {
+        "mean": 0.05,
+        "lower": 0.0125,
+        "upper": 0.09375,
+        "mde": 0.040625,
+        "n": 80
+      },
+      "recall_direct": {
+        "mean": 0.05,
+        "lower": 0.0125,
+        "upper": 0.1,
+        "mde": 0.043750000000000004,
+        "n": 80
+      },
+      "precision_direct": {
+        "mean": 0.006944444444444445,
+        "lower": 0.0013888888888888887,
+        "upper": 0.013888888888888892,
+        "mde": 0.006250000000000001,
+        "n": 80
+      },
+      "f1_direct": {
+        "mean": 0.1927272727272727,
+        "lower": 0.18545454545454543,
+        "upper": 0.19999999999999998,
+        "mde": 0.007272727272727278,
+        "n": 5
+      },
+      "completeness": {
+        "mean": 0.0375,
+        "lower": 0,
+        "upper": 0.0875,
+        "mde": 0.04375,
+        "n": 80
+      },
+      "undershoot": {
+        "mean": 0.95,
+        "lower": 0.9,
+        "upper": 0.9875,
+        "mde": 0.04375000000000001,
+        "n": 80
+      },
+      "overshoot_count": {
+        "mean": 6.55,
+        "lower": 6.00625,
+        "upper": 7.09375,
+        "mde": 0.5437500000000002,
+        "n": 80
+      },
+      "fetch_rounds": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "direct_n": {
+        "mean": 9,
+        "lower": 9,
+        "upper": 9,
+        "mde": 0,
+        "n": 90
+      },
+      "bits_over_random": {
+        "mean": 4.594981925233375,
+        "lower": 4.1949819252333755,
+        "upper": 4.994981925233375,
+        "mde": 0.3999999999999999,
+        "n": 5
+      }
+    },
+    "l1-skills": {
+      "bytes_system": {
+        "mean": 83586,
+        "lower": 83586,
+        "upper": 83586,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_tools": {
+        "mean": 193,
+        "lower": 193,
+        "upper": 193,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_messages": {
+        "mean": 1070.0777777777778,
+        "lower": 961.7555555555556,
+        "upper": 1181.8444444444444,
+        "mde": 110.04444444444442,
+        "n": 90
+      },
+      "bytes_turn1": {
+        "mean": 84849.07777777778,
+        "lower": 84739.78888888888,
+        "upper": 84951.11111111111,
+        "mde": 105.6611111111124,
+        "n": 90
+      },
+      "bytes_last": {
+        "mean": 84849.07777777778,
+        "lower": 84739.04444444444,
+        "upper": 84958.64444444445,
+        "mde": 109.80000000000291,
+        "n": 90
+      },
+      "prefix_stable": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 90
+      },
+      "prefix_divergences": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "tools_n": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 90
+      },
+      "steps_n": {
+        "mean": 7,
+        "lower": 7,
+        "upper": 7,
+        "mde": 0,
+        "n": 90
+      },
+      "assemble_ms": {
+        "mean": 14.511111111111111,
+        "lower": 14.188888888888888,
+        "upper": 14.833333333333334,
+        "mde": 0.32222222222222285,
+        "n": 90
+      },
+      "non_ascii_ratio": {
+        "mean": 0.018000000000000013,
+        "lower": 0.018000000000000013,
+        "upper": 0.018000000000000013,
+        "mde": 0,
+        "n": 90
+      },
+      "recall_reach": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 80
+      },
+      "recall_direct": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "completeness": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 80
+      },
+      "undershoot": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "overshoot_count": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      },
+      "fetch_rounds": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 80
+      },
+      "direct_n": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "bits_over_random": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 80
+      }
+    },
+    "rank-skills": {
+      "bytes_system": {
+        "mean": 28365.522222222222,
+        "lower": 26000.333333333332,
+        "upper": 30619.344444444443,
+        "mde": 2309.5055555555555,
+        "n": 90
+      },
+      "bytes_tools": {
+        "mean": 226,
+        "lower": 226,
+        "upper": 226,
+        "mde": 0,
+        "n": 90
+      },
+      "bytes_messages": {
+        "mean": 4967.566666666667,
+        "lower": 4675.777777777777,
+        "upper": 5250.022222222222,
+        "mde": 287.12222222222226,
+        "n": 90
+      },
+      "bytes_turn1": {
+        "mean": 29661.6,
+        "lower": 27348.4,
+        "upper": 32073.5,
+        "mde": 2362.5499999999993,
+        "n": 90
+      },
+      "bytes_last": {
+        "mean": 33559.08888888889,
+        "lower": 31119.955555555556,
+        "upper": 35972.12222222222,
+        "mde": 2426.083333333332,
+        "n": 90
+      },
+      "prefix_stable": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 90
+      },
+      "prefix_divergences": {
+        "mean": 0,
+        "lower": 0,
+        "upper": 0,
+        "mde": 0,
+        "n": 90
+      },
+      "tools_n": {
+        "mean": 1,
+        "lower": 1,
+        "upper": 1,
+        "mde": 0,
+        "n": 90
+      },
+      "steps_n": {
+        "mean": 7,
+        "lower": 7,
+        "upper": 7,
+        "mde": 0,
+        "n": 90
+      },
+      "assemble_ms": {
+        "mean": 9.722222222222221,
+        "lower": 9.322222222222223,
+        "upper": 10.133333333333333,
+        "mde": 0.405555555555555,
+        "n": 90
+      },
+      "non_ascii_ratio": {
+        "mean": 0.01084444444444445,
+        "lower": 0.007566666666666671,
+        "upper": 0.014822222222222221,
+        "mde": 0.003627777777777775,
+        "n": 90
+      },
+      "recall_reach": {
+        "mean": 0.9458333333333334,
+        "lower": 0.90625,
+        "upper": 0.9791666666666666,
+        "mde": 0.036458333333333315,
+        "n": 80
+      },
+      "recall_direct": {
+        "mean": 0.8625,
+        "lower": 0.8020833333333333,
+        "upper": 0.9166666666666664,
+        "mde": 0.057291666666666574,
+        "n": 80
+      },
+      "precision_direct": {
+        "mean": 0.4458333333333334,
+        "lower": 0.4041666666666665,
+        "upper": 0.4875000000000001,
+        "mde": 0.041666666666666796,
+        "n": 80
+      },
+      "f1_direct": {
+        "mean": 0.5973684210526313,
+        "lower": 0.5644736842105263,
+        "upper": 0.6315789473684206,
+        "mde": 0.03355263157894711,
+        "n": 76
+      },
+      "completeness": {
+        "mean": 0.8875,
+        "lower": 0.8125,
+        "upper": 0.95,
+        "mde": 0.06874999999999998,
+        "n": 80
+      },
+      "undershoot": {
+        "mean": 0.054166666666666675,
+        "lower": 0.020833333333333336,
+        "upper": 0.09374999999999999,
+        "mde": 0.03645833333333333,
+        "n": 80
+      },
+      "overshoot_count": {
+        "mean": 1.3375,
+        "lower": 1.1624999999999994,
+        "upper": 1.520833333333333,
+        "mde": 0.1791666666666668,
+        "n": 80
+      },
+      "fetch_rounds": {
+        "mean": 0.1375,
+        "lower": 0.0625,
+        "upper": 0.2125,
+        "mde": 0.075,
+        "n": 80
+      },
+      "direct_n": {
+        "mean": 2.933333333333333,
+        "lower": 2.8333333333333335,
+        "upper": 3,
+        "mde": 0.08333333333333326,
+        "n": 90
+      },
+      "bits_over_random": {
+        "mean": 4.759246464061943,
+        "lower": 4.699468413119271,
+        "upper": 4.810257787475403,
+        "mde": 0.05539468717806617,
+        "n": 79
+      }
+    }
+  },
+  "delta": {
+    "none": {},
+    "flat-skills": {
+      "bytes_system": {
+        "interval": {
+          "mean": 91178,
+          "lower": 91178,
+          "upper": 91178,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_tools": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "bytes_messages": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "bytes_turn1": {
+        "interval": {
+          "mean": 91178,
+          "lower": 91178,
+          "upper": 91178,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_last": {
+        "interval": {
+          "mean": 91178,
+          "lower": 91178,
+          "upper": 91178,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "prefix_stable": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "prefix_divergences": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "tools_n": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "steps_n": {
+        "interval": {
+          "mean": 3,
+          "lower": 3,
+          "upper": 3,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "assemble_ms": {
+        "interval": {
+          "mean": 12.466666666666667,
+          "lower": 12.155555555555555,
+          "upper": 12.777777777777779,
+          "mde": 0.3111111111111118,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "non_ascii_ratio": {
+        "interval": {
+          "mean": 0.01899999999999997,
+          "lower": 0.01899999999999997,
+          "upper": 0.01899999999999997,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "recall_reach": {
+        "interval": {
+          "mean": 0.05,
+          "lower": 0.0125,
+          "upper": 0.1,
+          "mde": 0.043750000000000004,
+          "n": 80
+        },
+        "wins": 5,
+        "ties": 75,
+        "losses": 0,
+        "p": 0.06796601699150424
+      },
+      "recall_direct": {
+        "interval": {
+          "mean": 0.05,
+          "lower": 0.0125,
+          "upper": 0.1,
+          "mde": 0.043750000000000004,
+          "n": 80
+        },
+        "wins": 5,
+        "ties": 75,
+        "losses": 0,
+        "p": 0.06096951524237881
+      },
+      "completeness": {
+        "interval": {
+          "mean": 0.0375,
+          "lower": 0,
+          "upper": 0.0875,
+          "mde": 0.04375,
+          "n": 80
+        },
+        "wins": 3,
+        "ties": 77,
+        "losses": 0,
+        "p": 0.24737631184407796
+      },
+      "undershoot": {
+        "interval": {
+          "mean": -0.05,
+          "lower": -0.1,
+          "upper": -0.0125,
+          "mde": 0.043750000000000004,
+          "n": 80
+        },
+        "wins": 0,
+        "ties": 75,
+        "losses": 5,
+        "p": 0.05647176411794103
+      },
+      "overshoot_count": {
+        "interval": {
+          "mean": 6.55,
+          "lower": 6.025,
+          "upper": 7.075,
+          "mde": 0.5249999999999999,
+          "n": 80
+        },
+        "wins": 80,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "fetch_rounds": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 0,
+        "ties": 80,
+        "losses": 0,
+        "p": 1
+      },
+      "direct_n": {
+        "interval": {
+          "mean": 9,
+          "lower": 9,
+          "upper": 9,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      }
+    },
+    "l1-skills": {
+      "bytes_system": {
+        "interval": {
+          "mean": 79280,
+          "lower": 79280,
+          "upper": 79280,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_tools": {
+        "interval": {
+          "mean": 191,
+          "lower": 191,
+          "upper": 191,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_messages": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "bytes_turn1": {
+        "interval": {
+          "mean": 79471,
+          "lower": 79471,
+          "upper": 79471,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_last": {
+        "interval": {
+          "mean": 79471,
+          "lower": 79471,
+          "upper": 79471,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "prefix_stable": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "prefix_divergences": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "tools_n": {
+        "interval": {
+          "mean": 1,
+          "lower": 1,
+          "upper": 1,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "steps_n": {
+        "interval": {
+          "mean": 3,
+          "lower": 3,
+          "upper": 3,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "assemble_ms": {
+        "interval": {
+          "mean": 12.433333333333334,
+          "lower": 12.1,
+          "upper": 12.8,
+          "mde": 0.35000000000000053,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "non_ascii_ratio": {
+        "interval": {
+          "mean": 0.018000000000000013,
+          "lower": 0.018000000000000013,
+          "upper": 0.018000000000000013,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "recall_reach": {
+        "interval": {
+          "mean": 1,
+          "lower": 1,
+          "upper": 1,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 80,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "recall_direct": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 0,
+        "ties": 80,
+        "losses": 0,
+        "p": 1
+      },
+      "completeness": {
+        "interval": {
+          "mean": 1,
+          "lower": 1,
+          "upper": 1,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 80,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "undershoot": {
+        "interval": {
+          "mean": -1,
+          "lower": -1,
+          "upper": -1,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 0,
+        "ties": 0,
+        "losses": 80,
+        "p": 0.0004997501249375312
+      },
+      "overshoot_count": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 0,
+        "ties": 80,
+        "losses": 0,
+        "p": 1
+      },
+      "fetch_rounds": {
+        "interval": {
+          "mean": 1,
+          "lower": 1,
+          "upper": 1,
+          "mde": 0,
+          "n": 80
+        },
+        "wins": 80,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "direct_n": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      }
+    },
+    "rank-skills": {
+      "bytes_system": {
+        "interval": {
+          "mean": 24059.522222222222,
+          "lower": 21829.266666666666,
+          "upper": 26444.17777777778,
+          "mde": 2307.455555555556,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_tools": {
+        "interval": {
+          "mean": 224,
+          "lower": 224,
+          "upper": 224,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_messages": {
+        "interval": {
+          "mean": 3897.488888888889,
+          "lower": 3684.6444444444446,
+          "upper": 4094.7444444444445,
+          "mde": 205.04999999999995,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_turn1": {
+        "interval": {
+          "mean": 24283.522222222222,
+          "lower": 21990.4,
+          "upper": 26505.11111111111,
+          "mde": 2257.355555555554,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "bytes_last": {
+        "interval": {
+          "mean": 28181.01111111111,
+          "lower": 25836.71111111111,
+          "upper": 30562.722222222223,
+          "mde": 2363.0055555555555,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "prefix_stable": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "prefix_divergences": {
+        "interval": {
+          "mean": 0,
+          "lower": 0,
+          "upper": 0,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 0,
+        "ties": 90,
+        "losses": 0,
+        "p": 1
+      },
+      "tools_n": {
+        "interval": {
+          "mean": 1,
+          "lower": 1,
+          "upper": 1,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "steps_n": {
+        "interval": {
+          "mean": 3,
+          "lower": 3,
+          "upper": 3,
+          "mde": 0,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "assemble_ms": {
+        "interval": {
+          "mean": 7.644444444444445,
+          "lower": 7.2,
+          "upper": 8.055555555555555,
+          "mde": 0.4277777777777776,
+          "n": 90
+        },
+        "wins": 90,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "non_ascii_ratio": {
+        "interval": {
+          "mean": 0.01084444444444445,
+          "lower": 0.007677777777777781,
+          "upper": 0.014766666666666664,
+          "mde": 0.0035444444444444416,
+          "n": 90
+        },
+        "wins": 86,
+        "ties": 4,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "recall_reach": {
+        "interval": {
+          "mean": 0.9458333333333334,
+          "lower": 0.90625,
+          "upper": 0.9791666666666667,
+          "mde": 0.03645833333333337,
+          "n": 80
+        },
+        "wins": 79,
+        "ties": 1,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "recall_direct": {
+        "interval": {
+          "mean": 0.8625,
+          "lower": 0.8020833333333333,
+          "upper": 0.91875,
+          "mde": 0.05833333333333335,
+          "n": 80
+        },
+        "wins": 76,
+        "ties": 4,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "completeness": {
+        "interval": {
+          "mean": 0.8875,
+          "lower": 0.8125,
+          "upper": 0.95,
+          "mde": 0.06874999999999998,
+          "n": 80
+        },
+        "wins": 71,
+        "ties": 9,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "undershoot": {
+        "interval": {
+          "mean": -0.9458333333333334,
+          "lower": -0.9770833333333332,
+          "upper": -0.9083333333333332,
+          "mde": 0.03437499999999999,
+          "n": 80
+        },
+        "wins": 0,
+        "ties": 1,
+        "losses": 79,
+        "p": 0.0004997501249375312
+      },
+      "overshoot_count": {
+        "interval": {
+          "mean": 1.3375,
+          "lower": 1.15,
+          "upper": 1.5083333333333333,
+          "mde": 0.1791666666666667,
+          "n": 80
+        },
+        "wins": 80,
+        "ties": 0,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      },
+      "fetch_rounds": {
+        "interval": {
+          "mean": 0.1375,
+          "lower": 0.0625,
+          "upper": 0.2125,
+          "mde": 0.075,
+          "n": 80
+        },
+        "wins": 11,
+        "ties": 69,
+        "losses": 0,
+        "p": 0.0014992503748125937
+      },
+      "direct_n": {
+        "interval": {
+          "mean": 2.933333333333333,
+          "lower": 2.8333333333333335,
+          "upper": 3,
+          "mde": 0.08333333333333326,
+          "n": 90
+        },
+        "wins": 88,
+        "ties": 2,
+        "losses": 0,
+        "p": 0.0004997501249375312
+      }
+    }
+  },
+  "perArm": {
+    "none": {},
+    "flat-skills": {},
+    "l1-skills": {},
+    "rank-skills": {
+      "ndcg": {
+        "mean": 0.8404144897733712,
+        "lower": 0.7802272337564157,
+        "upper": 0.8964648420449659,
+        "mde": 0.058118804144275116,
+        "n": 80
+      },
+      "hit_at_1": {
+        "mean": 0.8375,
+        "lower": 0.75,
+        "upper": 0.9125,
+        "mde": 0.08124999999999999,
+        "n": 80
+      },
+      "mrr": {
+        "mean": 0.8940625000000001,
+        "lower": 0.838125,
+        "upper": 0.9441666666666666,
+        "mde": 0.053020833333333295,
+        "n": 80
+      }
+    }
+  },
+  "latency": {
+    "none": 1,
+    "flat-skills": 7,
+    "l1-skills": 6.98,
+    "rank-skills": 4.68
+  },
+  "conformance": {
+    "none": {
+      "adapterLies": [],
+      "adapterModest": [],
+      "offeredUnverified": [],
+      "errors": [],
+      "passed": true
+    },
+    "flat-skills": {
+      "adapterLies": [],
+      "adapterModest": [],
+      "offeredUnverified": [],
+      "errors": [],
+      "passed": true
+    },
+    "l1-skills": {
+      "adapterLies": [],
+      "adapterModest": [],
+      "offeredUnverified": [],
+      "errors": [],
+      "passed": true
+    },
+    "rank-skills": {
+      "adapterLies": [],
+      "adapterModest": [],
+      "offeredUnverified": [
+        "cap.ai-agents.agent-management",
+        "cap.ai-agents.agent-orchestration-multi-agent-optimize",
+        "cap.ai-agents.agent-patterns",
+        "cap.ai-agents.agents",
+        "cap.ai-agents.ai-agents",
+        "cap.ai-agents.ai-anti-patterns",
+        "cap.ai-agents.approval-checker",
+        "cap.ai-agents.builder",
+        "cap.ai-agents.claudy-orchestration",
+        "cap.ai-agents.command-development",
+        "cap.ai-agents.design-synthesizer",
+        "cap.ai-agents.finding-agents",
+        "cap.ai-agents.framework",
+        "cap.ai-agents.generate-subsystem-skills",
+        "cap.ai-agents.handoff-new-session",
+        "cap.ai-agents.hook-generator",
+        "cap.ai-agents.install-agent-skills",
+        "cap.ai-agents.jira-orchestration-workflow",
+        "cap.ai-agents.ln-751-command-templates",
+        "cap.ai-agents.managing-claude-code-meta",
+        "cap.ai-agents.managing-sc-packages",
+        "cap.ai-agents.marketplace-update",
+        "cap.ai-agents.math-router",
+        "cap.ai-agents.mcp-expert",
+        "cap.ai-agents.nexus-prompt-engineer",
+        "cap.ai-agents.orchestration-creating-workflows",
+        "cap.ai-agents.plan-approval",
+        "cap.ai-agents.plan-party",
+        "cap.ai-agents.plugin-creator",
+        "cap.ai-agents.project-evaluation",
+        "cap.ai-agents.prompt-brevity-review",
+        "cap.ai-agents.qwen-delegation",
+        "cap.ai-agents.rca-copilot-agent",
+        "cap.ai-agents.session-closing",
+        "cap.ai-agents.skill-reviewer",
+        "cap.ai-agents.skills-repo-maintenance",
+        "cap.ai-agents.slipstream-protocol",
+        "cap.ai-agents.subagent-development",
+        "cap.ai-agents.subagent-driven-development",
+        "cap.ai-agents.task-delegation",
+        "cap.ai-agents.using-beadpowers",
+        "cap.ai-agents.using-orchestration",
+        "cap.ai-agents.when-chaining-agent-pipelines-use-stream-chain",
+        "cap.ai-agents.workflow-improvement",
+        "cap.ai-agents.workflow-router",
+        "cap.business-planning.affinity-mcp-workflows",
+        "cap.business-planning.agile-product-owner",
+        "cap.business-planning.batch-notification",
+        "cap.business-planning.canvas-course-audit",
+        "cap.business-planning.consulting-design",
+        "cap.business-planning.critical-analysis-patterns",
+        "cap.business-planning.event-storming-advanced",
+        "cap.business-planning.executive-briefing-kit",
+        "cap.business-planning.experiment-design-kit",
+        "cap.business-planning.flow-curator",
+        "cap.business-planning.flow-planner",
+        "cap.business-planning.governance-sovereignty",
+        "cap.business-planning.linking-plan",
+        "cap.business-planning.loyalty-modeling",
+        "cap.business-planning.multi-channel",
+        "cap.business-planning.prd-generator",
+        "cap.business-planning.prd-v09-launch-metrics",
+        "cap.business-planning.professional-communication",
+        "cap.business-planning.progress-sync",
+        "cap.business-planning.project-coach-setup-base",
+        "cap.business-planning.reinforcement-loop",
+        "cap.business-planning.requirements-elicitation",
+        "cap.business-planning.sc-brainstorm",
+        "cap.business-planning.scrum-master-agent",
+        "cap.business-planning.slim-meeting-agenda",
+        "cap.business-planning.spec-to-backlog",
+        "cap.business-planning.speckit-author",
+        "cap.business-planning.survey-design",
+        "cap.business-planning.tech-divergence",
+        "cap.business-planning.thinking-second-order",
+        "cap.business-planning.value-story-framework",
+        "cap.business-planning.vibe-prd",
+        "cap.business-planning.writing-plans",
+        "cap.content-creation.abstract-strategy",
+        "cap.content-creation.ai-image-tools",
+        "cap.content-creation.case-study-writer",
+        "cap.content-creation.claude-collider",
+        "cap.content-creation.cold-call-scripts",
+        "cap.content-creation.content-creation",
+        "cap.content-creation.creative-qa-checklist",
+        "cap.content-creation.crier",
+        "cap.content-creation.curating-backlinks-for-a-post",
+        "cap.content-creation.design-handoff",
+        "cap.content-creation.desmos-graphing",
+        "cap.content-creation.eos-usage",
+        "cap.content-creation.format-export",
+        "cap.content-creation.irresistible-offer",
+        "cap.content-creation.knowledge-forge",
+        "cap.content-creation.motion-designer",
+        "cap.content-creation.novel-summarizer",
+        "cap.content-creation.odoo-icon-maker",
+        "cap.content-creation.openai-tts",
+        "cap.content-creation.podcast-to-content-suite",
+        "cap.content-creation.project-astrology-vedic",
+        "cap.content-creation.research-voids",
+        "cap.content-creation.resonance-seo",
+        "cap.content-creation.screenshot-beautifier",
+        "cap.content-creation.slack-markdown-formatter",
+        "cap.content-creation.social-calendar-system",
+        "cap.content-creation.ux-writing",
+        "cap.content-creation.video-subtitle-cutter",
+        "cap.content-creation.viral-video-short-form",
+        "cap.content-creation.viral-youtube-titles",
+        "cap.content-creation.youtube-title",
+        "cap.data-ml.advanced-math-trading-microstructure-game",
+        "cap.data-ml.aind-infrastructure",
+        "cap.data-ml.charting-vega-lite",
+        "cap.data-ml.critical-opalescence",
+        "cap.data-ml.data-architecture",
+        "cap.data-ml.data-engineering-data-driven-feature",
+        "cap.data-ml.data-retention-archiving-planner",
+        "cap.data-ml.discopy-categorical-computing",
+        "cap.data-ml.duck-agent",
+        "cap.data-ml.embedding-strategies",
+        "cap.data-ml.entity-resolution",
+        "cap.data-ml.insightpulse-deepnote-data-lab",
+        "cap.data-ml.lunar-landers-expert",
+        "cap.data-ml.manage-concepts-db",
+        "cap.data-ml.mesh-generation",
+        "cap.data-ml.mflux-model-porting",
+        "cap.data-ml.mithril-dedup-agent",
+        "cap.data-ml.ml-nmr-methodology",
+        "cap.data-ml.ontology-sync",
+        "cap.data-ml.parse-ad-requirements",
+        "cap.data-ml.rudin-real-complex-analysis",
+        "cap.data-ml.saddle-node",
+        "cap.data-ml.sampling-bluesky-zeitgeist",
+        "cap.data-ml.second-order-odes",
+        "cap.data-ml.simulation-architect",
+        "cap.data-ml.subagent-driven-literature-review",
+        "cap.data-ml.td-data-profiling",
+        "cap.data-ml.type-hints-for-ml-code",
+        "cap.data-ml.writing-queries",
+        "cap.information-retrieval.academic-researcher",
+        "cap.information-retrieval.agent-history",
+        "cap.information-retrieval.agentio-rss",
+        "cap.information-retrieval.ai-models",
+        "cap.information-retrieval.api-digest",
+        "cap.information-retrieval.apple-music",
+        "cap.information-retrieval.confluence-deep-reader",
+        "cap.information-retrieval.doc-lookup",
+        "cap.information-retrieval.document-fetcher",
+        "cap.information-retrieval.exa",
+        "cap.information-retrieval.exa-research",
+        "cap.information-retrieval.gh-search-repos",
+        "cap.information-retrieval.github-issue-query",
+        "cap.information-retrieval.irish-takeaway",
+        "cap.information-retrieval.read-calendar",
+        "cap.information-retrieval.search-hexdocs",
+        "cap.information-retrieval.searching-aem-documentation",
+        "cap.information-retrieval.tavily-search",
+        "cap.information-retrieval.tavily-usage",
+        "cap.information-retrieval.technical-research",
+        "cap.software-engineering.00-mofa-studio-getting-started",
+        "cap.software-engineering.adapter-development",
+        "cap.software-engineering.analyzing-integration-tests",
+        "cap.software-engineering.api-design-principles",
+        "cap.software-engineering.app-review",
+        "cap.software-engineering.app-standards",
+        "cap.software-engineering.architecture-documentation",
+        "cap.software-engineering.architecture-paradigm-modular-monolith",
+        "cap.software-engineering.architecture-patterns",
+        "cap.software-engineering.astro-v6-upgrade",
+        "cap.software-engineering.audio-playback",
+        "cap.software-engineering.auto-release-manager",
+        "cap.software-engineering.aws-deployment",
+        "cap.software-engineering.axiom-concurrency-profiling",
+        "cap.software-engineering.azure-openai",
+        "cap.software-engineering.bdd-scenarios",
+        "cap.software-engineering.brainstorm-synthesis",
+        "cap.software-engineering.browser-debugging",
+        "cap.software-engineering.buck2-new-project",
+        "cap.software-engineering.bug-review",
+        "cap.software-engineering.buildkite-issue-solver",
+        "cap.software-engineering.caching-cdn-strategy-planner",
+        "cap.software-engineering.changelog-manager",
+        "cap.software-engineering.check-bounds-safety",
+        "cap.software-engineering.ci-monitor",
+        "cap.software-engineering.cloud-security-configuration",
+        "cap.software-engineering.code-reviewer",
+        "cap.software-engineering.code-smell-detection",
+        "cap.software-engineering.commit-with-req-tag",
+        "cap.software-engineering.concept-critic",
+        "cap.software-engineering.correlation-tracing",
+        "cap.software-engineering.cpu-profiling",
+        "cap.software-engineering.damage-control",
+        "cap.software-engineering.database-backup-restore",
+        "cap.software-engineering.dependency-doctor",
+        "cap.software-engineering.design-principles",
+        "cap.software-engineering.design-system-context",
+        "cap.software-engineering.devops-patterns",
+        "cap.software-engineering.discord-doctor",
+        "cap.software-engineering.docs-maintenance",
+        "cap.software-engineering.erpnext-syntax-scheduler",
+        "cap.software-engineering.evaluation-framework",
+        "cap.software-engineering.file-changes-tracker",
+        "cap.software-engineering.flow-next-ralph-init",
+        "cap.software-engineering.form-validation",
+        "cap.software-engineering.generating-changelog",
+        "cap.software-engineering.gh-cli-setup",
+        "cap.software-engineering.git-commit-helper",
+        "cap.software-engineering.github-cli",
+        "cap.software-engineering.github-pull-requests",
+        "cap.software-engineering.google-spaces-updates",
+        "cap.software-engineering.handler-storage-r2",
+        "cap.software-engineering.holmesgpt-skill",
+        "cap.software-engineering.hono-ipc-patterns",
+        "cap.software-engineering.infographic-structure-creator",
+        "cap.software-engineering.infrastructure-reporting",
+        "cap.software-engineering.infrastructure-verification",
+        "cap.software-engineering.init-repo",
+        "cap.software-engineering.integration-generator",
+        "cap.software-engineering.jwt-authentication",
+        "cap.software-engineering.kubernetes-integration",
+        "cap.software-engineering.kubernetes-specialist",
+        "cap.software-engineering.link-validator",
+        "cap.software-engineering.lispsyntax-acset",
+        "cap.software-engineering.lists-grids",
+        "cap.software-engineering.ln-634-test-coverage-auditor",
+        "cap.software-engineering.markdowntown-cli",
+        "cap.software-engineering.memory-management-optimization",
+        "cap.software-engineering.meta-library-dev",
+        "cap.software-engineering.more-vaults",
+        "cap.software-engineering.mz-configure-loki-logging",
+        "cap.software-engineering.n8n-mcp-tools-expert",
+        "cap.software-engineering.network-diagnostics",
+        "cap.software-engineering.ngrx-store",
+        "cap.software-engineering.nuxt-errors",
+        "cap.software-engineering.oauth2-oidc-implementer",
+        "cap.software-engineering.observability-packaging",
+        "cap.software-engineering.observability-with-prometheus-grafana",
+        "cap.software-engineering.omakase-off",
+        "cap.software-engineering.onboarding-helper",
+        "cap.software-engineering.orcaflex-environment-config",
+        "cap.software-engineering.otp-thinking",
+        "cap.software-engineering.pdf-to-markdown-converter",
+        "cap.software-engineering.performance-optimization",
+        "cap.software-engineering.performance-patterns",
+        "cap.software-engineering.perplexity-load-scale",
+        "cap.software-engineering.pr-review",
+        "cap.software-engineering.privacy-compliance",
+        "cap.software-engineering.qa-lead",
+        "cap.software-engineering.qa-validator",
+        "cap.software-engineering.quality-audit-workflow",
+        "cap.software-engineering.rails-backend-guidelines",
+        "cap.software-engineering.react-native-expert",
+        "cap.software-engineering.release-beta",
+        "cap.software-engineering.repository-auditor",
+        "cap.software-engineering.ruff-lint",
+        "cap.software-engineering.rust-iterators",
+        "cap.software-engineering.schema-markup",
+        "cap.software-engineering.script-bugfix",
+        "cap.software-engineering.shader-fundamentals",
+        "cap.software-engineering.shadow-scale",
+        "cap.software-engineering.sigil-frost",
+        "cap.software-engineering.slim-code-of-conduct",
+        "cap.software-engineering.slo-alerting",
+        "cap.software-engineering.spec-validator",
+        "cap.software-engineering.state-machine-design",
+        "cap.software-engineering.symfony-executing-plans",
+        "cap.software-engineering.tailwind-css-design-system",
+        "cap.software-engineering.team-collaboration",
+        "cap.software-engineering.test-staging-branch",
+        "cap.software-engineering.thesys-generative-ui",
+        "cap.software-engineering.third-party-integration",
+        "cap.software-engineering.toolfs-filesystem",
+        "cap.software-engineering.typescript-pro",
+        "cap.software-engineering.ui-animation",
+        "cap.software-engineering.ui-designer",
+        "cap.software-engineering.uloop-focus-window",
+        "cap.software-engineering.update-json-localization-file",
+        "cap.software-engineering.use-sharpitect",
+        "cap.software-engineering.using-ask-question-cli",
+        "cap.software-engineering.vercel-infrastructure",
+        "cap.software-engineering.vscode-extension",
+        "cap.software-engineering.wedding-immortalist",
+        "cap.software-engineering.wev-tesseract",
+        "cap.software-engineering.workbench-docs",
+        "cap.software-engineering.workflow-integration-sonar",
+        "cap.software-engineering.workflow-management",
+        "cap.software-engineering.worktree-management",
+        "cap.software-engineering.xcode-workflows"
+      ],
+      "errors": [],
+      "passed": true
+    }
+  },
+  "notes": [
+    "Every task received the same tools, because nothing installed here decides what to attach per query. So recall is one by construction and means nothing; precision and the wasted bytes are the real figures, and they are the headroom a tool-attention package would have."
+  ]
+}

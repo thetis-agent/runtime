@@ -1,0 +1,99 @@
+# The end-to-end probe: a real model answers the tasks. It costs money, so it never runs on a push.
+#
+# Everything CI checks on every commit is deterministic and free. This is the other half — whether the model
+# does the right thing with what the harness gave it — and it is a deliberate act with a bill attached.
+name: Benchmark against a model
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which suite to run
+        type: choice
+        options: [skill-recall@1, tool-recall@1, assembly-cost@1]
+        default: skill-recall@1
+      tasks:
+        description: How many tasks to take (one skill-recall task cost about $0.12 on a cheap model)
+        type: string
+        default: "5"
+      model:
+        description: The model to pin. Record it; a model change must not read as a harness regression.
+        type: string
+        default: anthropic/claude-haiku-4.5
+      max_cost:
+        description: Stop starting calls once this many dollars are spent
+        type: string
+        default: "1.00"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: ${{ inputs.suite }} against ${{ inputs.model }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: benchmarks
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends bubblewrap
+      - run: npm ci
+      - run: npm run build
+
+      - name: Refuse to start without a key
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::error::OPENROUTER_API_KEY is not set for the 'benchmarks' environment."
+            exit 1
+          fi
+          echo "a key is present"
+
+      - name: Run the probe
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          npm run bench -- run "${{ inputs.suite }}" \
+            --model "${{ inputs.model }}" \
+            --max-cost "${{ inputs.max_cost }}" \
+            --tasks "${{ inputs.tasks }}" \
+            --out "$RUNNER_TEMP/probe" \
+          | tee "$RUNNER_TEMP/probe.log"
+
+      # The result is not committed. A run against a model is a sample of the suite taken on one day against
+      # one model, and a repository artifact that changes every time someone presses the button is not a
+      # record of anything. Read it here, and quote it with its model and its date.
+      - name: Keep the result as a run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/probe
+            ${{ runner.temp }}/probe.log
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## ${{ inputs.suite }} against \`${{ inputs.model }}\`"
+            echo
+            echo "- tasks: ${{ inputs.tasks }}"
+            echo "- ceiling: \$${{ inputs.max_cost }}"
+            echo
+            grep -E 'tasks,|conformed|FAILED|spent' "$RUNNER_TEMP/probe.log" || true
+            echo
+            echo "Selection is reported under the arm that asked the model to choose. A mechanism that pins"
+            echo "what it believes is right never asks, so it has no selection figure, and that is not a failure."
+          } >> "$GITHUB_STEP_SUMMARY"

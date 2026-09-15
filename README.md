@@ -34,9 +34,10 @@ tests it with `exec`, calls `install_package`, and the step and tool are live on
 | Path | Content |
 |---|---|
 | `bin/thetis.js` | Command-line entry point. |
-| `packages/` | Git submodule with all packages. Service plane: `contracts`, `lib`, `sandbox`, `kernel`, `host`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`. On the host: `gateway-cli`, `door`. |
+| `packages/` | Git submodule with all packages. Service plane: `contracts`, `lib`, `sandbox`, `kernel`, `host`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`. On the host: `gateway-cli`, `door`, `bench`. |
 | `docs/` | Documentation. |
 | `deploy/` | The systemd unit for `thetis serve`. See [docs/15-web-gateway.md](docs/15-web-gateway.md). |
+| `bench/` | Benchmark reports, one per suite. Written by `thetis bench run --write`. See [docs/21-benchmarks.md](docs/21-benchmarks.md). |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |
 
 ## Commands
@@ -52,6 +53,7 @@ thetis packages list|install <source>|uninstall <name> [--user <id>]
 thetis serve
 thetis models [--user <id>]
 thetis config
+thetis bench run <suite> [--write]
 ```
 
 See [docs/08-cli.md](docs/08-cli.md) and [docs/15-web-gateway.md](docs/15-web-gateway.md).

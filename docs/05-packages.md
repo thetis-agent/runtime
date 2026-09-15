@@ -48,8 +48,11 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `service` | `{ export }` | A long-running process. The userspace agent starts the export when the fence opens under `thetis serve`. See section 13. |
 | `publish` | array | Declared ports. The kernel records the field. It does not act on it yet. |
 | `forkedFrom` | `{ name, version }` | Set on a fork. Installing the fork replaces the named package when it is installed in the same userspace. See section 16. |
+| `bench` | object | Opts the package into benchmark suites. The kernel records the field and does not read it. See [21-benchmarks.md](21-benchmarks.md). |
 
-`validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install.
+`validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install. It does not reject fields it does not know, so `thetis.bench` reaches every step through `ctx.packages.list()` untouched. `@thetis/bench` validates that field, because the kernel never reads it.
+
+**Note:** a step declared with `phase: "bench"` is never scheduled. The default phases are `history`, `prompt`, `tools`, `call`, `after`, and only the bench adds `bench` to them. That is how a package carries benchmark code it can never run on an ordinary turn.
 
 ## 2. Package types
 

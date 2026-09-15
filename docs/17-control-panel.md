@@ -92,3 +92,10 @@ The gateway imports `@thetis/marketplace` for the index file and the search. Not
 `packages/gateway-web/test/gateway.test.ts` has a third user `root` with role `admin`. The cases: sections follow the role and admin routes are refused for a user; people are added, changed, and removed, and the journal says so; a person installs their own package, an admin promotes it, everyone gets it, and an admin installs a shipped package for everyone, which a person created afterwards is seeded with; a fork's row says what it replaced, delete with files puts the original back, and a shipped package is refused; the marketplace search reads the index and a missing index is a `404`.
 
 The browser code has no automated test. Check it by hand: open the panel as an admin and as a user.
+
+## Benchmarks
+
+A package that opts into a benchmark suite carries a badge on its row: the number of suites it has a report
+for, or `bench: not run` when it opted in and has never been measured. A red badge means an arm claimed it
+surfaced something the assembled prompt does not show. The detail panel lists the suites and the last run of
+each. See [21-benchmarks.md](21-benchmarks.md).

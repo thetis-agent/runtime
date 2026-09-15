@@ -51,6 +51,12 @@ The compiler options are in `tsconfig.base.json`: target ES2022, module NodeNext
 ## 5. Test
 
 ```sh
+npm test                              # every suite, the line-count guard, and the layering guard
+npm run bench -- run assembly-cost@1  # measure the harness; add --write to update each package's BENCH.md
+```
+
+
+```sh
 npm test                                   # build, then every package's tests
 node --test "packages/*/dist/test/**/*.test.js"
 THETIS_TEST_SANDBOX=none npm test           # force the unfenced mode
@@ -136,3 +142,23 @@ The agent is in `packages/userspace-agent/src/agent.ts`. The kernel side is `pac
 | `stray output` in the log | Package code wrote to `stdout`. Use `console.error` in packages. |
 | A package does not appear after install | Look at `registry.json`. Run `thetis packages list --user <id>`. The log shows a dead link. |
 | `bwrap` errors at start | Set `fence.sandbox` to `none` to confirm the rest works. Then check user namespaces on the host. |
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+| Job | What it checks |
+|---|---|
+| `test` | `npm test` twice, once with the real bubblewrap fence and once with `THETIS_TEST_SANDBOX=none`. The kernel line-count guard and the layering guard are tests, so they run here too. |
+| `bench` | Regenerates every benchmark report and fails if the committed ones differ. Then runs each suite again and fails if anything was written, because a suite that is not deterministic cannot be compared with anything. |
+| `secrets` | Greps every commit of both repositories for credential-shaped strings, and fails if a file the ignore rules cover is tracked. |
+
+`.github/workflows/bench-model.yml` runs a suite against a real model. It is `workflow_dispatch` only, takes
+the model, the task count and a cost ceiling as inputs, and needs `OPENROUTER_API_KEY` in the `benchmarks`
+environment. Its result is a run artifact and is never committed: a sample taken on one day against one
+model is not a record of the repository.
+
+**Note:** `packages/` is a submodule, so the workflows check out with `submodules: recursive` and the
+benchmark job compares both repositories. A change to scoring needs the version in
+`packages/bench/package.json` bumped as well as the reports regenerated, because the scorer version is part
+of a report's digest.
