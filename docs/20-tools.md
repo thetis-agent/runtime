@@ -35,7 +35,7 @@ The descriptions the model reads say, for each file tool, to prefer it over `cat
 
 ## 3. The plan tools
 
-The plan of a conversation is `plans/<session id>.json` in the home. Every plan tool returns the whole rendered plan, one item per line, then a tally. The web page reads that result: a `todo_*` call draws one quiet line in the transcript and the chat bar's `todo done/total` chip opens the plan as a list ([15-web-gateway.md](15-web-gateway.md) section 1).
+The plan of a conversation is `plans/<session id>.json` in the home. Every plan tool returns the whole rendered plan, one item per line, then a tally. The package carries its page UI in `ui/`, declared in the `ui` field of its manifest, and the web gateway loads it when it is installed ([15-web-gateway.md](15-web-gateway.md) sections 1 and 11): a `todo_*` call draws one quiet line in the transcript, the chat bar's `todo done/total` chip opens the Todo dock, and the dock lists the plan with a checkbox per item. The page reads the plan through two commands the manifest declares: `plan` (`uiPlan`) answers the items and the done/total tally of the conversation on screen as data; `mark` (`uiMark`) takes `{ id, stage }`, validates it like `todo_mark`, writes the plan, and answers the plan it left. Both refuse when no conversation is open. A gateway that does not read the field (the CLI gateway) sees only the tools.
 
 ```
 [x] t-1 Read the failing test
@@ -63,7 +63,7 @@ The plan of a conversation is `plans/<session id>.json` in the home. Every plan 
 
 ## 4. Questions for the person
 
-`ask_user` takes `questions` (1 to 4 of `{ id?, question, options?, allow_multiple? }`, at most 500 characters per question and 12 options of 120 characters) and `intro`. It records them in `questions/<session id>.json` and returns fixed text telling the model to end its reply with one line saying it is waiting, and stop. The web page draws the call as a form in the transcript: radios or checkboxes per question, a "Something else" text option, a free text area when there are no options, a Skip per question, and one Submit. Submit sends one user message, `1. <question> — <answer>` per line (or `skipped`), through the same path as the composer, and locks the card. A card followed by a user message is drawn locked when the conversation is reopened. See [15-web-gateway.md](15-web-gateway.md) section 1.
+`ask_user` takes `questions` (1 to 4 of `{ id?, question, options?, allow_multiple? }`, at most 500 characters per question and 12 options of 120 characters) and `intro`. It records them in `questions/<session id>.json` and returns fixed text telling the model to end its reply with one line saying it is waiting, and stop. The form is part of the package's page UI in `ui/` (section 3), not of the gateway. The web page draws the call as a form in the transcript: radios or checkboxes per question, a "Something else" text option, a free text area when there are no options, a Skip per question, and one Submit. Submit sends one user message, `1. <question> — <answer>` per line (or `skipped`), through the same path as the composer, and locks the card. A card followed by a user message is drawn locked when the conversation is reopened. See [15-web-gateway.md](15-web-gateway.md) section 1.
 
 ## 5. Provenance and tests
 

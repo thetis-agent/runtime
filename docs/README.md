@@ -25,6 +25,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [19-exa.md](19-exa.md) | The Exa tools: web search, contents, summaries, answers, research runs, and the configuration key. |
 | [20-tools.md](20-tools.md) | The tools the model works with: bounded file tools, the plan, and questions for the person. |
 | [21-benchmarks.md](21-benchmarks.md) | Measuring the harness: the suites, how a package opts in, what may be compared, and the artifact each package carries. |
+| [22-projects.md](22-projects.md) | Projects: named workspaces with project directories, instructions, and tool switches; the files, the steps, the commands, the switcher, and the settings place. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
 
 ## Conventions in these documents

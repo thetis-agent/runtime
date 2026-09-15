@@ -34,6 +34,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | Subagent turns block the parent tool call | Long subagent tasks hit `requestTimeoutMs`. | Background sessions with a poll or a notify RPC. |
 | `models()` of OpenRouter lists 400+ ids | One HTTP call per 5 minutes per process. | Acceptable. Cache to disk if needed. |
 | Config `${VAR}` with a missing variable becomes `""` | Silent misconfiguration. | Warn in `loadConfig`. |
+| Projects have no skills yet | The Skills section of a project's page is a note; `skills.disable` is stored and unused. The sidebar head slot of the shell must draw the switcher for it to appear. | Skill packages (item 6 below); then `@thetis/projects` reads their declarations the way it reads `tools`. See [22-projects.md](22-projects.md). |
 
 ## 3. Recommended order of work
 
