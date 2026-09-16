@@ -146,6 +146,43 @@ A mount binds a host directory into one person's fence at the same path. `list` 
 
 `add` and `remove` send the whole list with `mounts.set`. The kernel writes `$THETIS_HOME/mounts.json`, writes one journal row, and closes the person's fence. The fence reopens with the new binds on the next request, and its services restart. Give `--ro` after the path. `add` fails with a sentence when the host has no directory at the path: the mount is written down, and the fence opens without it. See [12-security.md](12-security.md) section 10.
 
+### 2.12 `reload`
+
+```
+thetis reload --user <id>
+thetis reload --all
+```
+
+A reload closes one person's fence and opens it again. Their gateway, their terminal and every other service in that workspace start on the code that is on disk now, and the kernel drops the provider cache it holds for that userspace. Every open terminal shell session in the fence dies with the old process, and a turn in flight ends with the code `fence`; conversations and files are untouched. It takes about a second. `_system` is a legal target, unlike a mount: the providers and the sign-in page live there. `--all` reloads every active person one at a time with `_system` last, so the sign-in page blips once, at the end. It is `--user <id>` or `--all`, never both and never neither.
+
+Each line names the services that restarted, or says the fence reopens on the next request when nobody runs a service there. One workspace that fails does not stop the rest: the line names it and repeats the command to retry, and the exit code is 1. A reload does not reach the kernel, the door, `thetis.config.json`, or anyone else's workspace. See [25-restart.md](25-restart.md) section 2.
+
+### 2.13 `status`
+
+```
+thetis status
+```
+
+What is running, and whether it is the code that is on disk now. One line for the daemon: how long it has been up, whether systemd started it, what the deployed unit's `Restart=` says, and whether its own code is newer on disk. Then one line per workspace that exists: when its fence opened or that none is open, the services in it, and the same freshness. An armed restart is one more line, in the same words `thetis restart status` and the page use.
+
+Every stale line is followed, after the whole listing, by the command that fixes it: `thetis reload --user <id>` for a workspace, `thetis restart --reason "..."` or `sudo systemctl restart thetis-runtime.service` for the daemon. A workspace with no fence open is never stale: the next request opens it on whatever is there then. See [25-restart.md](25-restart.md) section 3.
+
+### 2.14 `restart`
+
+```
+thetis restart [--reason <text>] [--yes]
+thetis restart status
+thetis restart cancel
+```
+
+Asks the running daemon to replace its own process, which is the only thing that picks up new code in the kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, or `thetis.config.json`. It ends **every turn in progress, everywhere**, and every terminal shell session. Conversations come back with their history and people stay signed in.
+
+Nothing has restarted when the command returns. The kernel arms a latch: the request waits for every turn running anywhere to end, counts down ten seconds where everyone can see it, and only then exits, so systemd starts the replacement. It waits at most two minutes; at that deadline it restarts anyway and the journal names whose turn it cut. The command prints what a restart ends before it asks anything, then asks for confirmation unless `--yes` is given; with no terminal to confirm at and no `--yes` it fails rather than guess. `--reason` is shown to everyone waiting and written to the journal, and defaults to `asked for at the host`. What the command prints back is the latch's own sentence, word for word, so the host, the page and the model read the same words about the same latch.
+
+A restart is refused with nothing armed, and the exit code is 1, for one of five reasons: `off` (`control.allowRestart` is false), `unsupervised` (systemd did not start this daemon), `no-listener` (this is a short-lived command's own kernel, not the serving daemon), `young` (up less than `control.minUptimeSecs`), and `policy` (the **deployed** unit does not say `Restart=always`). The last reads the running system rather than this checkout, because the unit file here is not the unit systemd is using: under `Restart=on-failure` a clean exit stays down, so the daemon asks systemd what the deployed policy is and refuses unless the answer is `always`, and refuses when it cannot be read at all. See [25-restart.md](25-restart.md) section 4.2.
+
+`restart status` says whether one is armed and, when none is, whether one would be accepted at all and why not. `restart cancel` calls an armed one off; nothing armed is not an error and writes no journal row. An armed restart can also be cancelled from the statusbar chip of `@thetis/tool-operator` ([25-restart.md](25-restart.md) section 5.1).
+
 ## 3. Event rendering
 
 `send` and `chat` render events as follows:
@@ -172,6 +209,11 @@ The command line talks to a running kernel through the control socket with these
 | `mounts.list` | `user` | The mounts of that user as `{ "<user>": [ { path, mode, present, kind } ] }`, or of every user without `user`. `present` is true only when the host has a directory at the path now; `kind` is `dir`, `file`, or `none`. |
 | `mounts.set` | `user`, `mounts` | Replaces that user's mounts with `mounts`, a list of at most 32 `{ path, mode }` with an absolute normalized path and mode `rw` or `ro`. The user must exist and must not be `_system`. Writes `mounts.json`, journals `mounts`, and closes the user's fence so it reopens with the binds. Returns the list with `present` and `kind`. |
 | `mounts.browse` | `path`, `all` | The directories directly under `path` (`/` without one): `{ path, parent, kind, readable, truncated, entries: [ { name, path } ] }`. Directories only, hidden names left out unless `all` is `"true"`, at most 500 entries. A missing or unreadable path is not an error: `kind` and `readable` say so. |
+| `fence.reload` | `user` | Closes that user's fence and opens it again, so its services, its provider and the agent are the code on disk now, and drops the provider cache the kernel holds for that userspace. `_system` is a legal target, unlike `mounts.set`. Journals `fence.reload`. Returns `{ user, services }`, the installed packages that declare a service. See [25-restart.md](25-restart.md) section 2. |
+| `status` | | What is running and whether it is the code on disk: `{ daemon: { startedAt, uptimeSecs, supervised, restartPolicy, codeAt, stale }, restart, workspaces: [ { user, openedAt, codeAt, stale, services } ] }`. `restartPolicy` is the deployed systemd unit's `Restart=`, or null when it could not be read. `restart` is the armed restart, or null. Changes nothing and writes no row. |
+| `restart.request` | `reason`, `actor` | Arms the restart latch; nothing restarts in the call. `reason` is required. When an `actor` is named, that user must be an admin. Returns `{ state, why?, message, pending? }` with `state` one of `armed`, `again`, `refused`; `message` is the latch's own sentence. Journals `restart.armed`, `restart.again` or `restart.refused`, with `why` on a refusal. See [25-restart.md](25-restart.md) section 4. |
+| `restart.status` | | `{ startedAt, uptimeSecs, supervised, armable, why?, pending?, policy }`. `why` is the refusal code a request would get now. Writes no row. |
+| `restart.cancel` | | Disarms an armed restart. Returns `{ cancelled, was }`. Journals `restart.cancel` only when something was armed: nothing pending is not an event. |
 | `journal.tail` | `limit`, `kind`, `target`, `actor_filter` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
 | `config.get` | | The configuration with secrets replaced by `•••`. |
 | `models` | `user` | Every model the providers visible to that userspace serve. |

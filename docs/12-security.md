@@ -40,6 +40,7 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 - RPC from a fence runs as the userspace's own user. No argument can name another user. There is no `as`.
 - `auth.login` is answered only for the system userspace. `auth.authenticate` and `auth.logout` are answered for any fence, but only when the token names that fence's own user; the system userspace may resolve any token.
 - A fence whose user is an admin may call operator methods (`operator.<method>`, the table of the control socket). The kernel checks the role on every call and records the fence's user as the actor. A gateway that hides a button is a courtesy, not the gate.
+- `restart.request` asserts that the actor is an **admin**, not merely that it is not a user. The operator channel admits any fence whose role is not `user`, which admits the system userspace; that fence has no business ending every turn on the host. See section 11.
 - A user installs only into scope `@<own id>/*`. Only admins install `@thetis/*`.
 - A local install path must resolve inside the userspace root. `..` escapes are rejected.
 - A package enumerator can schedule only steps that installed packages declare.
@@ -93,6 +94,13 @@ A `POST` from another site is refused by its `Sec-Fetch-Site` header. Two routes
 | `package.install`, `package.uninstall`, `package.promote`, `package.everyone` | the admin or `operator` | the userspace, or the package for `everyone` | `name`, `version`, `source`, `promoted`, `userspaces` |
 | `turn.start`, `turn.end` | the person | the session | `turn`, `ms`, `error`, and `reported`: the usage the provider reported, summed |
 | `service.start`, `service.stop`, `service.fail` | (the kernel) | the userspace | `package`, `error` |
+| `fence.reload` | the admin, or `operator` from the CLI | the person whose workspace it was | |
+| `restart.armed`, `restart.again`, `restart.refused` | the admin, or `operator` | `daemon` | `reason`, and `why` on a refusal: one of `off`, `unsupervised`, `no-listener`, `young`, `policy` |
+| `restart.cancel` | the admin, or `operator` | `daemon` | `reason` and `by` of the restart that was called off |
+| `restart.fire` | whoever asked for the restart | `daemon` | `reason`, `quiet`, `waitedMs`, `cut` |
+| `daemon.start`, `daemon.stop` | `daemon` | `daemon` | `pid`, `supervised`, `restartPolicy` on the start; `why` on the stop |
+
+`restart.fire` with `quiet: false` and a non-empty `cut` is the row to look for: it is the only durable record that somebody's turn was truncated. The latch waits two minutes for every conversation to go quiet and then restarts anyway, and the person whose turn it cut is not told ([25-restart.md](25-restart.md) section 7). A restart reads as three rows in order: the `restart.fire`, the `daemon.stop` it caused, and the `daemon.start` of the process systemd put in its place.
 
 `reported` values come from package code and are named so. Admins read the journal with `journal.tail` on the control socket or in the control panel's Activity section.
 
@@ -105,3 +113,13 @@ A mount whose host path is not a directory when the fence opens is skipped: the 
 `mounts.browse` lists the directories directly under one host path, for a picker. It is an operator method, so only an admin reaches it: a person's fence shows only what is bound into it, and a person who cannot bind a directory has no reason to see the host's shape. The listing holds directories alone, leaves out hidden names unless asked, is capped at 500 entries, and never throws: it answers what the path is (`dir`, `file`, `none`) and whether it can be read. It reads names, never file contents.
 
 A mount is a hole in the fence, opened on purpose. The kernel does not check what the directory holds. A `rw` mount of a directory with secrets, with `.git`, or with code the host runs gives the agent those. A mount of a path under `$THETIS_HOME` or under another userspace shows that path to the person. The bind follows the host directory as it is now and later: files added on the host appear in the fence at once. A mount does not change the process, network, or resource rules of sections 2 and 3. In sandbox mode `none` a mount changes nothing on disk: the agent can already reach every host path. `THETIS_MOUNTS` still names the mounts, so the file tools treat them the same way in every mode.
+
+## 11. Restarting the daemon
+
+A restart ends every turn in progress on this host and every terminal shell session ([25-restart.md](25-restart.md)). It is an operator act, and two separate things keep it one.
+
+**The kernel asserts an admin.** `restart.request` checks the actor's role itself, in `packages/kernel/src/control.ts`, rather than leaving it to the operator channel. The channel admits any fence whose role is not `user`, which admits the system userspace: that fence holds the providers, the sign-in page and the marketplace service, and none of that is a reason to end every turn on the host. A request that names no actor came over the control socket, whose `0600` holder is the operator, as with every other command.
+
+**The tool is confined by what is installed.** A tool declaration carries no `role` field, unlike a `ui.commands` entry, so a tool every model can see and only an admin may use would be a setting that records an intention: most people's model would offer it and collect refusals. Authority here is what is installed. `@thetis/tool-operator` is installed per admin, with `thetis packages install @thetis/tool-operator --user <admin-id>`, and it is not in the default `systemPackages["*"]`. **Putting it in `systemPackages["*"]` is a configuration error.** The kernel refuses a caller who is not an admin whatever is installed, so the packaging is the signal and the kernel is the guard. The package's statusbar chip has the same authority for the same reason and checks no role of its own: the gateway lists the extension only for the people who have the package.
+
+The five refusals `off`, `unsupervised`, `no-listener`, `young` and `policy` are not authorization. They refuse a restart that would not come back, or that would become a loop, and they refuse it for the operator too. See [25-restart.md](25-restart.md) section 4.2.

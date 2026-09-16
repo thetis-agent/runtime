@@ -47,6 +47,9 @@ $THETIS_HOME/
 | `fence.readOnly` | string[] | `[<root>/packages, <root>/node_modules]` | Extra read-only binds. Derived. |
 | `fence.hidden` | string[] | `[<home>]` | Paths masked with an empty tmpfs. Derived. |
 | `requestTimeoutMs` | number | `600000` | Timeout of one fence request. |
+| `control.allowRestart` | boolean | `true` | Whether a restart of the daemon may be asked for at all. `false` refuses every request, whoever makes it. See [25-restart.md](25-restart.md). |
+| `control.minUptimeSecs` | number | `60` | A restart is refused before this uptime, so a restart that fixes nothing cannot become a loop. |
+| `control.quietWaitMs` | number | `120000` | How long an armed restart waits for every turn to finish before it restarts anyway and cuts the turns still running. |
 
 Defaults for the object fields:
 
@@ -96,6 +99,13 @@ Known keys:
 
 1. Edit `$THETIS_HOME/thetis.config.json`.
 2. Start the CLI again. Each CLI invocation reads the file.
+
+**A running daemon does not re-read it.** `thetis serve` loads the file once, at start, and holds it in
+memory for its whole life; that includes `packages`, which is handed to a package's steps, tools and
+service from the same copy. So a configuration change reaches a `thetis` command immediately and a running
+installation not at all until the daemon is restarted — `sudo systemctl restart thetis-runtime.service`.
+Reloading a workspace does not help: it replaces the code in a fence, not the configuration the kernel
+holds. See [10-development.md](10-development.md) section 4.1.
 
 To change the model for one user only, install a package with a `prompt` step that sets `call.model`.
 

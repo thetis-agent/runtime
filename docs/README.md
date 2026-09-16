@@ -28,6 +28,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [22-projects.md](22-projects.md) | Projects: named workspaces with project directories, instructions, and tool switches; the files, the steps, the commands, the switcher, and the settings place. |
 | [23-skills.md](23-skills.md) | Skills: the SKILL.md format, the sources, the `@thetis/skills` library, the three loaders, the harness state, the bench, and the limits. |
 | [24-terminal.md](24-terminal.md) | The terminal: long-lived shell sessions in a person's fence, the pty and its marks, the ring buffer, the five tools, the shelf, the limits, and what it cannot do. |
+| [25-restart.md](25-restart.md) | Putting new code into service: why a build reaches three different places, reloading one workspace, saying what is stale, and the restart the daemon can be asked for, with its guards. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
 
 ## Conventions in these documents

@@ -48,6 +48,27 @@ The `.gitmodules` URL is `./packages`. Change it to the remote URL of the packag
 
 The compiler options are in `tsconfig.base.json`: target ES2022, module NodeNext, strict, composite, declaration, source maps.
 
+### 4.1 What a build reaches
+
+`npm run build` writes new files. It does not put them into service. What a running installation picks up
+depends on where the code lives, and the three answers are different enough that guessing wastes an
+afternoon.
+
+| Tier | What is in it | What it needs | What that costs |
+|---|---|---|---|
+| 1 | The gateway's `assets/`, every package's `ui/` browser files, package manifests, and every `tool`, `step`, `enumerator` or UI-command export | Nothing. The next request or turn has it. | Nothing. |
+| 2 | A service's module graph (`@thetis/gateway-web`, `@thetis/terminal`), a provider, and the userspace agent itself | That person's workspace reloaded: `thetis reload --user <id>`, or the **Workspaces** section of the control panel | That person's open shell sessions, and any turn of theirs in flight. A second or two. |
+| 3 | `@thetis/kernel`, `@thetis/host`, `@thetis/sandbox`, `@thetis/door`, `@thetis/lib`, `@thetis/contracts`, `@thetis/gateway-cli`, and `thetis.config.json` | A new daemon process: `sudo systemctl restart thetis-runtime.service`, or `thetis restart` on the host, or the `restart_daemon` tool ([25-restart.md](25-restart.md)) | Every turn in progress, everywhere, and every terminal shell session. | 
+
+Why the tiers exist, in one line each. A tool export is imported with a modification-time query, so the
+agent re-reads it on every call. A service is imported once when its agent starts, and `?v=` versions only
+a package's entry module, so nothing short of a new agent process reloads one — which is what a reload is.
+The kernel, the door and the configuration are read once by `thetis serve`, and Node cannot reload a module
+graph, so only a new process picks them up.
+
+`thetis status` says which of these is stale: it compares what is on disk against what each part loaded,
+and names anything running older code. Use it when a change appears to have done nothing.
+
 ## 5. Test
 
 ```sh

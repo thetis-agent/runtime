@@ -1,15 +1,16 @@
 # 20 Tools for the model
 
-The model works through tools. Four shipped packages provide them. Every person gets the first three (`systemPackages["*"]`, [09-configuration.md](09-configuration.md)); `@thetis/terminal` is installed per person. A person can add tools with a package of their own; see [05-packages.md](05-packages.md).
+The model works through tools. Five shipped packages provide them. The first four are in the default `systemPackages["*"]` ([09-configuration.md](09-configuration.md)), so every person has them unless an installation leaves one out; `@thetis/tool-operator` is installed per admin and never for everyone (section 3.3). A person can add tools with a package of their own; see [05-packages.md](05-packages.md).
 
 | Package | Tools | Function |
 |---|---|---|
 | `@thetis/tools-files` | `read_path`, `edit_path`, `write_path`, `search_files`, `find_files`, `get_directory` | Files in the person's home, bounded and path-contained. |
 | `@thetis/tools-plan` | `todo_write`, `todo_add`, `todo_mark`, `todo_order`, `todo_read`, `ask_user` | A plan per conversation, and questions for the person. |
-| `@thetis/tool-exec` | `exec`, `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `spawn_subagent` | One-shot commands, packages, forks, and subagents. |
+| `@thetis/tool-exec` | `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `spawn_subagent` | Packages, forks, and subagents. It declared `exec` until 2026-09-16; see section 3.2. |
 | `@thetis/terminal` | `shell`, `shell_read`, `shell_send`, `shell_interrupt`, `shell_sessions` | Long-lived shell sessions in the person's fence, shown live in the page. See [24-terminal.md](24-terminal.md). |
+| `@thetis/tool-operator` | `restart_daemon` | Asks this daemon to restart itself, for code a workspace reload cannot reach. One admin at a time. See [25-restart.md](25-restart.md). |
 
-`@thetis/tools-files`, `@thetis/tools-plan` and `@thetis/terminal` are plain ECMAScript modules with no build step and no npm dependency; `@thetis/terminal` vendors the terminal emulator its page needs. `@thetis/tool-exec` is TypeScript and imports `@thetis/lib/pkg-fs` for the fork mechanism. `@thetis/tools-files` and `@thetis/tools-plan` were written by Thetis itself from a brief, tested, and then reviewed and shipped; see section 5.
+`@thetis/tools-files`, `@thetis/tools-plan`, `@thetis/terminal` and `@thetis/tool-operator` are plain ECMAScript modules with no build step and no npm dependency; `@thetis/terminal` vendors the terminal emulator its page needs. `@thetis/tool-exec` is TypeScript and imports `@thetis/lib/pkg-fs` for the fork mechanism. `@thetis/tools-files` and `@thetis/tools-plan` were written by Thetis itself from a brief, tested, and then reviewed and shipped; see section 5.
 
 ## 1. Rules every file tool follows
 
@@ -77,6 +78,22 @@ The plan of a conversation is `plans/<session id>.json` in the home. Every plan 
 `shell` replaces `exec`, which `@thetis/tool-exec` declared until 2026-09-16 and no longer does. `exec` started in the home with a fresh shell every time, so a `cd`, a virtualenv or an `ssh-agent` was lost between calls; it had no stdin, so a command that asked for a passphrase could only time out; and it killed the command it was waiting for when the timeout ran out, throwing the work away. `shell` keeps the session, `shell_send` answers the question, and a command that outlives its wait keeps running. `@thetis/tool-exec` keeps its other five tools and its name.
 
 The descriptions the model reads say, for each of these, that the session is shared with the person and that the file tools are still the cheaper and safer way to read or change a file.
+
+## 3.3 Restarting the daemon
+
+`@thetis/tool-operator` carries one tool. **It is installed per admin, and never for everyone.**
+
+| Tool | Arguments | Effect |
+|---|---|---|
+| `restart_daemon` | `reason` (required) | Arms a restart of this daemon. Nothing restarts in the call. |
+
+`reason` is the only parameter, and it is required: it is shown to everyone waiting and written to the journal, so it has to name what changed and why reloading a workspace cannot pick it up. A call without one is refused before the kernel is asked.
+
+**The tool arms rather than acts.** A tool that exited the process at once would kill the turn that called it, and the person would see a turn that simply stopped and never read why. So the call records the request, the turn finishes, and the reply reaches the person — that reply is the announcement. Only then does the daemon wait for every turn running anywhere to end, count down ten seconds where everyone can see it, and exit so that systemd starts the replacement. It waits at most two minutes; at that deadline it restarts anyway and the journal names whose turn it cut. Until it fires it can be called off.
+
+The description the model reads tells it to **prefer a workspace reload**: a reload replaces that workspace's service code in about a second and takes nothing else down, so a restart is only for the code the daemon read once when it started — the kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, or `thetis.config.json`. It also tells the model to ask with `ask_user` first unless the person has just asked for it, and that a refusal means nothing happened, which is the sentence that stops a model inventing a second attempt. Every answer the tool gives is the latch's own sentence, passed through unchanged; the sentences live in `@thetis/lib` so that forking the tool cannot change what the kernel says about itself.
+
+A tool declaration carries no `role` field, unlike a UI command, so authority here is what is installed: `thetis packages install @thetis/tool-operator --user <admin-id>`. Putting the package in `systemPackages["*"]` is a configuration error, and the kernel refuses a caller who is not an admin whatever is installed. The package also draws one statusbar chip, for the admins who have it, which counts an armed restart down and offers **Cancel**. See [25-restart.md](25-restart.md) section 5 and [12-security.md](12-security.md) section 11.
 
 ## 4. Questions for the person
 

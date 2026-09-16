@@ -8,6 +8,11 @@
 Description=Thetis runtime (kernel daemon and services)
 After=network-online.target
 Wants=network-online.target
+# The brake on a genuine crash loop: five starts inside five minutes and systemd gives up rather than spinning
+# on code that cannot boot. Both belong in [Unit] — under [Service] older systemd ignores them without a word,
+# which would leave a guard that looks present and does nothing. `systemctl reset-failed` clears the block.
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -15,7 +20,13 @@ User=thetis
 Group=thetis
 WorkingDirectory=/srv/thetis/runtime
 ExecStart=/home/thetis/.local/bin/node /srv/thetis/runtime/bin/thetis.js serve
-Restart=on-failure
+# `always`, not `on-failure`, because a restart Thetis asks for is a *clean* exit: the latch resolves the same
+# promise Ctrl+C does, the process exits 0, and only `always` brings it back. With `on-failure` that exit is
+# taken as success and the installation stays down. This does not defeat `systemctl stop`: a stop is systemd's
+# own doing rather than the unit ending, and a stopped unit stays stopped.
+# The daemon reads this back at startup (systemctl show -p Restart) and refuses to arm a restart unless it says
+# always, so changing it here without `systemctl daemon-reload` disables the feature rather than breaking it.
+Restart=always
 RestartSec=2
 KillSignal=SIGINT
 TimeoutStopSec=30

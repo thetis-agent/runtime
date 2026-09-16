@@ -277,9 +277,15 @@ export async function startService(env) {
 | A fence opens while the supervisor is armed | The services of that userspace start. This covers a restart after a crash. |
 | A service package is installed while the supervisor is armed | It starts at once. |
 | A service package is uninstalled | `service.stop` runs before the link is removed. |
+| A workspace is reloaded (`fence.reload`, or `mounts.set`) | The fence closes and `ServiceSupervisor.reload` opens it again, starting every declared service. |
 | The kernel shuts down | Every fence closes. Every service exits with its agent. |
 
 A one-shot CLI command never arms the supervisor. `thetis send` does not start a gateway.
+
+A service's code is read **once**, when its agent starts — unlike a `tool` or `step` export, which the
+agent re-imports with a modification-time query on every call. So editing a service's files changes
+nothing in a running installation until that workspace is reloaded. See
+[25-restart.md](25-restart.md).
 
 `publish` is recorded and not enforced. The process fence shares the host network, so a port bound by a service is reachable on the host. See [12-security.md](12-security.md).
 
