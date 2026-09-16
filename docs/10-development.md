@@ -56,12 +56,15 @@ afternoon.
 
 | Tier | What is in it | What it needs | What that costs |
 |---|---|---|---|
-| 1 | The gateway's `assets/`, every package's `ui/` browser files, package manifests, and every `tool`, `step`, `enumerator` or UI-command export | Nothing. The next request or turn has it. | Nothing. |
-| 2 | A service's module graph (`@thetis/gateway-web`, `@thetis/terminal`), a provider, and the userspace agent itself | That person's workspace reloaded: `thetis reload --user <id>`, or the **Workspaces** section of the control panel | That person's open shell sessions, and any turn of theirs in flight. A second or two. |
+| 1 | The gateway's `assets/`, every package's `ui/` browser files, package manifests, and the **entry module** a `tool`, `step`, `enumerator` or UI-command export is declared in | Nothing. The next request or turn has it. | Nothing. |
+| 2 | **Anything an entry module imports**, a service's module graph (`@thetis/gateway-web`, `@thetis/terminal`), a provider, and the userspace agent itself | That person's workspace reloaded: `thetis reload --user <id>`, or the **Workspaces** section of the control panel | That person's open shell sessions, and any turn of theirs in flight. A second or two. |
 | 3 | `@thetis/kernel`, `@thetis/host`, `@thetis/sandbox`, `@thetis/door`, `@thetis/lib`, `@thetis/contracts`, `@thetis/gateway-cli`, and `thetis.config.json` | A new daemon process: `sudo systemctl restart thetis-runtime.service`, or `thetis restart` on the host, or the `restart_daemon` tool ([25-restart.md](25-restart.md)) | Every turn in progress, everywhere, and every terminal shell session. | 
 
 Why the tiers exist, in one line each. A tool export is imported with a modification-time query, so the
-agent re-reads it on every call. A service is imported once when its agent starts, and `?v=` versions only
+agent re-reads that file on every call — **but only that file**. A static `import "./client.js"` inside it
+resolves to a URL with no query, so Node's module cache goes on serving the copy it already has: editing a
+helper a tool imports changes nothing until the agent process is new. This is the trap the tiers exist to
+warn about, and it is easy to get wrong in the safe-sounding direction. A service is imported once when its agent starts, and `?v=` versions only
 a package's entry module, so nothing short of a new agent process reloads one — which is what a reload is.
 The kernel, the door and the configuration are read once by `thetis serve`, and Node cannot reload a module
 graph, so only a new process picks them up.

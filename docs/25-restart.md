@@ -6,15 +6,20 @@ tells them apart is [10-development.md](10-development.md) section 4.1.
 
 | Tier | What is in it | What puts it into service |
 |---|---|---|
-| 1 | Browser files, package manifests, and every `tool`, `step`, `enumerator` or UI-command export | Nothing. The next request or turn has it. |
-| 2 | A service's module graph, a provider, the userspace agent | A **reload** of that person's workspace (section 2) |
+| 1 | Browser files, package manifests, and the **entry module** a `tool`, `step`, `enumerator` or UI-command export is declared in | Nothing. The next request or turn has it. |
+| 2 | **Anything an entry module imports**, a service's module graph, a provider, the userspace agent | A **reload** of that person's workspace (section 2) |
 | 3 | The kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, and `thetis.config.json` | A **restart** of the daemon (section 4) |
 
 ## 1. Why the tiers exist
 
 A `tool` or `step` export is imported with a modification-time query (`?v=<mtime>`), so the userspace
-agent re-reads it on every call. A **service** is imported once, when its agent starts, and the query
-versions only a package's entry module — `@thetis/gateway-web`'s `index.js` imports `./server.js` with a
+agent re-reads that file on every call. **Only that file.** A static `import "./client.js"` inside it
+resolves to a URL carrying no query, so the module cache goes on serving the copy it already has: editing a
+helper that a tool imports changes nothing until the agent process is new. The safe-sounding reading — "it
+is tool code, so it is live" — is the wrong one, and it costs an afternoon to discover.
+
+A **service** is imported once, when its agent starts, and the query versions only a package's entry
+module — `@thetis/gateway-web`'s `index.js` imports `./server.js` with a
 plain specifier, so that file stays in the process's module registry however many times the entry is
 re-imported. Node has no way to reload a module graph. The only thing that reads one again is a new
 process, and for a service that means a new agent: a new fence.
