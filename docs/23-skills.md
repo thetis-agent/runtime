@@ -31,6 +31,8 @@ The body is everything after the frontmatter. It is markdown of at most 64 KiB. 
 
 A skill with an error is left out of the prompt. The loader names it in `notes`. A skill with only warnings is kept.
 
+`packages/skills/scripts/convert-legacy.mjs` converts a skill tree of the legacy Rust Thetis (TOML frontmatter, `[text](skill:<id>)` links) into this format: `node packages/skills/scripts/convert-legacy.mjs <legacy dir>... --out <skills dir>`, described in the package README.
+
 ## 2. The sources
 
 The library reads skills from two places, in this order. A later source wins on an equal id.
