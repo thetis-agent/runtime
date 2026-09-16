@@ -157,7 +157,7 @@ During a refresh the mirror widens its sparse checkout to `README.md` at the pac
 
 ## 9. The Marketplace place
 
-`@thetis/ui-marketplace` is a `ui` package in the default `systemPackages["*"]` ([09-configuration.md](09-configuration.md)). It declares one place, `marketplace`, which the web gateway draws as the link **Marketplace** in the sidebar footer beside **Control panel** ([15-web-gateway.md](15-web-gateway.md) section 11). The place opens in the main pane with the sidebar kept; the close button or the Escape key returns to the conversation.
+`@thetis/ui-marketplace` is a `ui` package in the default `systemPackages["*"]` ([09-configuration.md](09-configuration.md)). It declares one place, `marketplace`, which the web gateway lists as **Marketplace** in the sidebar's ≡ menu after **Control panel** ([15-web-gateway.md](15-web-gateway.md) section 11). The place opens in the main pane with the sidebar kept; the close button or the Escape key returns to the conversation.
 
 **The gallery.** A search box, one chip per package type (**All** first), a note (`registry thetis · refreshed 12 min ago · 23 packages`, or `n installed · no marketplace index yet`), and one card per package: the name, the description, the version, the type and the registry, and the badges **Only me**, **Everyone** or **Available · \<registry\>**, `fork of …`, `update to <version>`, and the benchmark badge. Installed packages come first. The search runs through the command `search`, so the index's ranking of section 4 applies; an installed package that no registry carries is matched on its name, type and description. Clicking a card opens the package's page.
 

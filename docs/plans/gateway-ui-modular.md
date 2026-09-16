@@ -65,7 +65,7 @@ to that package, so a panel cannot name another package because it never names o
   panes and never rebuilds a transcript (v2's `stage.js` rule: a background conversation keeps receiving
   events).
 - **Places.** The control panel is not a tab. It **takes over the main and rail region** with the sidebar
-  kept, has a header ✕ and Escape to return, and is entered from the sidebar footer. The skeleton makes
+  kept, has a header ✕ and Escape to return, and is entered from the sidebar's ≡ menu (footer links until 2026-09-15). The skeleton makes
   that a general mechanism: a *place* is any non-conversation surface a package registers, drawn in the same
   region the same way. The control panel is the first place; the marketplace, a package's page, and a
   project's settings are places too.
@@ -555,7 +555,7 @@ Slot ids are `<package>#<id>` inside the registry. Built-in pieces register unde
 
 ```
 #app.is-place?
-  aside#sidebar        .sidebar-head (brand, new)  #sidebar-head (slot)  .sidebar-search  nav#session-list  footer.sidebar-foot (#user-face #user-name #status, #sidebar-places: places links, then Log out)
+  aside#sidebar        .sidebar-head (#menu ≡ button: the places, then new)  #sidebar-head (slot)  .sidebar-search  nav#session-list  footer.sidebar-foot (#user-face #user-name #status, Log out)
   main.main
     nav#tabs           one .tab per open conversation + #new-tab
     div#panes          one .pane per open conversation: .chat-bar (title, state, #chips, archive) + .transcript

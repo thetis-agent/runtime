@@ -1,6 +1,6 @@
 # 17 Control panel
 
-The control panel is the part of the web gateway where a person manages packages and, for an admin, people, models, mounts, and the installation. It is a place, not a separate address: the link **Control panel** sits in the sidebar footer beside **Log out**, the panel takes over the main pane, and the close button or the Escape key returns to the conversation. See [15-web-gateway.md](15-web-gateway.md) section 11 for the seam it is built on.
+The control panel is the part of the web gateway where a person manages packages and, for an admin, people, models, mounts, and the installation. It is a place, not a separate address: **Control panel** is the first item of the sidebar's ≡ menu, the panel takes over the main pane, and the close button or the Escape key returns to the conversation. See [15-web-gateway.md](15-web-gateway.md) section 11 for the seam it is built on.
 
 ## 1. Sections
 
@@ -8,7 +8,7 @@ The panel is a slot. One section is built into the gateway; the others come from
 
 | Section | From | Who | Content |
 |---|---|---|---|
-| Packages | `@thetis/gateway-web`, order 10 | Everyone | What is installed here, one row per package: the name, the version, the type, the scope (Only me, Everyone), what it brings. A fork carries a badge `fork of <name> <version>`. Add from a source, remove, delete a package of your own with its files. Each row and the card link **Open in the marketplace** to the package's page when `@thetis/ui-marketplace` has registered its place; the link is absent otherwise. What the registries offer, updates, and an admin's installs for others are the Marketplace place. See [18-marketplace.md](18-marketplace.md) section 9. |
+| Packages | `@thetis/gateway-web`, order 10 | Everyone | What is installed here, one row per package: the name, the version, the type, the scope (Only me, Everyone), what it brings. A fork carries a badge `fork of <name> <version>`. Add from a source, remove, delete a package of your own with its files. The card of the selected package carries **Open in the marketplace**, which opens the package's page when `@thetis/ui-marketplace` has registered its place; the button is absent otherwise. What the registries offer, updates, and an admin's installs for others are the Marketplace place. See [18-marketplace.md](18-marketplace.md) section 9. |
 | People | `@thetis/ui-admin`, order 20 | Admins | Who can sign in. Add a person, change the role, suspend or activate, set a password, remove. Your own account is not offered. |
 | Models | `@thetis/ui-admin`, order 30 | Admins | The default model and the models every provider in the system userspace serves. Read-only. |
 | Mounts | `@thetis/ui-admin`, order 35 | Admins | Which host directories are bound into whose fence, at their host path, `rw` or `ro`. One table of every person's mounts with an **Unbind** button per row, and a form: the person, the host path, the mode. Every change sends that person's whole list; the page says that the person's fence reopens and their services restart. See [12-security.md](12-security.md) section 10. |
