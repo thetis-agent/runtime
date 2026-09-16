@@ -10,7 +10,7 @@
 | Project directories | Absolute paths on the host. A directory is a place the person works in; it can be outside their userspace. | None. A project with no directories is a name, a tool set, and instructions. |
 | Instructions | Text the package adds to the system prompt of every conversation in the project. | Empty. |
 | Tools | The tools that are switched off for the project. Every tool is on unless it is listed. | None switched off. |
-| Skills | Reserved. No skill package exists yet. | Empty. |
+| Skills | The skills that are switched off. `@thetis/skills` reads `skills.disable` and leaves those ids out of every loader's prompt and of `skill_fetch` ([23-skills.md](23-skills.md)). The page has no switch per skill yet. | None switched off. |
 
 A project directory does not open the fence. The fence binds a directory only when an admin mounts it with `thetis mounts add <user> <path> [--ro]` ([08-cli.md](08-cli.md), [12-security.md](12-security.md) section 10). Until then the directory is listed and marked as not mounted. The package reads what is mounted from `THETIS_MOUNTS` ([03-fence.md](03-fence.md) section 3.5), the same source the file tools read ([20-tools.md](20-tools.md) section 1), so the page, the prompt, and the tools agree.
 
@@ -68,7 +68,7 @@ The package declares `sidebar: [{ id: "head" }]` and `places: [{ id: "project" }
 | Instructions | A text area for `PROJECT.md`. |
 | Conversations | How many conversations are in the project. |
 | Tools | Every installed package's tools, grouped by package, each with a switch. A switch off puts the tool in `tools.disable`. |
-| Skills | "No skill packages are installed. When one is, its skills appear here with the same switches." |
+| Skills | "No skill packages are installed. When one is, its skills appear here with the same switches." The record's `skills.disable` is honoured by `@thetis/skills` already; the switches are in progress with `@thetis/ui-skills`. |
 | Actions | Save, which calls `save`, shows a toast, and refreshes the switcher; a new project is chosen after its first save. Delete project, behind the shell's confirm popover. |
 
 Nothing is sent until Save. The page reads with one `get` when it opens and again after a save.

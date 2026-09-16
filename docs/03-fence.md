@@ -151,6 +151,7 @@ The agent builds one `StepEnv` object. Steps receive it as `ctx.env`. Tools rece
 | Field | Content |
 |---|---|
 | `cwd` | The userspace home. |
+| `shared` | The shared directory: written by the system userspace, read-only in every other fence. |
 | `root` | The userspace root. |
 | `store` | The store directory. |
 | `exec(cmd, opts)` | Runs `cmd` with `/bin/bash`. `opts.cwd` is relative to home. `opts.timeoutMs` defaults to 120000. Output is capped at 30,000 characters per stream. Returns `{ code, stdout, stderr }`. |

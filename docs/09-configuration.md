@@ -59,6 +59,9 @@ Defaults for the object fields:
   "@thetis/provider-openrouter": {
     "apiKey": "${OPENROUTER_API_KEY}",
     "baseUrl": "https://openrouter.ai/api/v1"
+  },
+  "@thetis/marketplace": {
+    "registries": [{ "name": "thetis", "url": "https://github.com/thetis-agent/packages.git" }]
   }
 }
 ```

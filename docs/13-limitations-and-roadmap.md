@@ -34,7 +34,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | Subagent turns block the parent tool call | Long subagent tasks hit `requestTimeoutMs`. | Background sessions with a poll or a notify RPC. |
 | `models()` of OpenRouter lists 400+ ids | One HTTP call per 5 minutes per process. | Acceptable. Cache to disk if needed. |
 | Config `${VAR}` with a missing variable becomes `""` | Silent misconfiguration. | Warn in `loadConfig`. |
-| Projects have no skills yet | The Skills section of a project's page is a note; `skills.disable` is stored and unused. The sidebar head slot of the shell must draw the switcher for it to appear. | Skill packages (item 6 below); then `@thetis/projects` reads their declarations the way it reads `tools`. See [22-projects.md](22-projects.md). |
+| Projects have no skill switches in the page yet | `@thetis/skills` honours `skills.disable` ([23-skills.md](23-skills.md)), but the Skills section of a project's page is a note. The sidebar head slot of the shell must draw the switcher for it to appear. | `@thetis/ui-skills` and a switch per skill in `@thetis/projects`, the way it lists `tools` (item 6 below). See [22-projects.md](22-projects.md). |
 
 ## 3. Recommended order of work
 
@@ -43,7 +43,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 3. **Disk quotas.** cgroups cover memory, processes and CPU; disk is open.
 4. **Egress policy.** Per-package destinations for the `egress` network mode.
 5. **Package sharing with a named user.** Registry share operation. Promotion to `@thetis/*` exists.
-6. **Skills.** `skill-type` and `skill` packages as in ARCHITECTURE.md section 11. Pure package work; no kernel change. The benchmark contract they opt into already exists, with three reference mechanisms to be measured against: see [21-benchmarks.md](21-benchmarks.md).
+6. **Skills.** `@thetis/skills` (the format and the library), `@thetis/skills-all` and `@thetis/skills-l1` are shipped: see [23-skills.md](23-skills.md). In progress, per `docs/plans/skills.md`: `@thetis/skills-hybrid` with the embedding cache, `@thetis/skills-thetis` (the skills that teach Thetis), the bench run for the `skills` peer group with charts, `@thetis/ui-skills`, and the project switches. Pure package work; no kernel change.
 7. **The end-to-end benchmark probe.** It is what turns imported judgements into gold derived from this harness, by ablation on a pinned model.
 8. **Cache keep-alive and a native Anthropic provider.** See [16-prompt-cache.md](16-prompt-cache.md) section 11.
 

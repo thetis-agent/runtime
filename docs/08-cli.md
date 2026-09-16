@@ -170,7 +170,7 @@ The command line talks to a running kernel through the control socket with these
 | `packages.installEveryone` | `source`, `actor` | Installs a package for every person, now and later. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 15. |
 | `mounts.list` | `user` | The mounts of that user as `{ "<user>": [ { path, mode } ] }`, or of every user without `user`. |
 | `mounts.set` | `user`, `mounts` | Replaces that user's mounts with `mounts`, a list of at most 32 `{ path, mode }` with an absolute normalized path and mode `rw` or `ro`. The user must exist and must not be `_system`. Writes `mounts.json`, journals `mounts`, and closes the user's fence so it reopens with the binds. Returns the list. |
-| `journal.tail` | `limit`, `kind`, `target` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
+| `journal.tail` | `limit`, `kind`, `target`, `actor_filter` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
 | `config.get` | | The configuration with secrets replaced by `•••`. |
 | `models` | `user` | Every model the providers visible to that userspace serve. |
 | `sessions.create`, `sessions.list`, `sessions.inspect`, `sessions.cancel`, `sessions.send` | `user`, `session`, `input`, `parent`, `model` | Session operations. `sessions.send` streams the turn events. `model` names the model for that turn. |

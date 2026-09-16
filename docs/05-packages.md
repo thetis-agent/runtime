@@ -50,6 +50,7 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `forkedFrom` | `{ name, version }` | Set on a fork. Installing the fork replaces the named package when it is installed in the same userspace. See section 16. |
 | `bench` | object | Opts the package into benchmark suites. The kernel records the field and does not read it. See [21-benchmarks.md](21-benchmarks.md). |
 | `ui` | object | What the package adds to the web gateway's page: browser files, slot entries, and commands. The kernel records the field and does not read it. See [15-web-gateway.md](15-web-gateway.md) section 11. |
+| `skills` | string | A directory of skills relative to the package root, usually `"skills"`. `@thetis/skills` reads it; the kernel records the field and does not read it. See [23-skills.md](23-skills.md). |
 
 `validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install. It does not reject fields it does not know, so `thetis.bench` and `thetis.ui` reach every step through `ctx.packages.list()` untouched. `@thetis/bench` validates the first and `@thetis/gateway-web` the second, because the kernel never reads them.
 
@@ -73,7 +74,9 @@ Types in use or planned:
 | `enumerator` | A replacement for the default plan. Set `config.enumerator` to use it. |
 | `gateway` | An endpoint. `@thetis/gateway-cli` and `@thetis/gateway-web` have this type. |
 | `service` | A long-running process with no other contribution. Any type can also declare a `service`. |
-| `skill`, `skill-type`, `mcp`, `mcp-server`, `rag` | Planned. No kernel behavior yet. |
+| `skill` | A directory of skills, declared with `thetis.skills`. See [23-skills.md](23-skills.md). |
+| `skill-type` | The skill format and library: `@thetis/skills`, with the `skill_fetch` tool. The loaders that use it are `loader` packages. |
+| `mcp`, `mcp-server`, `rag` | Planned. No kernel behavior yet. |
 
 ## 3. Writing package code
 
