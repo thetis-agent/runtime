@@ -1,6 +1,6 @@
 # 23 Skills
 
-A skill is a directory with a `SKILL.md`: a name, a description, and a body the model can read. `@thetis/skills` is the format and the library. A loader is a package that decides what the model sees of the skills on each turn. Three loaders exist, one installed at a time, and the benchmark compares them. No kernel code changes. Source: `packages/skills`, `packages/skills-all`, `packages/skills-l1`. Plan: `docs/plans/skills.md`.
+A skill is a directory with a `SKILL.md`: a name, a description, and a body the model can read. `@thetis/skills` is the format and the library. A loader is a package that decides what the model sees of the skills on each turn. Three loaders exist, one installed at a time, and the benchmark compares them. `@thetis/skills`, `@thetis/skills-thetis` and `@thetis/skills-hybrid` are in the default `systemPackages["*"]`. Source: `packages/skills`, `packages/skills-all`, `packages/skills-l1`, `packages/skills-hybrid`. Plan: `docs/plans/skills.md`.
 
 ## 1. The format
 
@@ -100,18 +100,41 @@ The v2 design gave the tool an `enum` of the known names. A manifest is static a
 
 Bench claim: `direct` the universal and loaded ids, `offered` the catalogue, `reach: "catalogue"`.
 
-### 4.3 `@thetis/skills-hybrid` (in progress)
+### 4.3 `@thetis/skills-hybrid`
 
-The loader for zero. One brief per top-level skill, always. Universal bodies. On the first turn of a conversation the first user message is the query: dense scores are cosine over embeddings of name, description and tags, lexical scores are BM25, fused by weighted reciprocal rank fusion. The pinned cards go under `# Skills retrieved for this conversation`. The pin is stored in `harness` by id and content hash and reused on every later turn. A tool `skill_search({ query, k })` ranks the same way without pinning.
+The loader for zero, and the default for everyone. The prompt carries three blocks:
+
+| Block | Content |
+|---|---|
+| `# Skills` | One brief per top-level skill, always, in id order. One line says that a brief is a pointer, that `skill_search` finds a skill and that `skill_fetch` reads one. |
+| `# Skills always in force` | The bodies of universal skills, as `skills-l1` shows them. |
+| `# Skills retrieved for this conversation` | The cards of the pinned set, or their bodies when `pinBodies` is true, with one line telling the model to fetch before relying on a card. |
+
+On the first turn of a conversation the first user message, cut to 2000 characters, is the query. The dense score is the cosine between the query's vector and each skill's vector; the text embedded is the name, the description and the tags, never the body. The lexical score is BM25. The two lists, 50 deep each, are fused by weighted reciprocal rank fusion with `fusionWeight` as the dense share, a child in the pool is absorbed into its parent, the parent of a lone child is promoted, and the first `pinLimit` are pinned. A universal skill is never pinned. Each pinned entry records `how` it got there: `dense`, `lexical` or `parent-of-match`.
+
+The pin is stored in `harness["@thetis/skills"].pinned` by id and content hash and reused on every later turn without re-ranking, so the prompt prefix stays where the first turn put it. A pinned skill whose content hash changed is shown from its new text in the same place, with a note. One whose id vanished is dropped, with a note. The state also carries `ranked`, the top 10 of the same ranking, and `mode`, `dense` or `lexical`.
+
+The tool `skill_search({ query, k })` ranks the same way for one query and answers one brief per hit with its `how` and score, without pinning anything. `k` is 5 by default and at most 20. A universal skill is not a result. `skill_fetch` from the library reads a body.
+
+`config.packages["@thetis/skills-hybrid"]`:
 
 | Key | Default | Effect |
 |---|---|---|
-| `fusionWeight` | 0.7 | The dense share in the fusion. |
-| `pinLimit` | 6 | How many skills are pinned. |
-| `pinBodies` | false | Pin bodies instead of cards. |
-| `embeddings` | `{ baseUrl: "https://openrouter.ai/api/v1", apiKey: "${OPENROUTER_API_KEY}", model: "openai/text-embedding-3-small", dimensions: 1536 }` | The vector source. Without a key, or when the call fails, the ranking is lexical and `how: "lexical"` says so. |
+| `fusionWeight` | 0.7 | The dense share in the fusion. 0 is lexical only, 1 is dense only. |
+| `pinLimit` | 6 | How many skills are pinned. 0 pins nothing. |
+| `pinBodies` | false | Pin bodies instead of cards. Costs bytes, saves a round trip. |
+| `embeddings.baseUrl` | `https://openrouter.ai/api/v1` | An OpenAI-compatible endpoint. The request is `POST <baseUrl>/embeddings` with `{ model, input, dimensions }`. |
+| `embeddings.apiKey` | `${OPENROUTER_API_KEY}` | The key. The kernel interpolates the reference from the environment of the daemon; the fence never sees the variable. The default is in the kernel's default `packages` block. |
+| `embeddings.model` | `openai/text-embedding-3-small` | The embedding model. |
+| `embeddings.dimensions` | 1536 | The vector size. |
 
-Vectors are cached under the home at `skills-hybrid/vectors.json`, keyed `model|dimensions|contentHash`. The package ships `bench/vectors/<corpus sha256>.json` so a bench run is deterministic and free. Bench claim: `direct` the pinned ids or universals only, `offered` everything else, `reach: "search"`, `ranked` the top 10, `scores`.
+The vectors of the skills are cached under the home at `skills-hybrid/vectors.json`, an object keyed `model|dimensions|contentHash` with arrays of numbers rounded to 6 decimals. A turn embeds only the skills the cache lacks, 64 texts per request, 20 seconds per request, and writes the cache with every key no live skill has removed. The query's vector is never cached. A body edit does not move the content hash, so it does not cost an embedding.
+
+Without a key, when the endpoint refuses, or when a request times out, the ranking is lexical for that turn: every `how` is `lexical`, `mode` is `lexical`, and one line in `notes` says why. Nothing else changes and the step never throws. The key appears in no note, no error and no file.
+
+In the bench there is no key. The package ships `bench/vectors/<corpus sha256>.json`: `{ model, dimensions, corpus, skills: { [contentHash]: vector }, queries: { [sha256 of the query text]: vector } }`, the vectors of every corpus record and of every task query of `skill-recall@1`, produced once by `scripts/embed-corpus.mjs` from the runtime root with `OPENROUTER_API_KEY` in the environment (`set -a; . ./.env; set +a; node packages/skills-hybrid/scripts/embed-corpus.mjs`). The script imports the corpus through `importCorpus`, so the content hashes are the ones a run looks up. The importer copies the skill vectors into the cache under the home, and the step looks a query up in the file before it would call the network. A run is therefore deterministic and free. A corpus, a model or a dimension the file does not match falls back to lexical.
+
+Bench claim: `direct` the universal ids, plus the pinned ids when `pinBodies` is true; `offered` every other corpus id; `reach: "search"`; `ranked` the top 10 in corpus ids; `scores` the fused scores of those 10.
 
 ## 5. The harness state
 
@@ -132,7 +155,7 @@ Every loader writes what it did for the turn under `harness["@thetis/skills"]`:
 | `excluded` | The ids the project switched off. |
 | `notes` | One line per skill left out for an error, the project switch, and another loader when one is installed. |
 
-`@thetis/skills-all` also writes `injected`, `budget` and `used`. The dock `@thetis/ui-skills` (in progress) reads this state.
+`@thetis/skills-all` also writes `injected`, `budget` and `used`. The dock `@thetis/ui-skills` reads this state for the open conversation and draws it beside the catalogue ([15-web-gateway.md](15-web-gateway.md) section 11.6); `@thetis/projects` lists every skill with a switch that writes `skills.disable` ([22-projects.md](22-projects.md) section 5).
 
 ## 6. The bench
 
@@ -163,13 +186,16 @@ Under `assembly-cost@1` there is no corpus. The importer does nothing, and the l
 | Brief | 160 characters of description |
 | `skill_fetch` slice | 24000 characters |
 | `skills-all` budget | `config.budget`, default 98304 bytes |
+| `skills-hybrid` query | 2000 characters of the first user message |
+| `skills-hybrid` pool | 50 dense and 50 lexical candidates before fusion |
+| `skills-hybrid` embedding request | 64 texts, 20 seconds |
 
 Other limits:
 
 - A skill is read from the filesystem on every turn. The parse is cached; the directory walk is not.
 - `skills-l1` lists only top-level skills. A nested skill is reached through its parent or `skill_fetch`.
 - A loader knows another loader only through the harness state. Two loaders installed together both run.
-- The dock and the project switches per skill do not exist yet.
+- The dock searches the catalogue by BM25 in the page; it calls no `skill_search`, so with the hybrid loader the dock's ranking is lexical while the loader's is fused.
 
 ## 8. Tests
 
@@ -184,5 +210,6 @@ Other limits:
 | `packages/skills/test/bench.test.js` | `importCorpus` idempotence and the id map, the generated frontmatter, the claim spread. |
 | `packages/skills-all/test/inject.test.js` | The prompt block and the state, the budget, the project switch, the notes, the claim. |
 | `packages/skills-l1/test/catalogue.test.js` | The prompt blocks and the state, `load_skill` once per conversation and its re-injection, the refusals, the claim. |
+| `packages/skills-hybrid/test/hybrid.test.js` | Fusion determinism and the `how` labels, the pin reused across turns and after a pack update, the lexical fallback without a key or with a refused call, the vector cache and its pruning, batching, the bench vector file and the seeding, the claim, `skill_search`. |
 
-`node bin/thetis.js bench verify packages/skills-all` and `packages/skills-l1` check the bench declarations.
+`node bin/thetis.js bench verify packages/skills-all`, `packages/skills-l1` and `packages/skills-hybrid` check the bench declarations.

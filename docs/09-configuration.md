@@ -52,7 +52,7 @@ Defaults for the object fields:
 
 ```json
 "systemPackages": {
-  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache", "@thetis/tools-files", "@thetis/tools-plan", "@thetis/gateway-web", "@thetis/ui-tools", "@thetis/ui-context", "@thetis/projects", "@thetis/ui-admin", "@thetis/ui-marketplace"],
+  "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache", "@thetis/tools-files", "@thetis/tools-plan", "@thetis/gateway-web", "@thetis/ui-tools", "@thetis/ui-context", "@thetis/projects", "@thetis/ui-admin", "@thetis/ui-marketplace", "@thetis/skills", "@thetis/skills-thetis", "@thetis/skills-hybrid", "@thetis/ui-skills"],
   "_system": ["@thetis/provider-openrouter", "@thetis/gateway-login", "@thetis/marketplace"]
 },
 "packages": {
@@ -62,6 +62,9 @@ Defaults for the object fields:
   },
   "@thetis/marketplace": {
     "registries": [{ "name": "thetis", "url": "https://github.com/thetis-agent/packages.git" }]
+  },
+  "@thetis/skills-hybrid": {
+    "embeddings": { "apiKey": "${OPENROUTER_API_KEY}" }
   }
 }
 ```
@@ -86,6 +89,7 @@ Known keys:
 | `@thetis/gateway-web` | none | Runs in each person's fence on a unix socket. See [15-web-gateway.md](15-web-gateway.md). |
 | `@thetis/gateway-login` | `secure` | Adds `Secure` to the login cookie. Set it when TLS terminates in front of the door. |
 | `@thetis/exa` | `apiKey`, `baseUrl`, `timeoutMs`, `defaults` | The Exa API key and the tool defaults. See [19-exa.md](19-exa.md). |
+| `@thetis/skills-hybrid` | `fusionWeight`, `pinLimit`, `pinBodies`, `embeddings` | The dense share of the fusion (0.7), how many skills are pinned (6), bodies instead of cards (false), and the vector source `{ baseUrl, apiKey, model, dimensions }` with defaults `https://openrouter.ai/api/v1`, `${OPENROUTER_API_KEY}`, `openai/text-embedding-3-small`, `1536`. Without a key the ranking is lexical. See [23-skills.md](23-skills.md) section 4.3. |
 
 ## 5. Changing the configuration
 

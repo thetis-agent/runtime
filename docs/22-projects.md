@@ -1,6 +1,6 @@
 # 22 Projects
 
-`@thetis/projects` gives a person named workspaces in the web gateway. A project is a name, zero or more project directories, standing instructions, and a set of tools that are switched off. A conversation belongs to at most one project. The package is a `loader` with a `ui`. It changes no kernel code. Source: `packages/projects`.
+`@thetis/projects` gives a person named workspaces in the web gateway. A project is a name, zero or more project directories, standing instructions, and a set of tools and skills that are switched off. A conversation belongs to at most one project. The package is a `loader` with a `ui`. It changes no kernel code. It imports the `@thetis/skills` library only when the page asks for the skill list. Source: `packages/projects`.
 
 ## 1. What a project is
 
@@ -10,7 +10,7 @@
 | Project directories | Absolute paths on the host. A directory is a place the person works in; it can be outside their userspace. | None. A project with no directories is a name, a tool set, and instructions. |
 | Instructions | Text the package adds to the system prompt of every conversation in the project. | Empty. |
 | Tools | The tools that are switched off for the project. Every tool is on unless it is listed. | None switched off. |
-| Skills | The skills that are switched off. `@thetis/skills` reads `skills.disable` and leaves those ids out of every loader's prompt and of `skill_fetch` ([23-skills.md](23-skills.md)). The page has no switch per skill yet. | None switched off. |
+| Skills | The skills that are switched off. Every skill is on unless it is listed; a switched-off parent takes its nested skills with it. `@thetis/skills` reads `skills.disable` and leaves those ids out of every loader's prompt and of `skill_fetch` ([23-skills.md](23-skills.md)). | None switched off. |
 
 A project directory does not open the fence. The fence binds a directory only when an admin mounts it with `thetis mounts add <user> <path> [--ro]` ([08-cli.md](08-cli.md), [12-security.md](12-security.md) section 10). Until then the directory is listed and marked as not mounted. The package reads what is mounted from `THETIS_MOUNTS` ([03-fence.md](03-fence.md) section 3.5), the same source the file tools read ([20-tools.md](20-tools.md) section 1), so the page, the prompt, and the tools agree.
 
@@ -37,6 +37,8 @@ Both steps read through `ctx.env.readFile`, relative to the home, and treat a mi
 
 The switch is visible in the page after the first turn: the **Tools** dock ([15-web-gateway.md](15-web-gateway.md) section 11.6) lists under **Turned off right now** every declared tool the conversation's last call did not carry, with a `withheld` badge, from the record `@thetis/harness-core` keeps after each call. The dock compares the declarations with that record and names the tools, not this package: whatever filters `call.tools` in the call phase shows up there the same way, and `@thetis/ui-tools` imports nothing from `@thetis/projects`. Until the first call the section reads "No call yet in this conversation."
 
+The skill switch shows at once: the **Skills** dock of `@thetis/ui-skills` reads `skills.disable` through the library's `excludedFor` and lists the ids under **Switched off by the project** before the next turn; the loaders leave them out of the prompt and of `skill_fetch` from the next turn on ([23-skills.md](23-skills.md) section 2).
+
 ## 4. Commands
 
 The page sends these through `POST /api/ext/@thetis/projects/<verb>` ([15-web-gateway.md](15-web-gateway.md) section 11.4). Any signed-in person may send them. Each answers `{ data }`. A refusal is a thrown error; the gateway answers `400 { error }` with the sentence.
@@ -44,14 +46,14 @@ The page sends these through `POST /api/ext/@thetis/projects/<verb>` ([15-web-ga
 | Verb | Arguments | Answer |
 |---|---|---|
 | `list` | none | `{ projects: [{ id, name, directories: n, conversations: n }], assignments: { session: project }, current }`. Projects are in creation order, then by name. `current` is the project of the session the page named, or `null`. |
-| `get` | `{ id? }` | `{ project, directories: [{ path, mounted: "rw" \| "ro" \| null }], instructions, conversations, mounts, tools }`. `tools` is one entry per installed package with tools: `{ package, version, tools: [{ name, description, disabled }] }`. Without `id`, `project` is `null` and the rest is the template a new project starts from. |
-| `save` | `{ id?, name, directories?, disable?, instructions? }` | `{ project }`. Without `id`, creates. `instructions` left out keeps the file as it is; given as an empty string, empties it. |
+| `get` | `{ id? }` | `{ project, directories: [{ path, mounted: "rw" \| "ro" \| null }], instructions, conversations, mounts, tools, skills }`. `tools` is one entry per installed package with tools: `{ package, version, tools: [{ name, description, disabled }] }`. `skills` is every skill `loadSkills(env, env.kernel.packages.list())` finds, by id: `{ id, brief, short, package, universal, disabled }`, `package` null for a skill under the home and `disabled` true when the id or a parent of it is in `skills.disable`. Without `id`, `project` is `null` and the rest is the template a new project starts from. |
+| `save` | `{ id?, name, directories?, disable?, disableSkills?, instructions? }` | `{ project }`. Without `id`, creates. `disable` is tool names for `tools.disable`; `disableSkills` is skill ids for `skills.disable`; each left out is saved empty. `instructions` left out keeps the file as it is; given as an empty string, empties it. |
 | `remove` | `{ id }` | `{ removed: id }`. Deletes the record, the instructions, and the project's assignments. |
 | `assign` | `{ session, project }` | `{ session, project }`. `project` `null` takes the session out of its project. `session` must be the session the page named, which the gateway has checked to be the person's own. |
 | `sessions` | `{ project }` | `{ sessions: [ids] }`. |
 | `mounts` | none | `{ mounts: [{ path, mode }] }`, from `THETIS_MOUNTS`. A person cannot call the operator's `mounts.list`; this fence's own list is enough. |
 
-`save` checks: the name is not empty and at most 80 characters; each directory is absolute, normalized (`path.normalize` returns it unchanged, no trailing slash), with no `..` segment and no NUL byte; at most 64 directories; tool names are strings of at most 64 characters, at most 256; the instructions are text of at most 32768 characters; a create is refused at 32 projects. Duplicates in the lists are dropped.
+`save` checks: the name is not empty and at most 80 characters; each directory is absolute, normalized (`path.normalize` returns it unchanged, no trailing slash), with no `..` segment and no NUL byte; at most 64 directories; tool names are strings of at most 64 characters, at most 256; skill ids have the library's shape (`^[a-z0-9][a-z0-9-]{0,63}` per level, up to three levels joined by `/`), at most 256; the instructions are text of at most 32768 characters; a create is refused at 32 projects. Duplicates in the lists are dropped.
 
 ## 5. The switcher and the place
 
@@ -68,7 +70,7 @@ The package declares `sidebar: [{ id: "head" }]` and `places: [{ id: "project" }
 | Instructions | A text area for `PROJECT.md`. |
 | Conversations | How many conversations are in the project. |
 | Tools | Every installed package's tools, grouped by package, each with a switch. A switch off puts the tool in `tools.disable`. |
-| Skills | "No skill packages are installed. When one is, its skills appear here with the same switches." The record's `skills.disable` is honoured by `@thetis/skills` already; the switches are in progress with `@thetis/ui-skills`. |
+| Skills | Every skill the loaders see, grouped by the package it comes from (the home's own `skills/` last), each with the same switch as a tool. A switch off puts the id in `skills.disable`. A nested skill whose parent is off is shown off with its switch greyed: a switched-off parent switches off its nested skills too, and the note says so. Without any skill: "No skills are installed. A package that declares thetis.skills, or a skills/ directory under your home, adds some; each appears here with a switch." |
 | Actions | Save, which calls `save`, shows a toast, and refreshes the switcher; a new project is chosen after its first save. Delete project, behind the shell's confirm popover. |
 
 Nothing is sent until Save. The page reads with one `get` when it opens and again after a save.
@@ -91,6 +93,7 @@ A mount applies when the fence next opens; `mounts.set` closes the fence, so the
 | Name | 80 characters |
 | Directories per project | 64 |
 | Tools switched off per project | 256 |
+| Skills switched off per project | 256 |
 | Instructions | 32768 characters |
 
 ## 8. Tests
@@ -101,6 +104,6 @@ A mount applies when the fence next opens; `mounts.set` closes the fence, so the
 |---|---|
 | `store.test.js` | An empty home; create, read, update, and the files written; assign, list, remove with its assignments; the project limit; every validation rule. |
 | `steps.test.js` | Nothing back for an unassigned session or a stale assignment; the prompt section with the mount state of each directory and the instructions; the section for a bare project; the tool filter; `THETIS_MOUNTS` parsing. |
-| `commands.test.js` | Every verb against a fake environment over a temporary home with a fake package list: counts, `current`, the tool groups with `disabled` flags, the mount state, the refusals, and `assign` for a session other than the page's. Also checks that every module under `ui/` parses. |
+| `commands.test.js` | Every verb against a fake environment over a temporary home with a fake package list: counts, `current`, the tool groups with `disabled` flags, the skill list from a pack and the home with a switched-off parent covering its nested skill, the mount state, the refusals, and `assign` for a session other than the page's. Also checks that every module under `ui/` parses. |
 
 The browser side is checked by hand with the checklist in `packages/gateway-web/test/BROWSER.md`.
