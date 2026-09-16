@@ -155,6 +155,14 @@ During a refresh the mirror widens its sparse checkout to `README.md` at the pac
 
 `readReadme(env, entry)` reads the copy back through the same `env` the index is read with, so the marketplace UI needs no path of its own.
 
+### 8.1 README images
+
+A README can show a picture with `![alt](relative path)`. The mirror copies the local `.svg` and `.png` files a README shows, so the package page can draw them. The path must be relative, inside the package, with no scheme, no leading `/` and no `..` segment. At most 12 images per README are copied. An image over 512 KiB (524288 bytes) is skipped. The mirror widens the sparse checkout to exactly those files, so nothing else is fetched.
+
+A copy goes to the same directory as the README copy, under `<dir>__<path>` with each `/` replaced by `__`: `nested/memo` with `bench/x/chart.svg` is `nested__memo__bench__x__chart.svg`. An SVG copy is the file's text. A PNG copy is the file as base64 text. The index entry lists the paths that were copied, as written in the README, in `readmeAssets`. A stale copy is removed the way a stale README copy is.
+
+`readReadmeAsset(env, entry, path)` reads one copy back as `{ type, data }`, where `type` is `image/svg+xml` or `image/png`, or `undefined` when the entry does not list the path. The `show` command of `@thetis/ui-marketplace` sends the assets with the README as `assets: { [path]: { type, data } }`, and the page turns each into a `data:` URL for the renderer. An image the answer does not carry renders as its alt text.
+
 ## 9. The Marketplace place
 
 `@thetis/ui-marketplace` is a `ui` package in the default `systemPackages["*"]` ([09-configuration.md](09-configuration.md)). It declares one place, `marketplace`, which the web gateway lists as **Marketplace** in the sidebar's ≡ menu after **Control panel** ([15-web-gateway.md](15-web-gateway.md) section 11). The place opens in the main pane with the sidebar kept; the close button or the Escape key returns to the conversation.

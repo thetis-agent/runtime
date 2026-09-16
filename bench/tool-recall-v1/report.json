@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-15T05:25:49.422Z",
-  "digest": "sha256:0d81a5b8250310a42132c44982c15823b815ad83ac7ea7fa9003cdd32d6cf154",
+  "generatedAt": "2026-09-16T02:33:35.745Z",
+  "digest": "sha256:c4110b9ca05d19d9ff27a97819263b657fbbbae4362414bb6fd5889716179a85",
   "inputs": {
     "probe": "A",
     "suite": {
@@ -38,7 +38,7 @@
       {
         "id": "thetis-tools-plan",
         "packages": [
-          "@thetis/tools-plan@0.2.0"
+          "@thetis/tools-plan@0.3.0"
         ]
       },
       {
@@ -47,7 +47,7 @@
           "@thetis/exa@0.1.0",
           "@thetis/tool-exec@0.1.0",
           "@thetis/tools-files@0.1.0",
-          "@thetis/tools-plan@0.2.0"
+          "@thetis/tools-plan@0.3.0"
         ]
       }
     ],
@@ -60,9 +60,9 @@
   "shared": {
     "none": {
       "bytes_system": {
-        "mean": 4306,
-        "lower": 4306,
-        "upper": 4306,
+        "mean": 4324,
+        "lower": 4324,
+        "upper": 4324,
         "mde": 0,
         "n": 20
       },
@@ -81,16 +81,16 @@
         "n": 20
       },
       "bytes_turn1": {
-        "mean": 4395.3,
-        "lower": 4386.6,
-        "upper": 4403.2,
+        "mean": 4413.3,
+        "lower": 4404.6,
+        "upper": 4421.2,
         "mde": 8.299999999999727,
         "n": 20
       },
       "bytes_last": {
-        "mean": 4395.3,
-        "lower": 4386.6,
-        "upper": 4403.5,
+        "mean": 4413.3,
+        "lower": 4404.6,
+        "upper": 4421.5,
         "mde": 8.449999999999818,
         "n": 20
       },
@@ -116,17 +116,17 @@
         "n": 20
       },
       "steps_n": {
-        "mean": 4,
-        "lower": 4,
-        "upper": 4,
+        "mean": 5,
+        "lower": 5,
+        "upper": 5,
         "mde": 0,
         "n": 20
       },
       "assemble_ms": {
-        "mean": 1.45,
-        "lower": 1.2,
-        "upper": 1.75,
-        "mde": 0.275,
+        "mean": 1.55,
+        "lower": 1.25,
+        "upper": 1.85,
+        "mde": 0.30000000000000004,
         "n": 20
       },
       "non_ascii_ratio": {
@@ -188,9 +188,9 @@
     },
     "all": {
       "bytes_system": {
-        "mean": 5491,
-        "lower": 5491,
-        "upper": 5491,
+        "mean": 5509,
+        "lower": 5509,
+        "upper": 5509,
         "mde": 0,
         "n": 20
       },
@@ -209,16 +209,16 @@
         "n": 20
       },
       "bytes_turn1": {
-        "mean": 28111.3,
-        "lower": 28102.7,
-        "upper": 28119.55,
+        "mean": 28129.3,
+        "lower": 28120.7,
+        "upper": 28137.55,
         "mde": 8.424999999999272,
         "n": 20
       },
       "bytes_last": {
-        "mean": 28111.3,
-        "lower": 28102.25,
-        "upper": 28119.05,
+        "mean": 28129.3,
+        "lower": 28120.25,
+        "upper": 28137.05,
         "mde": 8.399999999999636,
         "n": 20
       },
@@ -244,17 +244,17 @@
         "n": 20
       },
       "steps_n": {
-        "mean": 4,
-        "lower": 4,
-        "upper": 4,
+        "mean": 5,
+        "lower": 5,
+        "upper": 5,
         "mde": 0,
         "n": 20
       },
       "assemble_ms": {
-        "mean": 3.55,
-        "lower": 3.3,
-        "upper": 3.85,
-        "mde": 0.27500000000000013,
+        "mean": 4.95,
+        "lower": 4.55,
+        "upper": 5.35,
+        "mde": 0.3999999999999999,
         "n": 20
       },
       "non_ascii_ratio": {
@@ -323,9 +323,9 @@
     },
     "thetis-exa": {
       "bytes_system": {
-        "mean": 4675,
-        "lower": 4675,
-        "upper": 4675,
+        "mean": 4693,
+        "lower": 4693,
+        "upper": 4693,
         "mde": 0,
         "n": 20
       },
@@ -344,16 +344,16 @@
         "n": 20
       },
       "bytes_turn1": {
-        "mean": 15084.3,
-        "lower": 15074.9,
-        "upper": 15092.35,
+        "mean": 15102.3,
+        "lower": 15092.9,
+        "upper": 15110.35,
         "mde": 8.725000000000364,
         "n": 20
       },
       "bytes_last": {
-        "mean": 15084.3,
-        "lower": 15075.6,
-        "upper": 15092,
+        "mean": 15102.3,
+        "lower": 15093.6,
+        "upper": 15110,
         "mde": 8.199999999999818,
         "n": 20
       },
@@ -379,17 +379,17 @@
         "n": 20
       },
       "steps_n": {
-        "mean": 4,
-        "lower": 4,
-        "upper": 4,
+        "mean": 5,
+        "lower": 5,
+        "upper": 5,
         "mde": 0,
         "n": 20
       },
       "assemble_ms": {
-        "mean": 2.35,
-        "lower": 2.1,
-        "upper": 2.7,
-        "mde": 0.30000000000000004,
+        "mean": 3.2,
+        "lower": 2.95,
+        "upper": 3.5,
+        "mde": 0.2749999999999999,
         "n": 20
       },
       "non_ascii_ratio": {
@@ -458,9 +458,9 @@
     },
     "thetis-tool-exec": {
       "bytes_system": {
-        "mean": 4637,
-        "lower": 4637,
-        "upper": 4637,
+        "mean": 4655,
+        "lower": 4655,
+        "upper": 4655,
         "mde": 0,
         "n": 20
       },
@@ -479,16 +479,16 @@
         "n": 20
       },
       "bytes_turn1": {
-        "mean": 6834.3,
-        "lower": 6825.6,
-        "upper": 6842.35,
+        "mean": 6852.3,
+        "lower": 6843.6,
+        "upper": 6860.35,
         "mde": 8.375,
         "n": 20
       },
       "bytes_last": {
-        "mean": 6834.3,
-        "lower": 6825.85,
-        "upper": 6842.3,
+        "mean": 6852.3,
+        "lower": 6843.85,
+        "upper": 6860.3,
         "mde": 8.224999999999909,
         "n": 20
       },
@@ -514,17 +514,17 @@
         "n": 20
       },
       "steps_n": {
-        "mean": 4,
-        "lower": 4,
-        "upper": 4,
+        "mean": 5,
+        "lower": 5,
+        "upper": 5,
         "mde": 0,
         "n": 20
       },
       "assemble_ms": {
-        "mean": 1.5,
-        "lower": 1.25,
-        "upper": 1.8,
-        "mde": 0.275,
+        "mean": 1.7,
+        "lower": 1.3,
+        "upper": 2.1,
+        "mde": 0.4,
         "n": 20
       },
       "non_ascii_ratio": {
@@ -593,9 +593,9 @@
     },
     "thetis-tools-files": {
       "bytes_system": {
-        "mean": 4652,
-        "lower": 4652,
-        "upper": 4652,
+        "mean": 4670,
+        "lower": 4670,
+        "upper": 4670,
         "mde": 0,
         "n": 20
       },
@@ -614,16 +614,16 @@
         "n": 20
       },
       "bytes_turn1": {
-        "mean": 10383.3,
-        "lower": 10374.25,
-        "upper": 10391.55,
+        "mean": 10401.3,
+        "lower": 10392.25,
+        "upper": 10409.55,
         "mde": 8.649999999999636,
         "n": 20
       },
       "bytes_last": {
-        "mean": 10383.3,
-        "lower": 10375.1,
-        "upper": 10391.45,
+        "mean": 10401.3,
+        "lower": 10393.1,
+        "upper": 10409.45,
         "mde": 8.175000000000182,
         "n": 20
       },
@@ -649,17 +649,17 @@
         "n": 20
       },
       "steps_n": {
-        "mean": 4,
-        "lower": 4,
-        "upper": 4,
+        "mean": 5,
+        "lower": 5,
+        "upper": 5,
         "mde": 0,
         "n": 20
       },
       "assemble_ms": {
-        "mean": 1.8,
-        "lower": 1.5,
-        "upper": 2.1,
-        "mde": 0.30000000000000004,
+        "mean": 2.05,
+        "lower": 1.7,
+        "upper": 2.4,
+        "mde": 0.35,
         "n": 20
       },
       "non_ascii_ratio": {
@@ -728,9 +728,9 @@
     },
     "thetis-tools-plan": {
       "bytes_system": {
-        "mean": 4629,
-        "lower": 4629,
-        "upper": 4629,
+        "mean": 4647,
+        "lower": 4647,
+        "upper": 4647,
         "mde": 0,
         "n": 20
       },
@@ -749,16 +749,16 @@
         "n": 20
       },
       "bytes_turn1": {
-        "mean": 9176.3,
-        "lower": 9167.65,
-        "upper": 9184,
+        "mean": 9194.3,
+        "lower": 9185.65,
+        "upper": 9202,
         "mde": 8.175000000000182,
         "n": 20
       },
       "bytes_last": {
-        "mean": 9176.3,
-        "lower": 9167.35,
-        "upper": 9184.6,
+        "mean": 9194.3,
+        "lower": 9185.35,
+        "upper": 9202.6,
         "mde": 8.625,
         "n": 20
       },
@@ -784,17 +784,17 @@
         "n": 20
       },
       "steps_n": {
-        "mean": 4,
-        "lower": 4,
-        "upper": 4,
+        "mean": 5,
+        "lower": 5,
+        "upper": 5,
         "mde": 0,
         "n": 20
       },
       "assemble_ms": {
-        "mean": 2.15,
-        "lower": 1.95,
-        "upper": 2.35,
-        "mde": 0.20000000000000007,
+        "mean": 2.95,
+        "lower": 2.6,
+        "upper": 3.3,
+        "mde": 0.34999999999999987,
         "n": 20
       },
       "non_ascii_ratio": {
@@ -984,10 +984,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 2.1,
-          "lower": 1.8,
-          "upper": 2.45,
-          "mde": 0.32500000000000007,
+          "mean": 3.4,
+          "lower": 3,
+          "upper": 3.85,
+          "mde": 0.42500000000000004,
           "n": 20
         },
         "wins": 20,
@@ -1220,16 +1220,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.9,
-          "lower": 0.5,
-          "upper": 1.3,
-          "mde": 0.4,
+          "mean": 1.65,
+          "lower": 1.25,
+          "upper": 2.05,
+          "mde": 0.3999999999999999,
           "n": 20
         },
-        "wins": 15,
-        "ties": 4,
-        "losses": 1,
-        "p": 0.0014992503748125937
+        "wins": 19,
+        "ties": 1,
+        "losses": 0,
+        "p": 0.0004997501249375312
       },
       "non_ascii_ratio": {
         "interval": {
@@ -1456,16 +1456,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.05,
+          "mean": 0.15,
           "lower": -0.3,
-          "upper": 0.4,
-          "mde": 0.35,
+          "upper": 0.65,
+          "mde": 0.475,
           "n": 20
         },
         "wins": 6,
-        "ties": 10,
-        "losses": 4,
-        "p": 1
+        "ties": 7,
+        "losses": 7,
+        "p": 0.6806596701649176
       },
       "non_ascii_ratio": {
         "interval": {
@@ -1692,16 +1692,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.35,
-          "lower": -0.1,
-          "upper": 0.8,
-          "mde": 0.45,
+          "mean": 0.5,
+          "lower": 0.15,
+          "upper": 0.85,
+          "mde": 0.35,
           "n": 20
         },
-        "wins": 8,
-        "ties": 9,
-        "losses": 3,
-        "p": 0.22538730634682658
+        "wins": 10,
+        "ties": 8,
+        "losses": 2,
+        "p": 0.02798600699650175
       },
       "non_ascii_ratio": {
         "interval": {
@@ -1928,16 +1928,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.7,
-          "lower": 0.35,
-          "upper": 1,
-          "mde": 0.325,
+          "mean": 1.4,
+          "lower": 0.95,
+          "upper": 1.85,
+          "mde": 0.45000000000000007,
           "n": 20
         },
-        "wins": 13,
-        "ties": 6,
+        "wins": 17,
+        "ties": 2,
         "losses": 1,
-        "p": 0.0014992503748125937
+        "p": 0.0004997501249375312
       },
       "non_ascii_ratio": {
         "interval": {
@@ -2055,11 +2055,11 @@
   },
   "latency": {
     "none": 1,
-    "all": 2.45,
-    "thetis-exa": 1.62,
-    "thetis-tool-exec": 1.03,
-    "thetis-tools-files": 1.24,
-    "thetis-tools-plan": 1.48
+    "all": 3.19,
+    "thetis-exa": 2.06,
+    "thetis-tool-exec": 1.1,
+    "thetis-tools-files": 1.32,
+    "thetis-tools-plan": 1.9
   },
   "conformance": {
     "none": {

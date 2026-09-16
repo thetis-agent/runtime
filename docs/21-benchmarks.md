@@ -178,6 +178,12 @@ One authoritative report per suite at `<root>/bench/<suite>/report.json`, holdin
 participating package then carries `bench/<suite>/report.json` and a `BENCH.md` that renders those reports
 filtered to itself, its peers and the floor.
 
+Beside each view sits `bench/<suite>/chart.svg`: the compared columns as bars, one group per metric and
+one bar per arm, this package in the accent colour and the floor hatched. It is drawn from the view alone,
+with no clock and no generated id, so a rerun over the same numbers writes the same bytes. `BENCH.md` shows
+it with the relative path `bench/<suite>/chart.svg`, and a README may show it the same way: the path
+renders on GitHub, and the marketplace copies the file with the README (docs/18-marketplace.md, section 8.1).
+
 The package's copy carries the suite's digest. A copy whose digest no longer matches is stale, which is also
 what catches a fork that copied a package directory along with its numbers.
 
@@ -227,7 +233,7 @@ node bin/thetis.js bench verify packages/tools-files
 
 | Option | Effect |
 |---|---|
-| `--write` | Write the suite report and each participating package's view. Without it nothing is written. |
+| `--write` | Write the suite report and each participating package's view, chart and `BENCH.md`. Without it nothing is written. |
 | `--force` | Write even when the digest is unchanged. |
 | `--out <dir>` | Also write the suite report to this directory. |
 | `--sandbox` | `auto`, `bwrap` or `none`. Recorded in the report; arms of one report must share it. |
