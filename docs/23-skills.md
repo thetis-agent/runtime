@@ -157,7 +157,7 @@ Every loader writes what it did for the turn under `harness["@thetis/skills"]`:
 | `excluded` | The ids the project switched off. |
 | `notes` | One line per skill left out for an error, the project switch, and another loader when one is installed. |
 
-`@thetis/skills-all` also writes `injected`, `budget` and `used`. The dock `@thetis/ui-skills` reads this state for the open conversation and draws it beside the catalogue ([15-web-gateway.md](15-web-gateway.md) section 11.6); `@thetis/projects` lists every skill with a switch that writes `skills.disable` ([22-projects.md](22-projects.md) section 5).
+`@thetis/skills-all` also writes `injected`, `budget` and `used`. The dock `@thetis/ui-skills` reads this state for the open conversation and draws it beside the catalogue ([15-web-gateway.md](15-web-gateway.md) section 11.7); `@thetis/projects` lists every skill with a switch that writes `skills.disable` ([22-projects.md](22-projects.md) section 5).
 
 ## 6. The bench
 

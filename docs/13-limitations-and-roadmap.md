@@ -11,7 +11,7 @@ The MVP defined in [ARCHITECTURE.md](ARCHITECTURE.md) section 2 is complete:
 | Package manager | Scoped store per userspace. Install from a local path, a git URL, or a system name. |
 | Provider | `@thetis/provider-openrouter`. |
 | Gateway | `@thetis/gateway-cli` on the host. `@thetis/gateway-web` in each person's fence, `@thetis/gateway-login` in the system userspace, `@thetis/door` on the host port. |
-| Tool | `@thetis/tool-exec`. |
+| Tool | `@thetis/tool-exec`, `@thetis/tools-files`, `@thetis/tools-plan`, and `@thetis/terminal` for shell sessions. |
 
 Verified: a user asked Thetis in a conversation to add a prompt step and a tool. Thetis wrote the package, tested it with `node`, installed it, and both were active on the next turn.
 
@@ -35,6 +35,9 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | `models()` of OpenRouter lists 400+ ids | One HTTP call per 5 minutes per process. | Acceptable. Cache to disk if needed. |
 | Config `${VAR}` with a missing variable becomes `""` | Silent misconfiguration. | Warn in `loadConfig`. |
 | Projects have no skill switches in the page yet | `@thetis/skills` honours `skills.disable` ([23-skills.md](23-skills.md)), but the Skills section of a project's page is a note. The sidebar head slot of the shell must draw the switcher for it to appear. | `@thetis/ui-skills` and a switch per skill in `@thetis/projects`, the way it lists `tools` (item 6 below). See [22-projects.md](22-projects.md). |
+| A shell session does not learn a new size while a program is running | Node cannot set a pty's window size without a native module, and the repository has no third-party runtime dependency, so `@thetis/terminal` resizes with an `stty` that can only be sent at a prompt. A full-screen program already running keeps its old size; the next one starts at the new one. The page says so in the row. | A native pty module, which costs the repository its first compiled dependency. See [24-terminal.md](24-terminal.md) section 7. |
+| No remote shell sessions | `@thetis/terminal` opens sessions in the person's own fence only. There are no `ssh_host_*` tools. It crosses the fence's egress policy and its authority model. | A person runs `ssh` inside a session. A remote registry would be a feature in its own right. |
+| A shell session does not survive the fence closing | A `mounts.set`, a reinstall or a daemon restart closes the fence, and every session in it stops. The transcript is in memory only, so it goes with it. | Acceptable. Reattaching would mean a process outside the fence holding a shell inside it, which inverts the model. |
 
 ## 3. Recommended order of work
 

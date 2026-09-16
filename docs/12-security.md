@@ -57,6 +57,8 @@ For browsers, three parts share the work and none of them holds more than it nee
 
 The cookie is `HttpOnly` and `SameSite=Strict`, `Path=/`. It is `Secure` with the login target's `secure` key. The door binds `127.0.0.1` by default. See [15-web-gateway.md](15-web-gateway.md).
 
+A `POST` from another site is refused by its `Sec-Fetch-Site` header. Two routes are Server-Sent Events streams over `GET` and that check does not apply to them: `/api/events` and `/api/ext/<scope>/<name>/<verb>/stream` ([15-web-gateway.md](15-web-gateway.md) section 11.5). An `EventSource` sends no header of its own, so there is nothing to read; it does not need one, because the browser refuses an `EventSource` to another origin before the gateway sees it, while it lets a cross-site `POST` through. Both streams are guarded the way every other route is: the login cookie, which the kernel resolves only when the token names this fence's own person, and the door's routing of `/<person>/` to that person's gateway. A streaming verb runs the code of a package that person installed, in that person's fence, and its declared `role` is checked before the code runs, as for a command.
+
 ## 6. Secrets
 
 - Passwords are scrypt hashes in `$THETIS_HOME/auth.json`, mode `0600`. No fence can read the file.
@@ -72,6 +74,7 @@ The cookie is `HttpOnly` and `SameSite=Strict`, `Path=/`. It is `Secure` with th
 - A fence request stops after `requestTimeoutMs` (default 600000 milliseconds). The agent is killed and restarted.
 - Output of `exec` is capped at 30,000 characters per stream.
 - There is no limit on the number of sessions, the size of a conversation, or the size of the harness object.
+- An extension stream (`GET /api/ext/<scope>/<name>/<verb>/stream`) has no timeout and no size cap. The package that declares the verb decides how long it runs and how much it sends; the gateway stops it only when the browser lets go.
 
 ## 8. Recommendations before multi-tenant use
 

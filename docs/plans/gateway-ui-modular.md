@@ -380,8 +380,13 @@ authority is a per-user mount list the host reads when it opens a fence:
 Later, in the same shape and the same field: a **mode** package (the canvas's Plan / Agent / Review picker
 in the composer: a `prompt` step that withholds write tools per session, a `composer` entry, and the
 `chips` shortcut), and a **terminal** package (a `shelf` entry with the canvas's pane list; commands `open`,
-`write`, `resize` over a pty the package owns; the v2 `tools-terminal` design). Neither needs a gateway
-change once phases 0–2 exist.
+`write`, `resize` over a pty the package owns; the v2 `tools-terminal` design). The mode package needs no
+gateway change once phases 0–2 exist. The terminal package did: this said so and was wrong. A shell's
+output has to reach the page as it happens, and request-and-response commands can only be polled, so
+`@thetis/terminal` shipped with one gateway change, the streaming seam of
+[docs/15-web-gateway.md](../15-web-gateway.md) section 11.5 — `stream: true` on a command declaration, an
+event-stream route beside the command route, and `ext.subscribe` in the browser. See
+[docs/24-terminal.md](../24-terminal.md).
 
 ---
 

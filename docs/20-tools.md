@@ -1,14 +1,15 @@
 # 20 Tools for the model
 
-The model works through tools. Three shipped packages provide them, and every person gets all three (`systemPackages["*"]`, [09-configuration.md](09-configuration.md)). A person can add tools with a package of their own; see [05-packages.md](05-packages.md).
+The model works through tools. Four shipped packages provide them. Every person gets the first three (`systemPackages["*"]`, [09-configuration.md](09-configuration.md)); `@thetis/terminal` is installed per person. A person can add tools with a package of their own; see [05-packages.md](05-packages.md).
 
 | Package | Tools | Function |
 |---|---|---|
 | `@thetis/tools-files` | `read_path`, `edit_path`, `write_path`, `search_files`, `find_files`, `get_directory` | Files in the person's home, bounded and path-contained. |
 | `@thetis/tools-plan` | `todo_write`, `todo_add`, `todo_mark`, `todo_order`, `todo_read`, `ask_user` | A plan per conversation, and questions for the person. |
-| `@thetis/tool-exec` | `exec`, `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `spawn_subagent` | The shell, packages, forks, and subagents. |
+| `@thetis/tool-exec` | `exec`, `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `spawn_subagent` | One-shot commands, packages, forks, and subagents. |
+| `@thetis/terminal` | `shell`, `shell_read`, `shell_send`, `shell_interrupt`, `shell_sessions` | Long-lived shell sessions in the person's fence, shown live in the page. See [24-terminal.md](24-terminal.md). |
 
-`@thetis/tools-files` and `@thetis/tools-plan` are plain ECMAScript modules with no build step and no dependencies. `@thetis/tool-exec` is TypeScript and imports `@thetis/lib/pkg-fs` for the fork mechanism. `@thetis/tools-files` and `@thetis/tools-plan` were written by Thetis itself from a brief, tested, and then reviewed and shipped; see section 5.
+`@thetis/tools-files`, `@thetis/tools-plan` and `@thetis/terminal` are plain ECMAScript modules with no build step and no npm dependency; `@thetis/terminal` vendors the terminal emulator its page needs. `@thetis/tool-exec` is TypeScript and imports `@thetis/lib/pkg-fs` for the fork mechanism. `@thetis/tools-files` and `@thetis/tools-plan` were written by Thetis itself from a brief, tested, and then reviewed and shipped; see section 5.
 
 ## 1. Rules every file tool follows
 
@@ -31,7 +32,7 @@ The model works through tools. Three shipped packages provide them, and every pe
 | `find_files` | `glob` (a glob without `/` matches the file name anywhere), `path`, `max_results` (default 200) | Paths, newest modification first, then `N files matching <glob>`, with `(newest 200 shown; there may be more)` when capped. | The same skip list and scan bound. |
 | `get_directory` | `path` (default home), `depth` (default 1, max 3) | Entries, directories first with a trailing `/`, sizes for files, and an entry count. | 500 entries per call, with `… and N more`. The skip list applies below the top level. |
 
-The descriptions the model reads say, for each file tool, to prefer it over `cat`, `sed -n`, `grep`, `find`, or a heredoc in `exec`: it costs fewer tokens, it is bounded, and it says when the answer is partial. `exec` stays for running programs.
+The descriptions the model reads say, for each file tool, to prefer it over `cat`, `sed -n`, `grep`, `find`, or a heredoc in a shell: it costs fewer tokens, it is bounded, and it says when the answer is partial. `shell` stays for running programs.
 
 ## 3. The plan tools
 
@@ -60,6 +61,22 @@ The plan of a conversation is `plans/<session id>.json` in the home. Every plan 
 | `uninstall_package` | `name` | Removes the link. The files stay. A fork's original comes back. |
 | `fork_package` | `name`, `as` (optional) | Copies an installed package to `packages/<as>` as `@<you>/<as>`, ready to edit. Does not install. |
 | `delete_package` | `name` | Uninstalls a package of your own scope and deletes its directory under `packages/`. Refuses `@thetis/*`. |
+
+## 3.2 The shell session tools
+
+`@thetis/terminal` gives the model a long-lived shell instead of a one-shot command. A session is a real pty in the person's own fence. It keeps its working directory, its environment and its shell state between calls, the person can watch it and type in it in the page, and a command that outlives its wait keeps running instead of being killed. The full reference is [24-terminal.md](24-terminal.md).
+
+| Tool | Arguments | Answer |
+|---|---|---|
+| `shell` | `cmd`, `session?`, `cwd?`, `timeoutMs?`, `background?` | Runs the command in this conversation's session, opening it on the first call. The exit status, the output, and a note when the working directory moved. A command still out when the wait runs out is not killed: the answer says so and `shell_read` collects the rest. |
+| `shell_read` | `session?`, `waitMs?` | What the session has printed since the last read, and whether the command has finished and with what status. |
+| `shell_send` | `text`, `session?`, `submit?` | Writes raw input — a passphrase, a `y`, a line for a REPL — and answers with what the session printed in the 400 milliseconds after. |
+| `shell_interrupt` | `session?` | Writes the interrupt character. The command ends; the session lives. |
+| `shell_sessions` | `close?` | This conversation's sessions: the name, where each one is, what it is busy with and for how long, and whether the person is watching. `close` ends one. |
+
+`shell` replaces `exec`, which `@thetis/tool-exec` declared until 2026-09-16 and no longer does. `exec` started in the home with a fresh shell every time, so a `cd`, a virtualenv or an `ssh-agent` was lost between calls; it had no stdin, so a command that asked for a passphrase could only time out; and it killed the command it was waiting for when the timeout ran out, throwing the work away. `shell` keeps the session, `shell_send` answers the question, and a command that outlives its wait keeps running. `@thetis/tool-exec` keeps its other five tools and its name.
+
+The descriptions the model reads say, for each of these, that the session is shared with the person and that the file tools are still the cheaper and safer way to read or change a file.
 
 ## 4. Questions for the person
 

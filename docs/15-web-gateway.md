@@ -105,7 +105,7 @@ The door serves `/login`, `/login/assets/*`, `/logout`, and `/` from the login t
 | `POST /api/sessions/<id>/model` | Body `{ model }`. Keeps the model for the conversation; every later turn is sent with it. An empty string restores the default. |
 | `POST /api/sessions/<id>/title` | Body `{ title }`. Names the conversation. An empty string restores the derived title. |
 | `/api/panel`, `/api/packages*` | The control panel's built-in Packages section. See [17-control-panel.md](17-control-panel.md) section 3. |
-| `GET /api/ui`, `GET /ext/<scope>/<name>/<path>`, `POST /api/ext/<scope>/<name>/<verb>` | What installed packages add to the page. See section 11. |
+| `GET /api/ui`, `GET /ext/<scope>/<name>/<path>`, `POST /api/ext/<scope>/<name>/<verb>`, `GET /api/ext/<scope>/<name>/<verb>/stream` | What installed packages add to the page. See section 11. |
 | `POST /api/sessions/<id>/send` | Body `{ text }`. Starts a turn with the conversation's model, when one was chosen. Answers `202 { session, startedAt, model }`. Answers `409` when a turn is running. |
 | `POST /api/sessions/<id>/cancel` | Stops the running turn. Answers `{ cancelled: boolean }`. |
 | `POST /api/sessions/<id>/archive` | Body `{ archived: boolean }`. |
@@ -173,7 +173,7 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 | `src/index.ts` | `startService(env)`: listens on `run/web.sock` for the user in `THETIS_USER`, returns `{ stop }`. `stop` closes every open connection, because an event stream never ends on its own and an uninstall would otherwise wait for it. |
 | `src/server.ts` | `createGateway(kernel, store, { user, base, env })`: routes under `base`, the cookie check, static files, the event stream. `kernel` is a `KernelClient`. |
 | `src/panel.ts`, `src/http.ts` | The control panel routes and the HTTP helpers. See [17-control-panel.md](17-control-panel.md). |
-| `src/ui.ts` | `validateUi`, `composeUi`, `serveExt`, `runCommand`: the extension routes of section 11. |
+| `src/ui.ts` | `validateUi`, `composeUi`, `serveExt`, `runCommand`, `openStream`: the extension routes of section 11. |
 | `src/static.ts` | `serveFile` and the table of file types the page may load. Used for `/assets` and `/ext`. |
 | `src/turns.ts` | `TurnHub`. |
 | `src/store.ts` | `GatewayStore`: archive flags, names, chosen models, and per-reply usage. `ArchiveStore` is the former name. |
@@ -184,7 +184,9 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 
 Browser modules: `app.js` wires the store, the views, the event stream, the chat bar chips, and the favicon. `lib/store.js` holds `user`, `sessions`, `current`, `running`, `pending`, `activity`, `choices`, `creating`, `connection`, `panel`. `lib/activity.js` reduces every session's turn events into what it is doing now (the step, the tool call count, the cost, when it started) and formats durations, costs, and tokens; its `SHEEN_MS` must equal `--sheen` in `theme.css`, because a working row's sheen is phase-locked to wall time so a redraw does not restart it. `lib/picker.js` is the pill-and-list control the composer uses for the model. `lib/api.js` wraps `fetch` and `EventSource` with paths relative to the page's `<base>`; a `401` sends the page to `/login`. `lib/markdown.js` builds DOM nodes and never uses `innerHTML`. `views/sessions.js` (the grouped list, the ticking clocks, rename, the archive), `views/transcript.js` (messages, tool runs, footnotes, and the hook that offers each tool row to the registered renderers first), and `views/composer.js` (the box, the model pill, stop) are the conversation views; `views/panel*.js` and `lib/panel-ui.js` are the control panel. The todo dock, the todo chip, the `plan:` lines, and the `ask_user` form are not in this package: `@thetis/tools-plan` carries them in its `ui/` directory (section 11).
 
-The page is served with a Content Security Policy that allows only same-origin scripts, styles, and connections. Inline scripts and styles do not run. `index.html` carries `<base href="{{base}}/">`; the server fills the placeholder with the person's prefix.
+The page is served with a Content Security Policy that allows only same-origin scripts, styles, and connections. Inline scripts do not run. `index.html` carries `<base href="{{base}}/">`; the server fills the placeholder with the person's prefix.
+
+Inline **styles** have one door, and it is held open for one response only. Each page is served with a fresh nonce: it goes into `style-src` and into `<meta name="csp-nonce">`, both filled from the same value, so the policy and the page can never disagree. Code the gateway served with that page may stamp the nonce on a stylesheet it writes; anything else is still refused. The reason is `@thetis/terminal`: a terminal emulator writes about 55 KiB of palette, font metrics and cursor rules at runtime, generated per terminal from the theme, which cannot be shipped as a file. `'unsafe-inline'` would have bought the same thing by giving up the rule for every stylesheet on the page, including one an attacker managed to inject. A nonce that repeated between responses would be worth no more than `'unsafe-inline'`, so a test asserts that two visits get different ones.
 
 ## 9. Trust model
 
@@ -196,7 +198,7 @@ The page is served with a Content Security Policy that allows only same-origin s
 
 ## 10. Tests
 
-`packages/gateway-web/test/gateway.test.ts` starts a real kernel with the echo provider fixture, then one gateway per person (`alice`, `bob`, and the admin `root`) on unix sockets over each person's own RPC handler, the login target over the system handler, and the door in front. The cases run through the door: redirects and refusals without a cookie and for a stranger; login refused and accepted, with `next` kept inside the person's prefix; a suspended person and a password change; create, list, send, and the stream of one turn; `409` on a busy session and cancel; the snapshot for a page that connects mid-turn; archive and restore; the models list, a chosen model reaching the kernel and the list, and a name replacing the derived title; isolation, including bob's cookie at alice's gateway; refusal of a cross-site `POST`; logout; and the control panel cases of [17-control-panel.md](17-control-panel.md) section 7. `test/ui.test.ts` covers section 11 with the fixtures `ui-good`, `ui-bad`, and `ui-dup` under `packages/host/test/fixtures`. The last case of `gateway.test.ts` installs `@thetis/gateway-login` into the system userspace and `@thetis/gateway-web` into alice's, boots the supervisor, and drives the same path through a real door into the fences, then checks that uninstall stops alice's gateway. `npm test` runs all of them.
+`packages/gateway-web/test/gateway.test.ts` starts a real kernel with the echo provider fixture, then one gateway per person (`alice`, `bob`, and the admin `root`) on unix sockets over each person's own RPC handler, the login target over the system handler, and the door in front. The cases run through the door: redirects and refusals without a cookie and for a stranger; login refused and accepted, with `next` kept inside the person's prefix; a suspended person and a password change; create, list, send, and the stream of one turn; `409` on a busy session and cancel; the snapshot for a page that connects mid-turn; archive and restore; the models list, a chosen model reaching the kernel and the list, and a name replacing the derived title; isolation, including bob's cookie at alice's gateway; refusal of a cross-site `POST`; logout; and the control panel cases of [17-control-panel.md](17-control-panel.md) section 7. `test/ui.test.ts` covers section 11 with the fixtures `ui-good`, `ui-bad`, and `ui-dup` under `packages/host/test/fixtures`: composition and its refusals, the file route, the command checks in order, and the stream route of section 11.5 — three items and an `end`, a throw as an `error`, the refusals, and a client that lets go, which the fixture records so the test can read that its `signal` was aborted. The last case of `gateway.test.ts` installs `@thetis/gateway-login` into the system userspace and `@thetis/gateway-web` into alice's, boots the supervisor, and drives the same path through a real door into the fences, then checks that uninstall stops alice's gateway. `npm test` runs all of them.
 
 The browser code has no automated test. Check it by hand with a throwaway data directory: `THETIS_HOME=.devhome thetis init`, set `door.port`, add people, `thetis serve`, sign in, open the control panel as an admin and as a user.
 
@@ -228,6 +230,7 @@ A package can add to the page. It declares what it adds in the `ui` field of its
 | `style` | A stylesheet, relative to `dir`. The page links it once. Optional. It must be a `.css` file inside `dir`. |
 | `dock`, `panel`, `places`, `sidebar`, `chips`, `composer`, `shelf`, `statusbar` | Slot entries. Each entry has an `id` that matches `^[a-z][a-z0-9_-]{0,31}$`. It can have `label`, `icon`, `hint`, `note`, `wide`, `role`, and `order` (default 100). |
 | `commands` | The verbs the package's own page may send. `verb` matches the same pattern as an id. `export` names a function export of the package's `main`. `role` is the least role that may send it. Default: any signed-in person. |
+| `commands[].stream` | `true` makes the verb a stream: the export is a `UiStream`, the page subscribes to it instead of sending it, and the two are different routes. Default `false`. See section 11.5. |
 
 The types are `UiDecl`, `UiEntryDecl`, and `UiCommandDecl` in `@thetis/contracts`.
 
@@ -238,7 +241,7 @@ The types are `UiDecl`, `UiEntryDecl`, and `UiCommandDecl` in `@thetis/contracts
 ```json
 { "package": "@alice/ui-good", "version": "0.1.0", "base": "ext/@alice/ui-good/", "entry": "index.js", "style": "index.css",
   "dock": [ { "id": "good", "label": "Good", "order": 100 } ], "panel": [], "places": [], "sidebar": [], "chips": [ { "id": "good", "order": 100 } ],
-  "composer": [], "shelf": [], "statusbar": [], "commands": [ "echo" ], "hidden": [ "panel:people" ] }
+  "composer": [], "shelf": [], "statusbar": [], "commands": [ "echo" ], "streams": [ "tail" ], "hidden": [ "panel:people" ] }
 ```
 
 The rules:
@@ -247,6 +250,7 @@ The rules:
 - Every value is checked. Only the fields of section 11.1 cross to the browser. A string that is missing, empty, or too long, an id that does not match the pattern, an entry or verb declared twice in one package, a `dir`, `entry`, or `style` that leaves its directory or does not exist: each one refuses the package.
 - A `dock`, `places`, `sidebar`, `chips`, `composer`, `shelf`, or `statusbar` id belongs to the first installed package that declares it. A later package that declares the same id is refused. Panel ids are namespaced by package in the browser, so two packages may both declare `people`.
 - A refusal is `{ package, message }`. The package is left out. The rest still composes.
+- A verb declared with `stream: true` is listed in `streams` and not in `commands`, so the page knows which of the two routes it may use for it.
 - Entries and commands with a `role` above the person's role are left out. The entries left out are named in `hidden` as `<slot>:<id>`, so the page can tell an entry hidden from this person from one the package never declared: a module's registration for a hidden entry is ignored without a console message, because the module cannot know the person's role. Commands are listed by verb only. The export names and the roles stay on the server.
 
 ### 11.3 Files
@@ -277,11 +281,34 @@ The handler does not get the package's configuration. The kernel sends `config.p
 
 The result: a string becomes `{ text }`. Nothing becomes `{}`. An object is passed as `{ text?, data? }`; other fields are dropped. A thrown error answers `400 { error }` with its message.
 
-### 11.5 Trust
+### 11.5 Streams
+
+A verb declared with `stream: true` is not sent, it is subscribed to. `GET /api/ext/<scope>/<name>/<verb>/stream` is a Server-Sent Events stream in the shape of `/api/events` (section 6). The arguments ride in the query, because an `EventSource` sends no body.
+
+| Query | Meaning |
+|---|---|
+| `args` | URL-encoded JSON, an object. At most 4096 characters. `400` when it is longer, is not JSON, or is not an object. |
+| `session` | A session id, checked to be one of the person's own, as for a command. |
+
+The checks are the ones of section 11.4, in the same order and from the same code, with one more right after the first: the verb must be declared for the route being used. A `POST` to a streaming verb answers `400`, and a `.../stream` on one that is not declared streaming answers `400`.
+
+| Event | Data |
+|---|---|
+| `item` | One value the export yielded, as JSON. |
+| `end` | `{}`. The iterable finished. |
+| `error` | `{ message }`. The iterable threw. |
+
+The server sends a `: keep-alive` comment every 20 seconds, as on `/api/events`.
+
+The export is a `UiStream` in `@thetis/contracts`: `(args, env) => AsyncIterable<unknown>`. `env` is a `UiStreamEnv`, the `UiCommandEnv` of section 11.4 plus `signal`, an `AbortSignal`. When the browser lets go the gateway aborts that signal and calls `return()` on the iterator, so a handler stops on whichever of the two it watches. Nothing else stops it: this route has no command timeout and no answer-size cap, because the package decides how long its stream runs and how much it says.
+
+In the browser, `ext.subscribe(verb, { args, session, onEvent, onClose })` opens the stream and returns the stop function. It refuses a verb the package did not declare as a stream, the way `ext.request` refuses an undeclared command, and `ext.can(verb)` answers for both lists. `onEvent(value)` receives each item. `onClose(error)` is called once, with `null` after `end` and an `Error` after `error` or when the gateway refused the subscription. Nothing but the stop function closes the stream, so a view calls it when it goes.
+
+### 11.6 Trust
 
 The three routes need the cookie of the person the gateway serves. A command runs the code of a package that person installed, or an admin installed for them, in that person's fence. The gateway checks the declared role before the kernel sees anything; the kernel checks the fence's own user again on every operator method, as in [17-control-panel.md](17-control-panel.md) section 2. A package serves files only from under its own `dir`. It cannot name another package: its page gets `base` and its own verbs, nothing else.
 
-### 11.6 Shipped extensions
+### 11.7 Shipped extensions
 
 These packages add to the page through section 11.1. Each one is a plain ECMAScript module with no build step; only `@thetis/ui-marketplace` has a dependency, on the `@thetis/marketplace` library. Every person gets them (`systemPackages["*"]`, [09-configuration.md](09-configuration.md)).
 
