@@ -149,11 +149,12 @@ export default function install(ext) {
   ext.statusbar("load", { draw: (node) => void });                             // matches ui.statusbar[].id
   ext.transcript((event, ctx) => node | null);                                 // tool rows; null declines
   ext.request("plan", { session, args })  -> Promise<{ text, data }>;          // POST /api/ext/<own>/<verb>
+  ext.can("mount") -> boolean;                                                 // declared here and cleared by the role
   ext.events.watch((message) => void);                                         // every turn message, every session
   ext.conversation: { current, watch(fn), send(text), open(id) };
   ext.sessions: { list(), watch(fn), filter(fn) };
   ext.open: { dock(id), place(id, params), shelf(id) };                        // the chips' shortcuts
-  ext.dom: { el, icon, clear, setHidden };  ext.ui: { table, badge, button, field, kv, card, confirm, busy, pill, section };
+  ext.dom: { el, icon, clear, setHidden };  ext.ui: { table, badge, button, field, kv, card, confirm, busy, pill, section, pickDirectory };
   ext.toast;  ext.markdown;
 }
 ```

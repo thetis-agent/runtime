@@ -139,11 +139,12 @@ The exit code is 1 when an arm claimed it surfaced something the assembled promp
 thetis mounts list [--user <id>]
 thetis mounts add <user> <path> [--ro]
 thetis mounts remove <user> <path>
+thetis mounts browse [path]
 ```
 
-A mount binds a host directory into one person's fence at the same path. `list` prints one line per mount: the user, the path, and the mode. Without `--user` it prints every user's mounts. `add` binds `<path>` read-write, or read-only with `--ro`. `add` of a path that is already mounted replaces its mode. `remove` unbinds the path. `<path>` must be absolute and normalized. A user has at most 32 mounts. The system user has none.
+A mount binds a host directory into one person's fence at the same path. `list` prints one line per mount: the user, the path, the mode, and what the host has there now — `bound`, `skipped (not on the host)`, or `skipped (a file, not a directory)`. A skipped mount is written down and not in the fence. Without `--user` it prints every user's mounts. `browse` prints the directories directly under `path` (the root without one), so a path can be checked or found before it is bound. `add` binds `<path>` read-write, or read-only with `--ro`. `add` of a path that is already mounted replaces its mode. `remove` unbinds the path. `<path>` must be absolute and normalized. A user has at most 32 mounts. The system user has none.
 
-`add` and `remove` send the whole list with `mounts.set`. The kernel writes `$THETIS_HOME/mounts.json`, writes one journal row, and closes the person's fence. The fence reopens with the new binds on the next request, and its services restart. Give `--ro` after the path. See [12-security.md](12-security.md) section 10.
+`add` and `remove` send the whole list with `mounts.set`. The kernel writes `$THETIS_HOME/mounts.json`, writes one journal row, and closes the person's fence. The fence reopens with the new binds on the next request, and its services restart. Give `--ro` after the path. `add` fails with a sentence when the host has no directory at the path: the mount is written down, and the fence opens without it. See [12-security.md](12-security.md) section 10.
 
 ## 3. Event rendering
 
@@ -168,8 +169,9 @@ The command line talks to a running kernel through the control socket with these
 | `packages.list`, `packages.install`, `packages.uninstall` | `user`, `source`, `name`, `actor` | Package management in that user's userspace. `actor` names who installs; the ownership rules use the actor's role. The CLI sends `_system`; the operator channel sends the admin. |
 | `packages.promote` | `user`, `name` | Makes the package the default for everyone. Returns `{ name, userspaces }`. |
 | `packages.installEveryone` | `source`, `actor` | Installs a package for every person, now and later. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 15. |
-| `mounts.list` | `user` | The mounts of that user as `{ "<user>": [ { path, mode } ] }`, or of every user without `user`. |
-| `mounts.set` | `user`, `mounts` | Replaces that user's mounts with `mounts`, a list of at most 32 `{ path, mode }` with an absolute normalized path and mode `rw` or `ro`. The user must exist and must not be `_system`. Writes `mounts.json`, journals `mounts`, and closes the user's fence so it reopens with the binds. Returns the list. |
+| `mounts.list` | `user` | The mounts of that user as `{ "<user>": [ { path, mode, present, kind } ] }`, or of every user without `user`. `present` is true only when the host has a directory at the path now; `kind` is `dir`, `file`, or `none`. |
+| `mounts.set` | `user`, `mounts` | Replaces that user's mounts with `mounts`, a list of at most 32 `{ path, mode }` with an absolute normalized path and mode `rw` or `ro`. The user must exist and must not be `_system`. Writes `mounts.json`, journals `mounts`, and closes the user's fence so it reopens with the binds. Returns the list with `present` and `kind`. |
+| `mounts.browse` | `path`, `all` | The directories directly under `path` (`/` without one): `{ path, parent, kind, readable, truncated, entries: [ { name, path } ] }`. Directories only, hidden names left out unless `all` is `"true"`, at most 500 entries. A missing or unreadable path is not an error: `kind` and `readable` say so. |
 | `journal.tail` | `limit`, `kind`, `target`, `actor_filter` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
 | `config.get` | | The configuration with secrets replaced by `•••`. |
 | `models` | `user` | Every model the providers visible to that userspace serve. |

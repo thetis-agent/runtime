@@ -92,7 +92,7 @@ The kernel gives the agent this environment and nothing else:
 | `THETIS_STORE` | The package store. |
 | `THETIS_SHARED` | The shared directory. See section 3.7. |
 | `THETIS_USER` | The user id. |
-| `THETIS_MOUNTS` | A JSON list of the mounts bound into the fence, each `{ "path", "mode" }` with mode `rw` or `ro`. `[]` when there is none. Set in every sandbox mode. See [12-security.md](12-security.md) section 10. |
+| `THETIS_MOUNTS` | A JSON list of the mounts bound into the fence, each `{ "path", "mode" }` with mode `rw` or `ro`. `[]` when there is none. Set in every sandbox mode. A mount whose host path is not a directory is skipped and is not in the list, so this is what the fence has, not what was asked for. See [12-security.md](12-security.md) section 10. |
 
 The kernel does not pass its own environment. Secrets in the host environment do not reach the fence.
 
