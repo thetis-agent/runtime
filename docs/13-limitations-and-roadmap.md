@@ -22,6 +22,7 @@ Verified: a user asked Thetis in a conversation to add a prompt step and a tool.
 | No microVM fence | User namespaces, not a virtual machine, separate a fence from the host kernel. | Implement `Fence`; rebind `T.fence`. |
 | No egress policy | A fence with `egress` reaches any address; there is no per-package destination list. | A policy in the egress helper, or a proxy. |
 | No disk quota | One user can fill the filesystem. | A quota per userspace root. |
+| `/proc/meminfo` reports the host | A fence reads its own limit at `/sys/fs/cgroup/memory.max` ([03-fence.md](03-fence.md) section 3.3), but `MemTotal` is still the whole machine. Anything that sizes itself from `MemTotal` — a language runtime picking a heap, a build tool picking a job count — overshoots the limit and is OOM-killed. | A FUSE layer such as `lxcfs` over `/proc` in the fence. |
 | `publish` unused | A service is reachable through the door by convention (`run/web.sock`), not through a `publish` grant. | Make the door read `publish` when a second kind of published socket exists. |
 | No package sharing between named users | A `@user/*` package can be made the default for everyone (`packages.promote`), not given to one other user. | `PackageRegistry` share operation plus a link into the target store. |
 | Archive flags are gateway state | They live in the system userspace home. The CLI does not see them. | Acceptable. A session metadata field in the kernel would share them. |

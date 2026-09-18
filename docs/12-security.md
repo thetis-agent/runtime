@@ -17,7 +17,7 @@ The kernel treats every value from a fence as untrusted input. It validates step
 - Processes: the agent has its own user and PID namespaces, no capabilities, and cannot create a nested user namespace. It cannot see or signal host processes. It dies with the kernel.
 - IPC and hostname: separate namespaces.
 - Network, in mode `egress` (the default when `slirp4netns` is installed): a private network namespace with outbound NAT. The fence reaches the internet and the local network; it cannot reach the host's loopback and cannot bind a host port. Mode `none` gives no network at all.
-- Resources: memory, process count, and CPU per fence through cgroup v2, when the kernel runs in a delegated cgroup.
+- Resources: memory, process count, and CPU per fence through cgroup v2, when the kernel runs in a delegated cgroup. The fence's own group, and only its own, is bound read-only at `/sys/fs/cgroup` so the agent can read the limit it is held to. It cannot write it, and it sees no other fence's group. See [03-fence.md](03-fence.md) section 3.3.
 - Environment: only the variables listed in [03-fence.md](03-fence.md) section 3.5. The kernel's environment, including `OPENROUTER_API_KEY`, does not reach any fence.
 - Configuration: a package receives only its own `config.packages[<name>]` entry. The provider key reaches only the system userspace.
 

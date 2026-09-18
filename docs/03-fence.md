@@ -74,6 +74,23 @@ The option `fence.network` decides what the fence can reach:
 
 Limits need the kernel process to run in a delegated cgroup: `Delegate=yes` on the systemd unit (`deploy/thetis-runtime.service` has it), or `systemd-run --user --scope -p Delegate=yes node bin/thetis.js serve` for a development run. `Cgroups.detect` in `packages/sandbox/src/cgroup.ts` moves the kernel into a child group, enables the controllers for siblings, and creates `fence-<user>` per fence. Without delegation the kernel logs `[fence] resource limits off` once and runs the fences unlimited.
 
+#### The fence reads its own limits
+
+A fence that cannot see its limit cannot tell an OOM kill from a transient failure. It is killed at `memory.max`, sees the host's free memory, calls the exit 137 flaky, and retries. So the fence's own cgroup directory, and only that one, is bound read-only at `/sys/fs/cgroup` inside the sandbox. The agent reads:
+
+| File | Meaning |
+|---|---|
+| `memory.max` | The fence's memory limit in bytes. This, not `MemTotal`, is how much memory the fence has. |
+| `memory.current` | What it uses now. |
+| `memory.peak` | The high-water mark of this group. |
+| `memory.events` | Counters; `oom_kill` rising is the proof that a child died at the limit. An exit code of 137 with `oom_kill` unchanged is something else. |
+| `pids.max`, `pids.current` | The process and thread limit, and the count. |
+| `cpu.max`, `cpu.stat` | The CPU quota and the time used, including `throttled_usec`. |
+
+The bind is read-only: the fence learns what it has, it does not change it, and it sees no other fence's group. Nothing else of `/sys` is mounted.
+
+**Out of scope:** `/proc/meminfo` still reports the host's memory, because the kernel has no per-cgroup `meminfo`. A tool that reads `MemTotal` — including some language runtimes sizing their heap — still sees the whole machine. Correcting that needs a FUSE layer such as `lxcfs` over `/proc`, which is not part of the fence today. Until then, `/sys/fs/cgroup/memory.max` is the number to trust, and a runtime that guesses wrong has to be told its heap size explicitly.
+
 ### 3.4 The launch gate
 
 The agent starts behind a gate. The kernel spawns `/bin/sh -c 'printf ready >&6; read -r go <&5 || exit 97; exec "$@"' sh bwrap ...`. The shell reports on descriptor 6 that its namespaces exist, the kernel places the process in its cgroup and, in `egress` mode, brings the network up, then writes to descriptor 5. Only then does bubblewrap run. A failure before the gate opens kills the process and fails the open with the code `fence`.
@@ -105,12 +122,15 @@ In mode `bwrap` the kernel builds the command in this order:
 3. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`. The defaults include `<root>/packages`, `<root>/node_modules`, and the promoted packages `$THETIS_HOME/packages`.
 4. The shared directory: `--bind` for the system userspace, `--ro-bind` for everyone else.
 5. In `egress` mode: `--ro-bind $THETIS_HOME/fence-resolv.conf /etc/resolv.conf`.
-6. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
-7. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
-8. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts --cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
-9. `--setenv` for each variable of section 3.5.
+6. When the kernel has a delegated cgroup: `--ro-bind-try <delegated root>/fence-<user> /sys/fs/cgroup`. See section 3.3. The flag is `-try`, and the option is left out entirely when limits are off, because this must never keep a fence from starting.
+7. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
+8. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
+9. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts --cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
+10. `--setenv` for each variable of section 3.5.
 
-The agent sees the operating system read-only, its own userspace read-write, the shared directory, the promoted packages, and its mounts. It does not see `$THETIS_HOME`, other userspaces, `/home`, or the host `/tmp`. It has no capabilities and cannot make a nested user namespace.
+The agent sees the operating system read-only, its own userspace read-write, the shared directory, the promoted packages, its mounts, and its own cgroup read-only. It does not see `$THETIS_HOME`, other userspaces, `/home`, the host `/tmp`, or any other fence's cgroup. It has no capabilities and cannot make a nested user namespace.
+
+Step 6 depends on the launch gate of section 3.4. `Cgroups.place` creates `fence-<user>` while the gate is still shut, so the directory is there by the time bubblewrap execs. In mode `none` there is no bubblewrap and no bind; on a cgroups v1 host `Cgroups.detect` finds no `0::` line in `/proc/self/cgroup`, returns nothing, and the bind is left out with the limits.
 
 ### 3.7 The shared directory
 
