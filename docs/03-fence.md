@@ -177,9 +177,10 @@ The agent builds one `StepEnv` object. Steps receive it as `ctx.env`. Tools rece
 | `exec(cmd, opts)` | Runs `cmd` with `/bin/bash`. `opts.cwd` is relative to home. `opts.timeoutMs` defaults to 120000. Output is capped at 30,000 characters per stream. Returns `{ code, stdout, stderr }`. |
 | `readFile(path)` | Reads a UTF-8 file. The path is relative to home. |
 | `writeFile(path, content)` | Writes a UTF-8 file. Creates parent directories. |
+| `storage(namespace?)` | A `Store` of documents this package keeps in the service plane's store, under `userspaces/<user>/<package>/<namespace>` (default `default`). The kernel builds the prefix from the fence's user and the package whose code runs, so a package reaches only what it wrote. A document is capped at 256 KiB. See [26-storage.md](26-storage.md) section 7. |
 | `kernel` | The kernel client. See section 6. |
 | `session` | Tools only. `{ id, user, parent? }`. |
-| `config` | Tools only. The configuration of the tool's package. |
+| `config` | Tools only. The effective configuration of the tool's package. See [09-configuration.md](09-configuration.md) section 4. |
 
 ## 5. Wire protocol
 
@@ -270,18 +271,35 @@ Code inside the fence reaches the kernel through `env.kernel`. Every method runs
 | `kernel.sessions.list(as?)` | `sessions.list` | Lists the sessions. |
 | `kernel.sessions.inspect(session, as?)` | `sessions.inspect` | Returns one session record with its status. |
 | `kernel.models()` | `models` | Returns `{ model, models }`: the configured default and every model the providers visible to this userspace serve. |
+| `kernel.config.show(name)` | `config.show` | The state of every key of a package installed in this fence, at this person's own layer over the system's, secrets redacted. Returns a `ConfigReport`. `not-found` for a package not installed here. |
+| `kernel.config.set(name, key, value)` | `config.set` | Sets one key in this person's own layer, secrets included. Refuses `null`, a declared type mismatch, and a key declared `scope: "system"`. Returns the report. |
+| `kernel.config.unset(name, key)` | `config.unset` | Removes one key from this person's own layer. Returns the report. |
+| `kernel.config.effective(name)` | `config.effective` | What that package's code receives: every layer merged, secrets included, references resolved. For any package installed in this fence. |
 | `kernel.auth.login(id, password)` | `auth.login` | Returns `{ token, user }` or `null`. System userspace only. |
 | `kernel.auth.authenticate(token)` | `auth.authenticate` | Returns `{ id, role }` or `null`. System userspace only. |
 | `kernel.auth.logout(token)` | `auth.logout` | Revokes the token. System userspace only. |
 
 `as` names the user a session call acts for. The kernel accepts it from the system userspace only. Any other fence gets the error `unauthorized`. This is how a system gateway serves every user: it authenticates a person with `auth.authenticate` and passes that id as `as`. A method that is not in this list fails with the code `rpc`.
 
+`env.storage(namespace?)` is five more RPC methods, sent by the storage client in `packages/userspace-agent/src/env.ts` rather than by `env.kernel`:
+
+| RPC method | Arguments | Behavior |
+|---|---|---|
+| `store.get` | `package`, `namespace?`, `key` | The document, or `null` when there is none. |
+| `store.set` | `package`, `namespace?`, `key`, `doc` | Replaces the document. A document over 256 KiB, an array, or a `null` anywhere in it is refused with the code `invalid`. |
+| `store.delete` | `package`, `namespace?`, `key` | Removes the document. |
+| `store.list` | `package`, `namespace?`, `prefix?` | The keys. |
+| `store.clear` | `package`, `namespace?` | Removes the namespace and those beneath it. |
+
+The fence names the package and a sub-namespace; the kernel prefixes them with `userspaces/<fence user>/`, so nothing a fence sends can leave its own tree. The `config.*` methods take a package name the same way, and the kernel supplies the fence's own user as the layer. In the system userspace the own layer is the system layer.
+
 ## 7. Services
 
 A package can declare a service. See [05-packages.md](05-packages.md) section 13. The agent runs the service in its own process:
 
-- `service.start` loads the export and calls it with a `ServiceEnv`: the `StepEnv` fields plus `config` (the package's configuration) and `log(line)`, which writes to `stderr` with the package name as prefix. The export can return `{ stop() }`. The agent keeps one instance per package.
+- `service.start` loads the export and calls it with a `ServiceEnv`: the `StepEnv` fields plus `config` (the package's effective configuration, read once here) and `log(line)`, which writes to `stderr` with the package name as prefix. The export can return `{ stop() }`. The agent keeps one instance per package.
 - `service.stop` calls `stop()` and forgets the instance.
+- When the package's configuration changes (`config.set`, `config.unset`, or a changed entry on `thetis config reload`), the kernel sends `service.stop` and then `service.start` with the new configuration. The service is restarted in place; the fence stays open. See [05-packages.md](05-packages.md) section 13.
 - The agent exits when the fence closes. Every service exits with it.
 
 **Caution:** A service must not write to `process.stdout`. It shares the protocol channel with the agent. Use `env.log`.

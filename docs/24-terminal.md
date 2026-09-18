@@ -213,17 +213,17 @@ Every constant is in `packages/terminal/lib/host.js` and `packages/terminal/lib/
 
 The counted unit of the buffer is characters of the decoded stream, not raw bytes: the stream is decoded once on arrival, so a multi-byte character can never be split by a cursor.
 
-`config.packages["@thetis/terminal"]`, all optional, read in `startHost` and nowhere else ([09-configuration.md](09-configuration.md) section 4):
+The configuration of `@thetis/terminal`, every key declared under `thetis.config` with a default, read in `startHost` and nowhere else ([09-configuration.md](09-configuration.md) section 4):
 
-| Key | Default | Meaning |
-|---|---|---|
-| `shell` | `/bin/bash` | The program the pty runs. Anything but bash runs unframed (section 2.3). |
-| `sessions` | `8` | Open sessions per person. The refusal names the limit and says to close one. |
-| `bufferBytes` | `262144` | The ring buffer per session. |
-| `idleMinutes` | `30` | Close a session after this long with no attached browser and nothing running. `0` disables the reaper. |
-| `waitMs` | `120000` | The default wait of `shell`, when the call names no `timeoutMs`. |
+| Key | Default | Who sets it | Meaning |
+|---|---|---|---|
+| `shell` | `/bin/bash` | anyone, in their own layer | The program the pty runs. Anything but bash runs unframed (section 2.3). |
+| `sessions` | `8` | admins only (`scope: "system"`) | Open sessions per person. The refusal names the limit and says to close one. |
+| `bufferBytes` | `262144` | admins only (`scope: "system"`) | The ring buffer per session. |
+| `idleMinutes` | `30` | admins only (`scope: "system"`) | Close a session after this long with no attached browser and nothing running. `0` disables the reaper. |
+| `waitMs` | `120000` | anyone, in their own layer | The default wait of `shell`, when the call names no `timeoutMs`. |
 
-The configuration is per person, because `config.packages` is read per fence. There is no `enabled` key: a person who should not have a terminal does not have the package installed.
+The three limits are declared `scope: "system"`, so a person cannot raise them in their own layer: `configure_package`, **Configure** in the marketplace and `kernel.config.set` refuse them, and only an admin sets them at the system layer (`thetis config set @thetis/terminal sessions 16 --json`, or the Configuration section). `shell` and `waitMs` are a person's own. A change is live: the terminal's service restarts in place with the new values ([05-packages.md](05-packages.md) section 13), and every open shell session in it stops. There is no `enabled` key: a person who should not have a terminal does not have the package installed.
 
 The idle reaper closes a session only when nothing is running, no browser is watching, and nothing has happened in it — no output, no write, no read, no browser attaching or leaving — for the whole idle time. The watcher count is the number of browsers subscribed to this workspace's stream, not to one session, so one open page keeps every session alive.
 

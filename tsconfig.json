@@ -17,6 +17,9 @@
       "path": "packages/host"
     },
     {
+      "path": "packages/store-toml"
+    },
+    {
       "path": "packages/userspace-agent"
     },
     {

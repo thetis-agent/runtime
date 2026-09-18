@@ -38,10 +38,10 @@ Rules for `models`:
 
 A provider runs in the userspace where it is installed:
 
-- A system provider is installed in the system userspace `_system`. It holds the service credentials from `config.packages`.
-- A user provider is installed in the user's own userspace. It holds the user's credentials. It can read them from a file in the user's home.
+- A system provider is installed in the system userspace `_system`. It holds the service credentials from its configuration at the system layer.
+- A user provider is installed in the user's own userspace. It holds the user's credentials: a secret key in the person's own configuration layer (`thetis config set <provider> apiKey --user <id> --stdin`, or **Configure** in the marketplace), or a file in the user's home.
 
-The kernel sends `config.packages[<provider name>]` only to the fence where that provider runs.
+The kernel sends a provider's effective configuration ([09-configuration.md](09-configuration.md) section 4) only to the fence where that provider runs, and resolves it on every call. A changed key makes a new provider instance in the agent, and the kernel forgets the model list it cached for that userspace.
 
 ## 3. Resolution
 

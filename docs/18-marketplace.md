@@ -6,7 +6,7 @@ An installation ships with one registry already configured: **`https://github.co
 
 ## 1. Registries
 
-`config.packages["@thetis/marketplace"]`, with the shipped default:
+The configuration of `@thetis/marketplace` ([09-configuration.md](09-configuration.md) section 4; both keys are declared `scope: "system"`, so only an admin sets them at the system layer), with the shipped default:
 
 ```json
 {
@@ -71,6 +71,8 @@ Install it into a running daemon with `thetis packages install @thetis/marketpla
 ```
 
 `description` and `keywords` come from the standard `package.json` fields. Add them to a package to make it findable. `readme` is `true` when the package directory holds a `README.md` and a copy of it sits in the shared directory; see section 8.
+
+A package of type `storage` is skipped by the mirror and never enters the index. A storage driver runs on the host and is chosen by `storage.driver` in the configuration; it is not installable, so it is not offered. See [26-storage.md](26-storage.md) section 3.
 
 ## 4. Search
 
@@ -167,7 +169,7 @@ A copy goes to the same directory as the README copy, under `<dir>__<path>` with
 
 `@thetis/ui-marketplace` is a `ui` package in the default `systemPackages["*"]` ([09-configuration.md](09-configuration.md)). It declares one place, `marketplace`, which the web gateway lists as **Marketplace** in the sidebar's ≡ menu after **Control panel** ([15-web-gateway.md](15-web-gateway.md) section 11). The place opens in the main pane with the sidebar kept; the close button or the Escape key returns to the conversation.
 
-**The gallery.** A search box, one chip per package type (**All** first), a note (`registry thetis · refreshed 12 min ago · 23 packages`, or `n installed · no marketplace index yet`), and one card per package: the name, the description, the version, the type and the registry, and the badges **Only me**, **Everyone** or **Available · \<registry\>**, `fork of …`, `update to <version>`, and the benchmark badge. Installed packages come first. The search runs through the command `search`, so the index's ranking of section 4 applies; an installed package that no registry carries is matched on its name, type and description. Clicking a card opens the package's page.
+**The gallery.** A search box, one chip per package type (**All** first), a note (`registry thetis · refreshed 12 min ago · 23 packages`, or `n installed · no marketplace index yet`), and one card per package: the name, the description, the version, the type and the registry, and the badges **Only me**, **Everyone** or **Available · \<registry\>**, `fork of …`, `update to <version>`, and the benchmark badge. Installed packages come first. An installed package whose configuration is missing something carries the kernel's one sentence about it in red (`token is required and not set`), from one `config-list` call after the rows, so a person sees it before an agent does. The search runs through the command `search`, so the index's ranking of section 4 applies; an installed package that no registry carries is matched on its name, type and description. Clicking a card opens the package's page.
 
 **A package page.** The crumb **Marketplace › \<name\>** leads back. On the left the README copy of section 8, rendered by the shell's markdown (DOM, never `innerHTML`), or the line *This package has no README.* On the right a card: the badges, the description, the facts (**installed** `<version> at <short commit>` for a copy taken from a registry; **registry** the tip version and the registry name; **update** when the two differ; **type**, **license**, **forked from**, **replaces**, **source**), then **Brings**: one pill per tool (the description as the tooltip, when the copy is installed here), the steps by phase, the service, the keywords, and the benchmark suites and last run. Under it the actions the state and the role allow:
 
@@ -180,6 +182,7 @@ A copy goes to the same directory as the README copy, under `<dir>__<path>` with
 | **Install for everyone** | admins, when not everyone's | `install-everyone { source }` | `packages.installEveryone` over the operator channel. See [05-packages.md](05-packages.md) section 15. |
 | **Make it the default for everyone** | admins, for a person's own package | `promote { user, name }` | `packages.promote`. See [05-packages.md](05-packages.md) section 14. |
 | **Install for \<person\>** | admins, from a picker of the people (`people`) | `install-for { user, source }` | `packages.install` for that person. `remove-for { user, name }` is the counterpart. |
+| **Configure** | anyone, when installed | `config-show { name }`, then `config-set { name, key, value }` and `config-unset { name, key }` | The configuration form (`ui/config-form.js`, the same file `@thetis/ui-admin` carries) under the README, on the person's own layer through `kernel.config`. A row per key says its state and where the value came from; a secret is a write-only box that says `set` or `not set`; a key declared `scope: "system"` is read-only; **Clear** removes what this layer holds; **Save** sends one `config-set` per key that changed. The card says the kernel's sentence when the package is missing something. See [09-configuration.md](09-configuration.md) section 5.4. |
 
 Every action sits behind a confirm popover that states the package and version, where it comes from, whom it is for, and one sentence on what happens next; nothing is sent until the person confirms. After an action the page is opened again, or the gallery when the package is gone from here.
 

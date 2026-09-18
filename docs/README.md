@@ -12,7 +12,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [06-sessions-and-users.md](06-sessions-and-users.md) | Users, roles, moderation, sessions, subagents, and the session API. |
 | [07-providers.md](07-providers.md) | The provider contract, model resolution, and the OpenRouter package. |
 | [08-cli.md](08-cli.md) | All commands of the `thetis` command-line gateway. |
-| [09-configuration.md](09-configuration.md) | The configuration file, every field, the defaults, and the data directory. |
+| [09-configuration.md](09-configuration.md) | The configuration file, every field, the defaults, the data directory, and per-package configuration: layers, declarations, secrets, forks, and what is live. |
 | [10-development.md](10-development.md) | How to build, run, test, and change Thetis. Code rules. |
 | [11-testing.md](11-testing.md) | The test suites, the fixtures, and how to write new tests. |
 | [12-security.md](12-security.md) | Trust boundaries, what the system enforces, and what it does not enforce. |
@@ -29,6 +29,7 @@ This directory contains the technical documentation for Thetis. The documents us
 | [23-skills.md](23-skills.md) | Skills: the SKILL.md format, the sources, the `@thetis/skills` library, the three loaders, the harness state, the bench, and the limits. |
 | [24-terminal.md](24-terminal.md) | The terminal: long-lived shell sessions in a person's fence, the pty and its marks, the ring buffer, the five tools, the shelf, the limits, and what it cannot do. |
 | [25-restart.md](25-restart.md) | Putting new code into service: why a build reaches three different places, reloading one workspace, saying what is stale, and the restart the daemon can be asked for, with its guards. |
+| [26-storage.md](26-storage.md) | Storage: the store contract, what the service plane keeps where, the driver as a host-plane package, `@thetis/store-toml`, the conformance suite, `env.storage()` for packages, and `thetis migrate`. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | The original design specification. It is the reference for design decisions. It is not written in STE. |
 
 ## Conventions in these documents

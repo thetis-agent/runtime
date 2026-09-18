@@ -6,7 +6,7 @@ The model works through tools. Five shipped packages provide them. The first fou
 |---|---|---|
 | `@thetis/tools-files` | `read_path`, `edit_path`, `write_path`, `search_files`, `find_files`, `get_directory` | Files in the person's home, bounded and path-contained. |
 | `@thetis/tools-plan` | `todo_write`, `todo_add`, `todo_mark`, `todo_order`, `todo_read`, `ask_user` | A plan per conversation, and questions for the person. |
-| `@thetis/tool-exec` | `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `spawn_subagent` | Packages, forks, and subagents. It declared `exec` until 2026-09-16; see section 3.2. |
+| `@thetis/tool-exec` | `install_package`, `uninstall_package`, `fork_package`, `delete_package`, `package_config`, `configure_package`, `spawn_subagent` | Packages, forks, their configuration, and subagents. It declared `exec` until 2026-09-16; see section 3.2. |
 | `@thetis/terminal` | `shell`, `shell_read`, `shell_send`, `shell_interrupt`, `shell_sessions` | Long-lived shell sessions in the person's fence, shown live in the page. See [24-terminal.md](24-terminal.md). |
 | `@thetis/tool-operator` | `restart_daemon` | Asks this daemon to restart itself, for code a workspace reload cannot reach. One admin at a time. See [25-restart.md](25-restart.md). |
 
@@ -61,7 +61,11 @@ The plan of a conversation is `plans/<session id>.json` in the home. Every plan 
 | `install_package` | `source` | Installs from a path under the home, a git URL, or `url#dir`. A fork replaces its original. See [05-packages.md](05-packages.md) section 16. |
 | `uninstall_package` | `name` | Removes the link. The files stay. A fork's original comes back. |
 | `fork_package` | `name`, `as` (optional) | Copies an installed package to `packages/<as>` as `@<you>/<as>`, ready to edit. Does not install. |
-| `delete_package` | `name` | Uninstalls a package of your own scope and deletes its directory under `packages/`. Refuses `@thetis/*`. |
+| `delete_package` | `name` | Uninstalls a package of your own scope and deletes its directory under `packages/`. Refuses `@thetis/*`. Clears the person's configuration overrides and `env.storage()` documents for it. |
+| `package_config` | `name` | Every key of an installed package: its state (`set`, `missing`, `unset`), the layer it came from and `inherited from <origin>` for a fork, the value of a non-secret key, `•••` for a secret, the `${VAR}` names not in the environment, and the help of each declared key. The first line is the kernel's sentence about the package. Use it to diagnose a tool that says it is not configured. |
+| `configure_package` | `name`, `key`, `value?`, `unset?`, `json?` | Sets or unsets one key in the caller's own layer for a package installed in their userspace, secrets included. A string value may hold `${VAR}`; `json: true` parses it for a number, boolean, object or array. The reply names the key and its new state, the package's sentence, and whether its service was restarted; never the value. Refuses a key declared `scope: "system"`. Live on the next call. See [09-configuration.md](09-configuration.md) section 5.5. |
+
+**Caution:** a secret pasted into the conversation for `configure_package` stays in the transcript. The tool's description tells the model to prefer asking the person to set a secret in the panel.
 
 ## 3.2 The shell session tools
 

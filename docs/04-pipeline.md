@@ -68,7 +68,7 @@ interface PackageStepContext {
   harness: HarnessState;
   packages: PackageQuery;          // has(name), get(name), list(type?)
   env: StepEnv;                    // see 03-fence.md section 4.2
-  config: Record<string, unknown>; // config.packages[<this package>]
+  config: Record<string, unknown>; // this package's effective configuration, 09-configuration.md section 4
 }
 
 type StepResult = { conversation?: Message[]; call?: ProviderCall; harness?: HarnessState };
@@ -108,7 +108,7 @@ An invalid result ends the turn with an `error` event. The variables keep the va
 5. Enumerate the plan.
 6. For each step: emit `step.start`; run the step; apply the result; emit `step.end` with the duration in milliseconds.
    - The built-in call runs in the kernel.
-   - Any other step goes to the fence as the operation `step`. The payload `ctx.config` is `config.packages[<step package>]` or `{}`.
+   - Any other step goes to the fence as the operation `step`. The payload `ctx.config` is the step package's effective configuration ([09-configuration.md](09-configuration.md) section 4), read at dispatch.
 7. On any error: emit `error` with the message and the error code. Stop the loop.
 8. Always: save `conversation` and `harness` to the session file. Increase `turns` by one. Emit `turn.end`.
 
@@ -150,7 +150,7 @@ The step does not change `harness`.
 A tool call from the model has `{ id, name, args }`. The kernel finds the `ToolSpec` with the same `name` in `call.tools`. The spec carries `package` and `export`.
 
 - When no spec matches, the tool result is `error: unknown tool: <name>`.
-- Otherwise the kernel sends the operation `tool` into the user's fence with `{ package, export, name, args, session, config }`. `config` is `config.packages[<tool package>]` or `{}`.
+- Otherwise the kernel sends the operation `tool` into the user's fence with `{ package, export, name, args, session, config }`. `config` is the tool package's effective configuration ([09-configuration.md](09-configuration.md) section 4), read at dispatch.
 - A string result is used as is. Any other value is JSON-encoded. `undefined` becomes `null`.
 - When the tool throws, the result is `error: <message>`.
 

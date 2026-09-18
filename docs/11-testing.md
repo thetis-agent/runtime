@@ -6,10 +6,13 @@ All tests use the Node test runner (`node:test`) and `node:assert/strict`. No te
 
 | File | Type | Content |
 |---|---|---|
-| `packages/kernel/test/loc.test.ts` | Guard | Counts kernel lines of code. Fails at 1,200 or more. Prints a per-file table. |
+| `packages/kernel/test/loc.test.ts` | Guard | Counts kernel lines of code. Fails at 1,400 or more. Prints a per-file table. |
 | `packages/kernel/test/boundaries.test.ts` | Guard | Reads every import of `@thetis/*` in `packages/*/src`. Fails when a layer imports upward, or when a package other than `host` and `gateway-cli` imports `@thetis/kernel`. See section 1.1. |
-| `packages/kernel/test/unit.test.ts` | Unit | User store, auth service, manifest validation, enumerator plan and validation, config and redaction. |
+| `packages/kernel/test/unit.test.ts` | Unit | User store, auth service, manifest validation (a bad `thetis.config` included), enumerator plan and validation, config and redaction, `packages` keeping its `${VAR}` references, `services.restart`, the config service (who may set what, where a secret lands, what the journal keeps, who is told), the `store.*` and `config.*` RPC prefixes, the refusal of type `storage` and `manifestOf`. |
 | `packages/lib/test/lib.test.ts` | Unit | Container, async queue, package sources, the JSON directory store, the RPC framing. |
+| `packages/lib/test/store.test.ts` | Unit | Store ids and documents, `memoryStore` clear across namespaces, `StoreMirror` ordering, flush and a failed write. |
+| `packages/lib/test/config.test.ts` | Unit | Declarations, the fork chain, layer-major merging, `${VAR}` references found, resolved and dropped, `describe` states and redaction at any depth, `checkValue`, `parseDotEnv`, `EnvFile` precedence, `changedPackages`, `LayeredConfig` over `memoryStore()`. |
+| `packages/store-toml/test/store.test.ts`, `toml.test.ts` | Conformance and unit | The shared `storeConformance` suite over the TOML driver, the layout, private modes, temporary files, corrupt files, the canonical form; the codec against fixtures per construct and round-trips of every kernel record shape. See [26-storage.md](26-storage.md) section 5. |
 | `packages/host/test/e2e.test.ts` | End-to-end | The real `ProcessFence` and agent with a fixture provider. No network. |
 | `packages/gateway-web/test/gateway.test.ts` | End-to-end | The door, the login target, and one gateway per person, in-process and then inside real fences. See [15-web-gateway.md](15-web-gateway.md) section 10. |
 | `packages/prompt-cache/test/*.test.ts` | Unit | The planner, the policy and hint rules, both wire adapters, usage normalization, the fingerprint diagnosis, and the step. |
@@ -68,7 +71,14 @@ The `after` hook shuts the kernel down and deletes the directory.
 | suspended users | `create` fails for a suspended user. |
 | fork | `fork_package` through the fence copies the promoted `@thetis/hello` to `packages/hello2` with `forkedFrom` and does not install it. `install_package` replaces the original: the tool is offered once, the record carries `forkedFrom` and `replaced`. A second fork of the same name and a fork of a package that is not installed are refused. `packages.uninstall` over RPC puts the original back and keeps the files. |
 | fork with a service | With the supervisor armed, installing a fork of a service package stops the original's service and starts the fork's, in that order. `delete_package` stops the fork, deletes its directory, restores the original and starts its service. `delete_package` refuses `@thetis/*`. |
-| fence isolation | With `bwrap`, a command in alice's fence cannot read `users.json`, bob's userspace, or other entries of the data directory, and cannot write the shared directory; it can read the promoted packages. Skipped without `bwrap`. |
+| fence isolation | With `bwrap`, a command in alice's fence cannot list `store/`, bob's userspace, or other entries of the data directory, and cannot write the shared directory; it can read the promoted packages. Skipped without `bwrap`. |
+| config.set at the system layer | Reaches the provider on its next call with no restart of anything. |
+| config.set on a service package | The service restarts in the same fence with the new configuration; the fence's `openedAt` is unchanged. |
+| storage | A tool keeps a document through `env.storage()` and a later turn reads it; another person's fence reads nothing there; `delete_package` clears it; `removeUser` leaves no namespace. |
+| a secret over RPC | Reaches the tool's `env.config` and nothing else: not the RPC reply, not `config.show`, not the journal. |
+| a fork inherits | The report says `inheritedFrom`, and the fork's tool receives the origin's key. |
+| private namespaces | Every file under `store/auth` and `store/secrets` has no group or other permission bits (the driver writes them `0600`). |
+| migrate | A data directory with the four legacy files refuses to start, imports once (the files renamed `.migrated`), and imports nothing the second time. |
 
 ### 2.3 The fixture provider
 

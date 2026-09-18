@@ -7,8 +7,9 @@ tells them apart is [10-development.md](10-development.md) section 4.1.
 | Tier | What is in it | What puts it into service |
 |---|---|---|
 | 1 | Browser files, package manifests, and the **entry module** a `tool`, `step`, `enumerator` or UI-command export is declared in | Nothing. The next request or turn has it. |
+| 1 | **Configuration**: `packages[*]` of `thetis.config.json` and the `.env` file | `thetis config reload` for the file (`config.set` from the CLI, the panel or the tool needs nothing at all); the next call for a changed `.env` variable. A changed package's service restarts in place, fence open. See [09-configuration.md](09-configuration.md) section 5. |
 | 2 | **Anything an entry module imports**, a service's module graph, a provider, the userspace agent | A **reload** of that person's workspace (section 2) |
-| 3 | The kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, and `thetis.config.json` | A **restart** of the daemon (section 4) |
+| 3 | The kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, and everything else in `thetis.config.json` (`fence`, `door`, `systemPackages`, `control`, `storage`, `model`, `phases`) | A **restart** of the daemon (section 4) |
 
 ## 1. Why the tiers exist
 
@@ -24,9 +25,11 @@ plain specifier, so that file stays in the process's module registry however man
 re-imported. Node has no way to reload a module graph. The only thing that reads one again is a new
 process, and for a service that means a new agent: a new fence.
 
-The kernel, the door and the configuration are read once by `thetis serve` and held for its life. A
-configuration change is tier 3 for the same reason, `packages` included: a service is handed
-`config.packages[<name>]` from the copy the kernel holds, not from the file.
+The kernel, the door and the rest of the configuration are read once by `thetis serve` and held for its
+life, so `fence`, `door`, `systemPackages`, `control`, `storage` and `model` are tier 3. `packages[*]` is
+not: the config service resolves a package's configuration on every dispatch, `thetis config reload`
+reads the file layer again, and a service whose configuration changed is stopped and started in its
+fence with the new one. The `.env` file is read again whenever its modification time changes.
 
 ## 2. Reload
 
@@ -138,10 +141,15 @@ want: a daemon that will not stay up should say so rather than flap.
 
 `Restart=always` does **not** defeat `systemctl stop`. An operator stopping the service still stops it.
 
-After changing the unit, deploy it — the repository's copy is not what systemd reads:
+After changing the unit, deploy it — the repository's copy is not what systemd reads. **Do not copy the
+file over the deployed one.** The template's `User`, `Group`, `WorkingDirectory` and `ExecStart` lines are
+placeholders, and the live unit on this host is hand-adapted; copying the template over it took production
+down once. Diff the repository's unit against the deployed one and carry the change across by hand,
+keeping the four host-specific lines as they are:
 
 ```sh
-sudo cp deploy/thetis-runtime.service /etc/systemd/system/
+diff /etc/systemd/system/thetis-runtime.service deploy/thetis-runtime.service
+sudoedit /etc/systemd/system/thetis-runtime.service
 sudo systemctl daemon-reload
 ```
 

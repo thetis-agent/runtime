@@ -57,8 +57,9 @@ afternoon.
 | Tier | What is in it | What it needs | What that costs |
 |---|---|---|---|
 | 1 | The gateway's `assets/`, every package's `ui/` browser files, package manifests, and the **entry module** a `tool`, `step`, `enumerator` or UI-command export is declared in | Nothing. The next request or turn has it. | Nothing. |
+| 1 | **Configuration**: `packages[*]` of `thetis.config.json`, and the `.env` file | `thetis config reload` for the file; nothing for a `config.set` from the CLI, the panel or the tool; the next call for a changed `.env` variable. See [09-configuration.md](09-configuration.md) section 5. | The service of a changed package stops and starts again in its fence. The fence, the other services and the shell sessions stay. |
 | 2 | **Anything an entry module imports**, a service's module graph (`@thetis/gateway-web`, `@thetis/terminal`), a provider, and the userspace agent itself | That person's workspace reloaded: `thetis reload --user <id>`, or the **Workspaces** section of the control panel | That person's open shell sessions, and any turn of theirs in flight. A second or two. |
-| 3 | `@thetis/kernel`, `@thetis/host`, `@thetis/sandbox`, `@thetis/door`, `@thetis/lib`, `@thetis/contracts`, `@thetis/gateway-cli`, and `thetis.config.json` | A new daemon process: `sudo systemctl restart thetis-runtime.service`, or `thetis restart` on the host, or the `restart_daemon` tool ([25-restart.md](25-restart.md)) | Every turn in progress, everywhere, and every terminal shell session. | 
+| 3 | `@thetis/kernel`, `@thetis/host`, `@thetis/sandbox`, `@thetis/door`, `@thetis/lib`, `@thetis/contracts`, `@thetis/gateway-cli`, `@thetis/store-toml`, and everything in `thetis.config.json` but `packages` (`fence`, `door`, `systemPackages`, `control`, `storage`, `model`, `phases`) | A new daemon process: `sudo systemctl restart thetis-runtime.service`, or `thetis restart` on the host, or the `restart_daemon` tool ([25-restart.md](25-restart.md)) | Every turn in progress, everywhere, and every terminal shell session. | 
 
 Why the tiers exist, in one line each. A tool export is imported with a modification-time query, so the
 agent re-reads that file on every call — **but only that file**. A static `import "./client.js"` inside it
@@ -66,8 +67,9 @@ resolves to a URL with no query, so Node's module cache goes on serving the copy
 helper a tool imports changes nothing until the agent process is new. This is the trap the tiers exist to
 warn about, and it is easy to get wrong in the safe-sounding direction. A service is imported once when its agent starts, and `?v=` versions only
 a package's entry module, so nothing short of a new agent process reloads one — which is what a reload is.
-The kernel, the door and the configuration are read once by `thetis serve`, and Node cannot reload a module
-graph, so only a new process picks them up.
+The kernel, the door and the rest of the configuration are read once by `thetis serve`, and Node cannot reload a
+module graph, so only a new process picks them up. `packages[*]` is the exception: the config service resolves
+it on every dispatch and restarts a changed package's service in place.
 
 `thetis status` says which of these is stale: it compares what is on disk against what each part loaded,
 and names anything running older code. Use it when a change appears to have done nothing.
@@ -108,7 +110,7 @@ The agent's `stderr` goes to the CLI's `stderr` with the prefix `[<user>]`.
 - One class has one responsibility. Split a class that grows two.
 - Depend on interfaces where a second implementation is plausible: `Fence` and `Fences` in `@thetis/contracts` are the examples.
 - New capabilities go into packages. Add kernel code only for a new crossing of the fence or a new invariant.
-- The kernel must stay under 1,200 counted lines. Run `npm test` after each kernel change. The test prints the count.
+- The kernel must stay under 1,400 counted lines. Run `npm test` after each kernel change. The test prints the count.
 - Validate every value that crosses the fence into the kernel: step results, enumerator plans, manifests, RPC arguments.
 - Use `CodedError` from `@thetis/lib/error` (exported by the kernel as `KernelError`) with a code for every failure the caller must distinguish.
 
@@ -164,7 +166,9 @@ The agent is in `packages/userspace-agent/src/agent.ts`. The kernel side is `pac
 | `fence request ... timed out` | A tool or a step ran longer than `requestTimeoutMs`. |
 | `userspace agent for <user> exited` | Run with `--verbose` and read `stderr`. The agent path must exist: run `npm run build`. |
 | `stray output` in the log | Package code wrote to `stdout`. Use `console.error` in packages. |
-| A package does not appear after install | Look at `registry.json`. Run `thetis packages list --user <id>`. The log shows a dead link. |
+| A package does not appear after install | Look at `$THETIS_HOME/store/registry/`. Run `thetis packages list --user <id>`. The log shows a dead link. |
+| `legacy records found in ... run thetis migrate` | The data directory still has `users.json`, `auth.json`, `registry.json` or `mounts.json`. Stop the daemon and run `thetis migrate`. See [26-storage.md](26-storage.md) section 8. |
+| A tool says a key is not configured | `thetis config show <package> --user <id>`. The first line says which key is missing or which `${VAR}` is not in the environment. |
 | `bwrap` errors at start | Set `fence.sandbox` to `none` to confirm the rest works. Then check user namespaces on the host. |
 
 ## Continuous integration

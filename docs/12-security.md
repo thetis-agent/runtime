@@ -19,7 +19,7 @@ The kernel treats every value from a fence as untrusted input. It validates step
 - Network, in mode `egress` (the default when `slirp4netns` is installed): a private network namespace with outbound NAT. The fence reaches the internet and the local network; it cannot reach the host's loopback and cannot bind a host port. Mode `none` gives no network at all.
 - Resources: memory, process count, and CPU per fence through cgroup v2, when the kernel runs in a delegated cgroup. The fence's own group, and only its own, is bound read-only at `/sys/fs/cgroup` so the agent can read the limit it is held to. It cannot write it, and it sees no other fence's group. See [03-fence.md](03-fence.md) section 3.3.
 - Environment: only the variables listed in [03-fence.md](03-fence.md) section 3.5. The kernel's environment, including `OPENROUTER_API_KEY`, does not reach any fence.
-- Configuration: a package receives only its own `config.packages[<name>]` entry. The provider key reaches only the system userspace.
+- Configuration: a package receives its own effective configuration, the four layers merged along its fork chain ([09-configuration.md](09-configuration.md) section 4), and nothing of another package's. A fork receives its origin's. A key set at a person's layer reaches that person's fence only; a key at the system layer reaches every fence that holds the package. The OpenRouter key reaches the system userspace through `@thetis/provider-openrouter`. **It also reaches every person's fence today**: the shipped default for `@thetis/skills-hybrid` is `embeddings: { apiKey: "${OPENROUTER_API_KEY}" }`, and that package is in `systemPackages["*"]`, so a person's tools and steps run beside a process that holds the key. Set `packages["@thetis/skills-hybrid"].embeddings` to a key with its own budget, or to `{}` for lexical ranking, before giving a fence to someone you do not trust with the key.
 
 The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
@@ -27,7 +27,7 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 
 - **Network, in mode `host`.** Without `slirp4netns` the fence shares the host network namespace and can reach `localhost` services and bind host ports.
 - **Egress policy.** Mode `egress` is all-or-nothing: no per-package destination list. Routable machines on the local network stay reachable.
-- **Disk.** No disk quota. A package can fill the filesystem.
+- **Disk.** No disk quota. A package can fill the filesystem. `env.storage()` caps one document at 256 KiB and nothing else: there is no total quota per package or per person.
 - **Resource limits without delegation.** Without a delegated cgroup there are no memory, process, or CPU limits.
 - **Time limits on tools.** `exec` has a default timeout of 120000 milliseconds. A tool can pass a larger value.
 - **Mode `none`.** No isolation at all. The agent runs as the host user with full access.
@@ -38,6 +38,8 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 - Every session API call runs `users.authorize(id)`. Unknown and suspended users are rejected.
 - A session is found only in the caller's own userspace directory.
 - RPC from a fence runs as the userspace's own user. No argument can name another user. There is no `as`.
+- `store.*` and `config.*` take a package name, not a user. The kernel prefixes the store namespace with the fence's own user (`userspaces/<user>/<package>/...`) and takes the fence's own user as the configuration layer, so a fence reaches only its own documents and its own layer. `config.set` from a fence refuses a key declared `scope: "system"`, whatever the person's role.
+- `config.effective` is answered for any package installed in the same fence, secrets included. A fence is one person's authority: a package in it may load another's configuration the way the web gateway runs another package's UI commands.
 - `auth.login` is answered only for the system userspace. `auth.authenticate` and `auth.logout` are answered for any fence, but only when the token names that fence's own user; the system userspace may resolve any token.
 - A fence whose user is an admin may call operator methods (`operator.<method>`, the table of the control socket). The kernel checks the role on every call and records the fence's user as the actor. A gateway that hides a button is a courtesy, not the gate.
 - `restart.request` asserts that the actor is an **admin**, not merely that it is not a user. The operator channel admits any fence whose role is not `user`, which admits the system userspace; that fence has no business ending every turn on the host. See section 11.
@@ -62,13 +64,19 @@ A `POST` from another site is refused by its `Sec-Fetch-Site` header. Two routes
 
 ## 6. Secrets
 
-- Passwords are scrypt hashes in `$THETIS_HOME/auth.json`, mode `0600`. No fence can read the file.
+The kernel manages secrets now: passwords, tokens, and the secret keys of a package's configuration.
+
+- Passwords are scrypt hashes in the private store namespace `auth/credentials`; login tokens are in `auth/tokens`. With the default driver these are `$THETIS_HOME/store/auth/credentials/` and `.../tokens/`, directories of mode `0700` with files of mode `0600`. No fence can read them: `$THETIS_HOME` is masked in every fence, and the e2e suite asserts that no file under `store/auth` and `store/secrets` has a group or other permission bit.
+- A configuration key declared `secret: true`, or an undeclared key whose name matches `key`, `secret`, `token` or `password`, is stored in the private namespaces `secrets/system` and `secrets/users/<user>`, never in `config/*`. It reaches only the fence its layer is for, inside that package's effective configuration. See [09-configuration.md](09-configuration.md) section 4.
+- Who sets a secret: an admin at the system layer (`thetis config set`, the Configuration section of the control panel); a person at their own layer (**Configure** in the marketplace, `kernel.config.set` from their fence); the model through `configure_package` at the person's layer. **Caution:** a secret the model sets was pasted into the conversation, and the transcript keeps it. The tool's description says to prefer the panel. `thetis config set --stdin` keeps a secret out of the shell's history and out of `ps`.
+- A secret is never returned. `config.show`, `package_config`, the CLI and the panel report a secret as `set` or `not set`; the only value shown is a pure `${VAR}` reference, which is a name and not a value. A secret nested inside a non-secret value (`embeddings.apiKey`) is shown as `•••` at any depth. The journal rows `config.set` and `config.unset` carry the key name and `secret: true`, never the value.
+- The secrets are plain files with restrictive modes, not encrypted at rest. Anyone who can read the service plane's user on the host reads them.
 - The control socket `$THETIS_HOME/thetis.sock` has mode `0600`. It gives operator rights to anyone who can open it, the same rights as running the CLI on the host.
 - The gateway sockets `<userspace>/run/*.sock` have mode `0660`. The door and the userspace's own code reach them; a fence cannot see another userspace's `run/`.
-- The OpenRouter key is in `<root>/.env`. `.gitignore` excludes it. The `thetis config` command prints the interpolated key.
+- The OpenRouter key is in `<root>/.env`. `.gitignore` excludes it. `packages` in the configuration keeps its `${VAR}` references unresolved, so `thetis config` prints the reference under a secret-looking key as `•••` and never the key; `thetis config show` prints a pure reference as the reference. No command prints an interpolated secret.
 - The key was pasted into the conversation that created this project. Rotate it when the project leaves development.
-- The config file references the key as `${OPENROUTER_API_KEY}`. Do not write the literal key into the config file.
-- A user provider must keep its own credentials inside the user's home. The kernel does not manage user secrets.
+- The config file references the key as `${OPENROUTER_API_KEY}`. Do not write the literal key into the config file. A key that must not sit in `.env` goes into the store: `thetis config set <package> <key> --stdin`.
+- A user provider can keep its credentials in the person's own configuration layer, where only that person's fence receives them, or inside the person's home.
 
 ## 7. Denial of service
 
@@ -95,6 +103,7 @@ A `POST` from another site is refused by its `Sec-Fetch-Site` header. Two routes
 | `turn.start`, `turn.end` | the person | the session | `turn`, `ms`, `error`, and `reported`: the usage the provider reported, summed |
 | `service.start`, `service.stop`, `service.fail` | (the kernel) | the userspace | `package`, `error` |
 | `fence.reload` | the admin, or `operator` from the CLI | the person whose workspace it was | |
+| `config.set`, `config.unset` | the person (from their fence or the `configure_package` tool), the admin, or `operator` from the CLI | the person whose layer changed, or `_system` for the system layer | `package`, `key`, `layer` (`user` or `system`), `secret`. Never the value. |
 | `restart.armed`, `restart.again`, `restart.refused` | the admin, or `operator` | `daemon` | `reason`, and `why` on a refusal: one of `off`, `unsupervised`, `no-listener`, `young`, `policy` |
 | `restart.cancel` | the admin, or `operator` | `daemon` | `reason` and `by` of the restart that was called off |
 | `restart.fire` | whoever asked for the restart | `daemon` | `reason`, `quiet`, `waitedMs`, `cut` |
@@ -108,7 +117,7 @@ A `POST` from another site is refused by its `Sec-Fetch-Site` header. Two routes
 
 A mount is an admin's grant of one host directory into one person's fence. The directory appears inside the fence at its host path. `rw` lets the agent and its tools write there. `ro` lets them read only. Only an admin sets mounts, with `thetis mounts` or the operator method `mounts.set`. The kernel checks that the path is absolute and normalized, that the mode is `rw` or `ro`, that the list has at most 32 entries, and that the user exists and is not `_system`. Every change writes one journal row of kind `mounts` with the user and the full list. The change closes the person's fence. The fence reopens with the new binds, and the person's services restart.
 
-A mount whose host path is not a directory when the fence opens is skipped: the fence opens without it, and `THETIS_MOUNTS` does not name it. The mount stays in `mounts.json`, so it binds again as soon as the directory is there. Because a mount that is written down and a mount that works look the same in the file, `mounts.list` and `mounts.set` answer each mount with `present` (true only for a directory now) and `kind` (`dir`, `file`, or `none`). The command line, the control panel, and the project page all say which, so nobody learns from a failed `read_path` that a bind was skipped.
+A mount whose host path is not a directory when the fence opens is skipped: the fence opens without it, and `THETIS_MOUNTS` does not name it. The mount stays in the store, so it binds again as soon as the directory is there. Because a mount that is written down and a mount that works look the same in the file, `mounts.list` and `mounts.set` answer each mount with `present` (true only for a directory now) and `kind` (`dir`, `file`, or `none`). The command line, the control panel, and the project page all say which, so nobody learns from a failed `read_path` that a bind was skipped.
 
 `mounts.browse` lists the directories directly under one host path, for a picker. It is an operator method, so only an admin reaches it: a person's fence shows only what is bound into it, and a person who cannot bind a directory has no reason to see the host's shape. The listing holds directories alone, leaves out hidden names unless asked, is capped at 500 entries, and never throws: it answers what the path is (`dir`, `file`, `none`) and whether it can be read. It reads names, never file contents.
 

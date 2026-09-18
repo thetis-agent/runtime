@@ -11,9 +11,9 @@ The socket protocol is the fence RPC protocol over a Unix socket: `{ id, method,
 | Variable | Effect |
 |---|---|
 | `THETIS_HOME` | The data directory. Default `~/.thetis`. A relative path is resolved against `<root>`. |
-| `OPENROUTER_API_KEY` | Interpolated into the configuration. |
+| `OPENROUTER_API_KEY` | What the shipped `${OPENROUTER_API_KEY}` references under `packages` resolve to. |
 
-The CLI loads `.env` from the current directory and then from `<root>`. A variable that is already set is not replaced.
+The CLI loads `.env` from the current directory and then from `<root>` into its environment. A variable that is already set is not replaced. The daemon reads `<root>/.env` again whenever it changes, for the `${VAR}` references under `packages` ([09-configuration.md](09-configuration.md) section 2).
 
 ## 2. Commands
 
@@ -23,9 +23,11 @@ Creates `$THETIS_HOME/thetis.config.json` when it does not exist. The file conta
 
 ### 2.2 `config`
 
-Prints the effective configuration as JSON, with interpolated values.
+```
+thetis config
+```
 
-**Caution:** The output contains the interpolated API key.
+Prints the configuration file over its defaults as JSON. The `${VAR}` references under `packages` stay as written, and every string under a secret-looking key (`key`, `secret`, `token`, `password`) prints as `•••`. It does not connect to the daemon. The subcommands that read and change per-package configuration are section 2.15.
 
 ### 2.3 `users`
 
@@ -144,7 +146,7 @@ thetis mounts browse [path]
 
 A mount binds a host directory into one person's fence at the same path. `list` prints one line per mount: the user, the path, the mode, and what the host has there now — `bound`, `skipped (not on the host)`, or `skipped (a file, not a directory)`. A skipped mount is written down and not in the fence. Without `--user` it prints every user's mounts. `browse` prints the directories directly under `path` (the root without one), so a path can be checked or found before it is bound. `add` binds `<path>` read-write, or read-only with `--ro`. `add` of a path that is already mounted replaces its mode. `remove` unbinds the path. `<path>` must be absolute and normalized. A user has at most 32 mounts. The system user has none.
 
-`add` and `remove` send the whole list with `mounts.set`. The kernel writes `$THETIS_HOME/mounts.json`, writes one journal row, and closes the person's fence. The fence reopens with the new binds on the next request, and its services restart. Give `--ro` after the path. `add` fails with a sentence when the host has no directory at the path: the mount is written down, and the fence opens without it. See [12-security.md](12-security.md) section 10.
+`add` and `remove` send the whole list with `mounts.set`. The kernel writes the store namespace `mounts`, writes one journal row, and closes the person's fence. The fence reopens with the new binds on the next request, and its services restart. Give `--ro` after the path. `add` fails with a sentence when the host has no directory at the path: the mount is written down, and the fence opens without it. See [12-security.md](12-security.md) section 10.
 
 ### 2.12 `reload`
 
@@ -183,6 +185,31 @@ A restart is refused with nothing armed, and the exit code is 1, for one of five
 
 `restart status` says whether one is armed and, when none is, whether one would be accepted at all and why not. `restart cancel` calls an armed one off; nothing armed is not an error and writes no journal row. An armed restart can also be cancelled from the statusbar chip of `@thetis/tool-operator` ([25-restart.md](25-restart.md) section 5.1).
 
+### 2.15 `config show`, `config set`, `config unset`, `config reload`
+
+```
+thetis config show [<package>] [--user <id>]
+thetis config set <package> <key> [<value>] [--user <id>] [--json] [--stdin]
+thetis config unset <package> <key> [--user <id>]
+thetis config reload
+```
+
+Per-package configuration, live in the running daemon ([09-configuration.md](09-configuration.md) section 4). Without `--user` a command acts on the system layer; with it, on that person's own layer over the system's.
+
+`show <package>` prints one line for the package (`<package>, inherits <origin>: <summary>`) and then one line per key with six tab-separated cells: the key, its state (`set`, `missing`, `unset`), the value as JSON or `•••` for a secret, the layer the value came from (`default`, `file`, `system`, `user`), the origin it was inherited from, and the `${VAR}` names that are not in the environment. `show` without a package prints one line per installed package, the broken ones first and marked `!`, with the kernel's sentence. The control methods are `config.show` and `config.list`.
+
+`set` takes the value as one argument; with `--json` it is parsed, so a number, a boolean, an object or an array can be set; with `--stdin` it is read from standard input, so a secret never lands in the shell's history. A declared key must match its type; `null` is refused; a key declared `scope: "system"` is refused with `--user`. The answer is the key's new state and the package's sentence, never the value. The service of the package, and of every fork of it, restarts in place.
+
+`reload` reads `packages[*]` of `thetis.config.json` again, prints `changed: <names>` or `nothing changed in the file`, and one line `restarted <package> for <user>` per service it restarted. It does not re-read any other field of the file.
+
+### 2.16 `migrate`
+
+```
+thetis migrate
+```
+
+Moves the four record files of a data directory from before 2026-09-18 (`users.json`, `auth.json`, `registry.json`, `mounts.json`) into the store and renames each `<file>.migrated`. It refuses to run while a daemon answers the socket, because a daemon holds the records in memory. It prints one line per file imported and names the files that were not there; a second run prints `nothing to migrate`. The daemon refuses to start while any of the four files is still in the home, so this is the one command to run after updating an older installation. See [26-storage.md](26-storage.md) section 8.
+
 ## 3. Event rendering
 
 `send` and `chat` render events as follows:
@@ -207,7 +234,7 @@ The command line talks to a running kernel through the control socket with these
 | `packages.promote` | `user`, `name` | Makes the package the default for everyone. Returns `{ name, userspaces }`. |
 | `packages.installEveryone` | `source`, `actor` | Installs a package for every person, now and later. Returns `{ name, userspaces }`. See [05-packages.md](05-packages.md) section 15. |
 | `mounts.list` | `user` | The mounts of that user as `{ "<user>": [ { path, mode, present, kind } ] }`, or of every user without `user`. `present` is true only when the host has a directory at the path now; `kind` is `dir`, `file`, or `none`. |
-| `mounts.set` | `user`, `mounts` | Replaces that user's mounts with `mounts`, a list of at most 32 `{ path, mode }` with an absolute normalized path and mode `rw` or `ro`. The user must exist and must not be `_system`. Writes `mounts.json`, journals `mounts`, and closes the user's fence so it reopens with the binds. Returns the list with `present` and `kind`. |
+| `mounts.set` | `user`, `mounts` | Replaces that user's mounts with `mounts`, a list of at most 32 `{ path, mode }` with an absolute normalized path and mode `rw` or `ro`. The user must exist and must not be `_system`. Writes the `mounts` namespace of the store, journals `mounts`, and closes the user's fence so it reopens with the binds. Returns the list with `present` and `kind`. |
 | `mounts.browse` | `path`, `all` | The directories directly under `path` (`/` without one): `{ path, parent, kind, readable, truncated, entries: [ { name, path } ] }`. Directories only, hidden names left out unless `all` is `"true"`, at most 500 entries. A missing or unreadable path is not an error: `kind` and `readable` say so. |
 | `fence.reload` | `user` | Closes that user's fence and opens it again, so its services, its provider and the agent are the code on disk now, and drops the provider cache the kernel holds for that userspace. `_system` is a legal target, unlike `mounts.set`. Journals `fence.reload`. Returns `{ user, services }`, the installed packages that declare a service. See [25-restart.md](25-restart.md) section 2. |
 | `status` | | What is running and whether it is the code on disk: `{ daemon: { startedAt, uptimeSecs, supervised, restartPolicy, codeAt, stale }, restart, workspaces: [ { user, openedAt, codeAt, stale, services } ] }`. `restartPolicy` is the deployed systemd unit's `Restart=`, or null when it could not be read. `restart` is the armed restart, or null. Changes nothing and writes no row. |
@@ -215,7 +242,12 @@ The command line talks to a running kernel through the control socket with these
 | `restart.status` | | `{ startedAt, uptimeSecs, supervised, armable, why?, pending?, policy }`. `why` is the refusal code a request would get now. Writes no row. |
 | `restart.cancel` | | Disarms an armed restart. Returns `{ cancelled, was }`. Journals `restart.cancel` only when something was armed: nothing pending is not an event. |
 | `journal.tail` | `limit`, `kind`, `target`, `actor_filter` | The newest journal rows, newest first. See [12-security.md](12-security.md) section 9. |
-| `config.get` | | The configuration with secrets replaced by `•••`. |
+| `config.get` | | The configuration file over its defaults, `${VAR}` references unresolved, secret-looking keys replaced by `•••`. |
+| `config.list` | `user` | One `ConfigReport` per package installed in that person's userspace, at their layer, or per package installed anywhere at the system layer without `user`. |
+| `config.show` | `name`, `user` | The state of every key of one package: `{ package, user?, inherits, keys, summary, broken }`. Secrets carry no value. `not-found` when the package is not installed. |
+| `config.set` | `name`, `key`, `value`, `user`, `actor` | Writes one key at the system layer, or at that person's with `user`. Refuses `null`, a declared type mismatch, and a `scope: "system"` key with `user`. Journals `config.set` without the value. Restarts the affected services. Returns the report. |
+| `config.unset` | `name`, `key`, `user`, `actor` | Removes one key from that layer. Journals `config.unset`. Returns the report. |
+| `config.reload` | | Reads `packages[*]` of `thetis.config.json` again. Returns `{ changed, restarted }`: the package names whose entry differs, and `{ user, package }` for every service restarted. |
 | `models` | `user` | Every model the providers visible to that userspace serve. |
 | `sessions.create`, `sessions.list`, `sessions.inspect`, `sessions.cancel`, `sessions.send` | `user`, `session`, `input`, `parent`, `model` | Session operations. `sessions.send` streams the turn events. `model` names the model for that turn. |
 

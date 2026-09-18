@@ -2,7 +2,7 @@
 
 ## 1. Users
 
-A user is an identity. `UserStore` in `src/users.ts` keeps the records in `$THETIS_HOME/users.json`.
+A user is an identity. `UserStore` in `src/users.ts` keeps the records in the store namespace `users`, one document per id, read through a `StoreMirror` so every call stays synchronous ([26-storage.md](26-storage.md) section 6).
 
 ```ts
 interface UserRecord {
@@ -48,10 +48,11 @@ A suspended user cannot create sessions, send turns, inspect sessions, or list s
 
 1. Deletes the user record.
 2. Closes the user's fence.
-3. Removes the user's entries from the package registry.
-4. Deletes the userspace directory.
+3. Removes the user's entries from the package registry and its mounts.
+4. Clears the user's configuration layer (`config/users/<id>`, `secrets/users/<id>`) and every document its packages kept (`userspaces/<id>` in the store).
+5. Deletes the userspace directory.
 
-**Caution:** Step 4 deletes all sessions and packages of the user. There is no undo.
+**Caution:** Steps 4 and 5 delete all sessions, packages, configuration and documents of the user. There is no undo.
 
 ## 2. Userspaces
 
@@ -71,7 +72,7 @@ $THETIS_HOME/userspaces/<user id>/     root
   run/                                  unix sockets of this userspace's services
 ```
 
-A userspace can carry mounts: host directories an admin binds into the fence at their host path. `Userspace.mounts` lists them. The layout reads them from `$THETIS_HOME/mounts.json` through the `MountStore` in `packages/lib/src/mounts.ts`. See [12-security.md](12-security.md) section 10 and [08-cli.md](08-cli.md) section 2.11.
+A userspace can carry mounts: host directories an admin binds into the fence at their host path. `Userspace.mounts` lists them. The layout reads them from the store namespace `mounts` through the `MountStore` in `packages/lib/src/mounts.ts`. See [12-security.md](12-security.md) section 10 and [08-cli.md](08-cli.md) section 2.11.
 
 ## 3. Sessions
 
@@ -138,7 +139,7 @@ The full conversation is saved and sent whole; the prompt cache markers keep the
 
 ## 7. Authentication
 
-`AuthService` in `src/auth.ts` holds the identity a network gateway checks. It lives in the service plane. The file is `$THETIS_HOME/auth.json`, written with mode `0600`.
+`AuthService` in `src/auth.ts` holds the identity a network gateway checks. It lives in the service plane. The credentials are in the store namespace `auth/credentials` and the tokens in `auth/tokens`, both private: the default driver keeps them under `$THETIS_HOME/store/auth/` as `0700` directories with `0600` files. See [26-storage.md](26-storage.md) section 2.
 
 | Method | Effect |
 |---|---|

@@ -51,8 +51,9 @@ A package is the unit of everything in Thetis. A package is a directory with a `
 | `bench` | object | Opts the package into benchmark suites. The kernel records the field and does not read it. See [21-benchmarks.md](21-benchmarks.md). |
 | `ui` | object | What the package adds to the web gateway's page: browser files, slot entries, and commands. The kernel records the field and does not read it. See [15-web-gateway.md](15-web-gateway.md) section 11. |
 | `skills` | string | A directory of skills relative to the package root, usually `"skills"`. `@thetis/skills` reads it; the kernel records the field and does not read it. See [23-skills.md](23-skills.md). |
+| `config` | object | The keys the package reads from its configuration: `{ [key]: { type, secret?, required?, default?, scope?, help? } }`. The kernel validates the shape at load, types a value on `config.set`, and reports each key's state. See [09-configuration.md](09-configuration.md) section 4.3. |
 
-`validateManifest` in `src/packages/manifest.ts` enforces the required fields. A manifest that fails validation does not install. It does not reject fields it does not know, so `thetis.bench` and `thetis.ui` reach every step through `ctx.packages.list()` untouched. `@thetis/bench` validates the first and `@thetis/gateway-web` the second, because the kernel never reads them.
+`validateManifest` in `src/packages/manifest.ts` enforces the required fields and the shape of `thetis.config`. A manifest that fails validation does not install. It does not reject fields it does not know, so `thetis.bench` and `thetis.ui` reach every step through `ctx.packages.list()` untouched. `@thetis/bench` validates the first and `@thetis/gateway-web` the second, because the kernel never reads them.
 
 **Note:** a step declared with `phase: "bench"` is never scheduled. The default phases are `history`, `prompt`, `tools`, `call`, `after`, and only the bench adds `bench` to them. That is how a package carries benchmark code it can never run on an ordinary turn.
 
@@ -76,6 +77,7 @@ Types in use or planned:
 | `service` | A long-running process with no other contribution. Any type can also declare a `service`. |
 | `skill` | A directory of skills, declared with `thetis.skills`. See [23-skills.md](23-skills.md). |
 | `skill-type` | The skill format and library: `@thetis/skills`, with the `skill_fetch` tool. The loaders that use it are `loader` packages. |
+| `storage` | A storage driver for the service plane's records: `@thetis/store-toml`. Host-plane: chosen by `storage.driver` in the configuration and loaded by the host at start. **Never installable**: `PackageManager.install` refuses it with the code `invalid`, and the marketplace does not offer it. See [26-storage.md](26-storage.md). |
 | `mcp`, `mcp-server`, `rag` | Planned. No kernel behavior yet. |
 
 ## 3. Writing package code
@@ -122,7 +124,7 @@ export function createProvider(config) {
 }
 ```
 
-`config` is `config.packages[<package name>]`. See [07-providers.md](07-providers.md).
+`config` is the package's effective configuration ([09-configuration.md](09-configuration.md) section 4). See [07-providers.md](07-providers.md).
 
 ### 3.4 An enumerator
 
@@ -194,7 +196,7 @@ The agent imports modules from `store/node_modules`. The store is inside the fen
 
 ## 8. The registry
 
-The registry is the file `$THETIS_HOME/registry.json`. It is in the service plane. Each record is:
+The registry is the store namespace `registry`, one document per package name ([26-storage.md](26-storage.md) section 2). It is in the service plane. Each record is:
 
 ```json
 {
@@ -242,6 +244,8 @@ The kernel finds a system package by name. It scans every directory in `systemPa
 
 `PackageManager.delete(userspace, name)` uninstalls a package in the userspace's own scope and deletes its directory. The package must be a local package under the home directory. `@thetis/*` packages and anything outside the home are refused with the code `unauthorized`.
 
+The two differ in what they keep. **Delete** also clears the person's configuration overrides and secrets for the package (`config/users/<user>` and `secrets/users/<user>`) and every `env.storage()` namespace under `userspaces/<user>/<package>`. **Uninstall** keeps them, so a reinstall finds its configuration and its documents where they were. See [26-storage.md](26-storage.md) section 7.
+
 ## 12. Lifecycle from a conversation
 
 The model performs this cycle with the tools of `@thetis/tool-exec`:
@@ -267,7 +271,7 @@ export async function startService(env) {
 }
 ```
 
-`env` is a `ServiceEnv`: the `StepEnv` fields, `config` (`config.packages[<name>]`), and `log`. The service runs inside the userspace agent, so it sees the same files and reaches the kernel through `env.kernel`.
+`env` is a `ServiceEnv`: the `StepEnv` fields, `config` (the package's effective configuration, [09-configuration.md](09-configuration.md) section 4), and `log`. The service runs inside the userspace agent, so it sees the same files and reaches the kernel through `env.kernel`.
 
 `ServiceSupervisor` in `src/services.ts` controls the lifecycle:
 
@@ -278,6 +282,7 @@ export async function startService(env) {
 | A service package is installed while the supervisor is armed | It starts at once. |
 | A service package is uninstalled | `service.stop` runs before the link is removed. |
 | A workspace is reloaded (`fence.reload`, or `mounts.set`) | The fence closes and `ServiceSupervisor.reload` opens it again, starting every declared service. |
+| The package's configuration changes (`config.set`, `config.unset`, or `thetis config reload` with a changed entry) | `ServiceSupervisor.restart`: its service stops and starts again with the new configuration. The fence stays open; the person's other services, gateway and shell sessions are not touched. A fork of the changed package restarts too, because it inherits. |
 | The kernel shuts down | Every fence closes. Every service exits with its agent. |
 
 A one-shot CLI command never arms the supervisor. `thetis send` does not start a gateway.
@@ -299,7 +304,7 @@ An admin can make a user's package a system package. The control method is `pack
 2. The package directory is copied to `$THETIS_HOME/packages/<basename>`, with its built `node_modules`. A target that exists is refused.
 3. The `name` in the copied `package.json` becomes `@thetis/<basename>`.
 
-The control handler then removes the owner's original `@<user>/<basename>` and installs `@thetis/<basename>` into every existing userspace. New userspaces get it because `seedSystem` links every package in the promoted directory. The configuration file is never written by the kernel. Services the package declares start at once when the supervisor is armed.
+The control handler then removes the owner's original `@<user>/<basename>` and installs `@thetis/<basename>` into every existing userspace. New userspaces get it because `seedSystem` links every package in the promoted directory. The configuration file is never written by the kernel. The system-layer configuration and secrets of the original (`config/system` and `secrets/system`) are copied to the new name, so what an admin set for `@alice/foo` is in force for `@thetis/foo`. Services the package declares start at once when the supervisor is armed.
 
 The promoted directory is bound read-only into every fence, after `$THETIS_HOME` is hidden. See [03-fence.md](03-fence.md).
 
@@ -317,6 +322,8 @@ The system userspace is never included: it is not a person.
 ## 16. Forks
 
 A fork is a copy of an installed package under the person's own scope. It runs in place of the original.
+
+A fork inherits its origin's configuration at every layer: default, file, system and user, read origin first, and the fork's own keys win. So a fork of `@bitmuse/notion` starts with the token the original had. `package_config` and `config.show` mark such a key `inherited from <origin>`. See [09-configuration.md](09-configuration.md) section 4.2.
 
 ### 16.1 The tool
 
