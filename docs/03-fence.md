@@ -76,7 +76,7 @@ Limits need the kernel process to run in a delegated cgroup: `Delegate=yes` on t
 
 #### The fence reads its own limits
 
-A fence that cannot see its limit cannot tell an OOM kill from a transient failure. It is killed at `memory.max`, sees the host's free memory, calls the exit 137 flaky, and retries. So the fence's own cgroup directory, and only that one, is bound read-only at `/sys/fs/cgroup` inside the sandbox. The agent reads:
+A fence that cannot see its limit cannot tell an OOM kill from a transient failure. It is killed at `memory.max`, sees the host's free memory, calls the exit 137 flaky, and retries. So the fence's own cgroup directory, and only that one, is bound read-only inside the sandbox — at the path `/proc/self/cgroup` names it by, under `/sys/fs/cgroup`. The agent reads:
 
 | File | Meaning |
 |---|---|
@@ -87,9 +87,15 @@ A fence that cannot see its limit cannot tell an OOM kill from a transient failu
 | `pids.max`, `pids.current` | The process and thread limit, and the count. |
 | `cpu.max`, `cpu.stat` | The CPU quota and the time used, including `throttled_usec`. |
 
-The bind is read-only: the fence learns what it has, it does not change it, and it sees no other fence's group. Nothing else of `/sys` is mounted.
+The path to those files is `/sys/fs/cgroup` plus the line in `/proc/self/cgroup` — on this host `/sys/fs/cgroup/system.slice/thetis-runtime.service/fence-<user>`. The fence is in no cgroup namespace, so `/proc/self/cgroup` reports the host's path; `Cgroups.fence` in `packages/sandbox/src/cgroup.ts` derives the destination from that, and nothing hardcodes the unit's name. An agent finds its own group the same way: read `/proc/self/cgroup`, read that path under `/sys/fs/cgroup`.
 
-**Out of scope:** `/proc/meminfo` still reports the host's memory, because the kernel has no per-cgroup `meminfo`. A tool that reads `MemTotal` — including some language runtimes sizing their heap — still sees the whole machine. Correcting that needs a FUSE layer such as `lxcfs` over `/proc`, which is not part of the fence today. Until then, `/sys/fs/cgroup/memory.max` is the number to trust, and a runtime that guesses wrong has to be told its heap size explicitly.
+**Why not at the mount root.** Binding the leaf directory at `/sys/fs/cgroup` is how it looks in a container, and it is wrong here. A runtime resolves its own group by appending the `/proc/self/cgroup` line to the cgroup mount point; a container also has a cgroup namespace, so that line reads `0::/` and the concatenation lands on the mount root. Without the namespace the line is the full host path, the concatenation names a directory that is not there, and the probe misbehaves: with the leaf at the root, `dotnet --version` inside a fence aborted with `munmap_chunk(): invalid pointer` (exit 134) or a segfault, intermittently, while a build in the same shell succeeded. Commit `74e1a3f` in the packages repository did that; the destination mirroring `/proc/self/cgroup` is the correction, and `dotnet --version` then runs clean. The intermediate directories of that destination are made by bubblewrap itself, so the nested path needs no `--dir` of its own.
+
+The bind is read-only: the fence learns what it has, it does not change it, and it sees no other fence's group — `/sys/fs/cgroup/system.slice/thetis-runtime.service` inside a fence holds that fence's directory and nothing beside it. Nothing else of `/sys` is mounted.
+
+**Out of scope:** `/proc/meminfo` still reports the host's memory, because the kernel has no per-cgroup `meminfo`. A tool that reads `MemTotal` — including some language runtimes sizing their heap — still sees the whole machine. Correcting that needs a FUSE layer such as `lxcfs` over `/proc`, which is not part of the fence today. Until then, the `memory.max` of the fence's own group is the number to trust, and a runtime that guesses wrong has to be told its heap size explicitly.
+
+A runtime's own detection is out of scope too, and measurably so: .NET decides the cgroup version by `statfs("/sys/fs/cgroup")`, which inside the fence is the tmpfs holding the bind, not a cgroup filesystem. It concludes cgroups v1, finds no v1 hierarchy, and sizes its heap from the host's memory — `GC.GetGCMemoryInfo().TotalAvailableMemoryBytes` reads 404 GB in a fence limited to 8 GiB. That is how it behaved before the bind existed, so nothing regressed, but the bind does not fix it either. Giving the fence its own cgroup namespace (`bwrap --unshare-cgroup`, with the group at the mount root as a container has it) would: measured in a fence, `/proc/self/cgroup` then reads `0::/` and .NET reports 6 GiB, 75% of the 8 GiB limit. That is a change to the fence's namespaces and has not been made.
 
 ### 3.4 The launch gate
 
@@ -122,7 +128,7 @@ In mode `bwrap` the kernel builds the command in this order:
 3. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`. The defaults include `<root>/packages`, `<root>/node_modules`, and the promoted packages `$THETIS_HOME/packages`.
 4. The shared directory: `--bind` for the system userspace, `--ro-bind` for everyone else.
 5. In `egress` mode: `--ro-bind $THETIS_HOME/fence-resolv.conf /etc/resolv.conf`.
-6. When the kernel has a delegated cgroup: `--ro-bind-try <delegated root>/fence-<user> /sys/fs/cgroup`. See section 3.3. The flag is `-try`, and the option is left out entirely when limits are off, because this must never keep a fence from starting.
+6. When the kernel has a delegated cgroup: `--ro-bind-try <delegated root>/fence-<user> /sys/fs/cgroup/<that directory's path under the cgroup filesystem>`. The destination mirrors the fence's own `/proc/self/cgroup` line — on this host both are `/sys/fs/cgroup/system.slice/thetis-runtime.service/fence-<user>`, and bubblewrap makes the intermediate directories. Never `/sys/fs/cgroup` itself: a runtime resolves its group by concatenating that line with the mount point, and the leaf at the root breaks the concatenation and crashes .NET. See section 3.3. The flag is `-try`, and the option is left out entirely when limits are off, because this must never keep a fence from starting.
 7. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
 8. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
 9. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts --cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
