@@ -68,9 +68,13 @@ The option `fence.network` decides what the fence can reach:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `memoryMb` | 1024 | Memory of the fence and its helper. |
+| `memoryMb` | `auto` | Memory of the fence and its helper. `auto` writes `max`: no ceiling, and the fence may use the whole machine, the way a container started without `--memory` does. A number caps it. |
 | `pids` | 512 | Processes and threads. |
 | `cpuPercent` | 200 | CPU time; 100 is one core. |
+
+The memory default is no ceiling because a ceiling that is wrong is worse than none: a build or a test run that a fence is killed for is a failure the person has to diagnose, whereas the machine's own memory pressure is a condition the host already handles. The mechanism stays, so an installation that wants a cap sets a number and gets exactly what it did before. `memory.swap.max` follows `memoryMb`: it is zero under a number, because the point of that zero is to stop a fence sliding out from under its ceiling into swap, and `max` under `auto`, because with no ceiling there is nothing to slide out of and a zero there would be a limit nobody asked for.
+
+`auto` does not turn the group off. It is still created, the fence is still placed in it, and it still accounts: `memory.current`, `memory.peak` and the `oom_kill` counter of `memory.events` all keep working, so an agent can still see what it used and still tell an OOM kill from another failure. What goes away is the ceiling, not the bookkeeping. A runtime reading `memory.max` finds `max` and sizes its heap from the host, which is the intended answer.
 
 Limits need the kernel process to run in a delegated cgroup: `Delegate=yes` on the systemd unit (`deploy/thetis-runtime.service` has it), or `systemd-run --user --scope -p Delegate=yes node bin/thetis.js serve` for a development run. `Cgroups.detect` in `packages/sandbox/src/cgroup.ts` moves the kernel into a child group, enables the controllers for siblings, and creates `fence-<user>` per fence. Without delegation the kernel logs `[fence] resource limits off` once and runs the fences unlimited.
 
@@ -80,7 +84,7 @@ A fence that cannot see its limit cannot tell an OOM kill from a transient failu
 
 | File | Meaning |
 |---|---|
-| `memory.max` | The fence's memory limit in bytes. This, not `MemTotal`, is how much memory the fence has. |
+| `memory.max` | The fence's memory limit in bytes, or `max` when it has no ceiling. A number here, not `MemTotal`, is how much memory the fence has. |
 | `memory.current` | What it uses now. |
 | `memory.peak` | The high-water mark of this group. |
 | `memory.events` | Counters; `oom_kill` rising is the proof that a child died at the limit. An exit code of 137 with `oom_kill` unchanged is something else. |

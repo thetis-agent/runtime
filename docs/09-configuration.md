@@ -69,7 +69,7 @@ A reference to a variable that is not set is **not** an empty string. The string
 | `storage.driver` | string | `@thetis/store-toml` | The storage driver: a package of type `storage`, loaded by the host at start, never installed into a fence. See [26-storage.md](26-storage.md) section 3. |
 | `fence.sandbox` | `auto`, `bwrap`, `none` | `auto` | The sandbox mode. |
 | `fence.network` | `auto`, `egress`, `none`, `host` | `auto` | What a fence can reach. See [03-fence.md](03-fence.md) section 3.2. |
-| `fence.limits` | `{ memoryMb, pids, cpuPercent }` | `1024`, `512`, `200` | Per-fence resource limits. Need a delegated cgroup. See [03-fence.md](03-fence.md) section 3.3. |
+| `fence.limits` | `{ memoryMb, pids, cpuPercent }` | `auto`, `512`, `200` | Per-fence resource limits. Need a delegated cgroup. `memoryMb: "auto"` is no memory ceiling; a number caps it. See [03-fence.md](03-fence.md) section 3.3. |
 | `fence.readOnly` | string[] | `[<root>/packages, <root>/node_modules, <home>/packages]` | Extra read-only binds. Derived. |
 | `fence.hidden` | string[] | `[<home>]` | Paths masked with an empty tmpfs. Derived. |
 | `fence.docker` | `auto`, `on`, `off` | `auto` | Whether every fence is given the host's Docker socket. Socket access is host root. See [03-fence.md](03-fence.md) section 3.9 and [12-security.md](12-security.md) section 3. |
