@@ -312,6 +312,7 @@ Code inside the fence reaches the kernel through `env.kernel`. Every method runs
 | `kernel.sessions.cancel(session, as?)` | `sessions.cancel` | Stops the running turn. Returns `false` when no turn runs. |
 | `kernel.sessions.list(as?)` | `sessions.list` | Lists the sessions. |
 | `kernel.sessions.inspect(session, as?)` | `sessions.inspect` | Returns one session record with its status. |
+| `kernel.sessions.watch(onEvent)` | `sessions.watch` | Every turn event of every session of this user from the call on, whoever started the turn, subagents included. Each arrives as `{ session, parent?, input?, event }`: `parent` when the session is a subagent, `input` on `turn.start` only, when the turn was sent as text. Settles only when the fence closes. |
 | `kernel.models()` | `models` | Returns `{ model, models }`: the configured default and every model the providers visible to this userspace serve. |
 | `kernel.config.show(name)` | `config.show` | The state of every key of a package installed in this fence, at this person's own layer over the system's, secrets redacted. Returns a `ConfigReport`. `not-found` for a package not installed here. |
 | `kernel.config.set(name, key, value)` | `config.set` | Sets one key in this person's own layer, secrets included. Refuses `null`, a declared type mismatch, and a key declared `scope: "system"`. Returns the report. |
@@ -322,6 +323,8 @@ Code inside the fence reaches the kernel through `env.kernel`. Every method runs
 | `kernel.auth.logout(token)` | `auth.logout` | Revokes the token. System userspace only. |
 
 `as` names the user a session call acts for. The kernel accepts it from the system userspace only. Any other fence gets the error `unauthorized`. This is how a system gateway serves every user: it authenticates a person with `auth.authenticate` and passes that id as `as`. A method that is not in this list fails with the code `rpc`.
+
+The handler of a fence's RPC (`KernelRpc`) takes a fourth argument, a signal the process handle aborts when the agent process is gone. A method that streams for the life of the fence, `sessions.watch`, ends with it: the kernel removes the watcher, so a dead fence leaves nothing behind. An agent-side call has no timer of its own, so such a call may stay open as long as the agent lives. In-process callers (the tests' `clientFromRpc`) pass no signal, and a watch then lives as long as the process.
 
 `env.storage(namespace?)` is five more RPC methods, sent by the storage client in `packages/userspace-agent/src/env.ts` rather than by `env.kernel`:
 

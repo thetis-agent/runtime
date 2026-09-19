@@ -27,9 +27,12 @@ One gateway process per person costs one Node process per person. What it buys: 
 | See the plan | This UI comes with `@thetis/tools-plan` (section 11): the gateway draws nothing of it by itself. A `todo_*` call draws no tool card. It draws one quiet line (`plan: t-2 → active · 1 of 4 done`) and updates the chip `todo 1/4` in the chat bar, green when every item is done or dropped. The chip and the **Todo** button in the rail open the Todo dock: "1 of 4 done", one row per item with a ✓ ● ○ mark, the text, the note, and the id, active in the warning colour, done and dropped struck through. A person can tick a row through its checkbox; the row is disabled until the package answers with the plan it wrote. The plan is rebuilt from the last `todo_*` result in the record when a conversation is reopened. |
 | Answer the model's questions | This UI comes with `@thetis/tools-plan` too. An `ask_user` call is drawn as a form in place of a tool card: options as radios or checkboxes, a "Something else" text option, free text when there are no options, Skip per question, one Submit. Submit sends the answers as one user message through the composer's path and locks the card; the card stays locked when the conversation is reopened. See [20-tools.md](20-tools.md) section 4. |
 | Stop a turn | The Stop button. The turn ends with the note "Turn stopped." Text streamed before the stop is kept. |
+| See a subagent's work | A `spawn_subagent` call draws no tool card. It draws an agent block in the conversation: a dot, the label the model gave (or the first words of the task), the task, and the state (`starting`, `working`, `done`, `failed`, `stopped`). The child's own rows stream inside the block, drawn like the conversation's own. When the child ends, the block shows its tool calls, cost and tokens, and how long it took, folds itself, and quotes the reply. The sidebar lists the open conversation's subagents under its row, with the step while one works; any other working row counts its agents. See section 12. |
+| Open a subagent in a tab | The glyph on the block or on its sidebar row. The tab shows the child's transcript at full size with "Show in conversation" as the way back. A subagent's tab has no composer. |
+| Stop a subagent | Stop on a running block, or on the child's tab. Stopping the conversation stops its subagents too. |
 | Manage packages, search the marketplace, and, for admins, people, models, activity, and the configuration | **Control panel** in the sidebar's ≡ menu. See [17-control-panel.md](17-control-panel.md). |
 
-Subagent sessions are not listed. There is no delete and no file upload.
+There is no delete and no file upload.
 
 ## 2. Install and run
 
@@ -101,9 +104,9 @@ The door serves `/login`, `/login/assets/*`, `/logout`, and `/` from the login t
 | `POST /logout` | Calls `auth.logout`. Clears the cookie. Redirects to `/login`. |
 | `GET /assets/<file>` | Static files from `packages/gateway-web/assets`. |
 | `GET /api/me` | `{ user, role }`. |
-| `GET /api/sessions` | `SessionSummary[]`. Sorted by `updatedAt`, newest first. Subagent sessions are excluded. |
+| `GET /api/sessions` | `SessionSummary[]`. Sorted by `updatedAt`, newest first. Subagent sessions are excluded; a summary's `cost` includes what the conversation's subagents reported, at any depth. |
 | `POST /api/sessions` | Creates a session. Answers `201 { id }`. |
-| `GET /api/sessions/<id>` | The session record with `status`, `archived`, `turn`, `usage`, `model`, and `title`. `turn` is the turn in progress, or `null`. `usage` maps a conversation index to the usage of that reply. |
+| `GET /api/sessions/<id>` | The session record with `status`, `archived`, `turn`, `usage`, `model`, `title`, and `children`. `turn` is the turn in progress, or `null`. `usage` maps a conversation index to the usage of that reply. `children` is one `ChildRecord` per session whose `parent` is `<id>`, in creation order. A subagent's own id works here too, and `POST …/cancel` on it stops the subagent. |
 | `GET /api/models` | `{ model, models }`: the configured default and the models the person's providers serve, from the kernel's `models` method. |
 | `POST /api/sessions/<id>/model` | Body `{ model }`. Keeps the model for the conversation; every later turn is sent with it. An empty string restores the default. |
 | `POST /api/sessions/<id>/title` | Body `{ title }`. Names the conversation. An empty string restores the derived title. |
@@ -126,9 +129,22 @@ interface SessionSummary {
   archived: boolean;
   status: "idle" | "running";
   model?: string;      // the model chosen for the conversation; absent means the default
-  cost?: number;       // the sum of the `cost` the replies reported; absent when none did
+  cost?: number;       // the sum of the `cost` the replies reported, subagents included; absent when none did
+}
+
+interface ChildRecord {
+  id: string; parent: string; createdAt: string; updatedAt: string; turns: number;
+  status: "idle" | "running";
+  label: string | null;   // from the parent's `[subagent <id> <label>]` result; null before that result exists, or when no label was given
+  task: string;           // the child's first user message, or the input of its running turn
+  conversation: Message[];
+  usage: SessionUsage;    // the child's own, by conversation index, as for a conversation
+  cost?: number;          // the child's replies, its own subagents included
+  turn: RunningTurn | null;
 }
 ```
+
+The label is read from the parent's saved conversation and from the `tool.result` events of the parent's turn in progress, so it is present as soon as `spawn_subagent` returned, before the parent's turn ends. While the child still runs there is no result yet, and `label` is `null`; the page takes the label from the spawn call's own arguments then.
 
 Every `/api/*` route and every `/ext/*` route needs the cookie. The gateway calls `auth.authenticate` with the token on each request. A missing, expired, or revoked token answers `401`. A session of another user answers `404`. A `POST` with the header `Sec-Fetch-Site: cross-site` answers `403`.
 
@@ -145,7 +161,7 @@ event: snapshot
 data: { "user": "alice", "running": [ { "session": "s_…", "turn": "t_…", "input": "…", "startedAt": "…", "events": [ { "seq": 1, "event": { … } } ] } ] }
 ```
 
-`running` lists the turns in progress with the input text and every event so far. A page that connects mid-turn draws the input and the events, then continues with the live messages.
+`running` lists the turns in progress with the input text and every event so far, subagents' turns included. An entry of a subagent's turn carries `parent`, the session that spawned it. A page that connects mid-turn draws the input and the events, then continues with the live messages.
 
 Each later message is one turn event:
 
@@ -154,7 +170,14 @@ event: turn
 data: { "session": "s_…", "turn": "t_…", "seq": 7, "event": { "type": "text", "delta": "…" }, "input": "…" }
 ```
 
-`seq` counts from 1 inside one turn. The page ignores a message with a `seq` it has already drawn for the same turn. `input` is present on `turn.start` only. It carries the user's message, so a tab that did not send it can draw it.
+`seq` counts from 1 inside one turn. The page ignores a message with a `seq` it has already drawn for the same turn. `input` is present on `turn.start` only. It carries the user's message, so a tab that did not send it can draw it; for a subagent it is the task. Every message of a subagent's turn carries `parent`:
+
+```
+event: turn
+data: { "session": "s_child", "parent": "s_…", "turn": "t_…", "seq": 1, "event": { "type": "turn.start", … }, "input": "the task" }
+```
+
+A conversation's own messages have no `parent` field. The page routes a message by walking parents to the conversation that owns it.
 
 The server sends a comment line every 20 seconds to keep the connection open. The browser reconnects by itself. Every connection starts with a new snapshot.
 
@@ -166,6 +189,8 @@ The server sends a comment line every 20 seconds to keep the connection open. Th
 2. On the first event the hub records `{ session, input, startedAt, events: [] }` and the route answers `202`.
 3. The hub numbers each event, buffers it, and sends it to every stream of the user.
 4. On `turn.end` the hub forgets the turn. When the RPC rejects after the turn started, the hub sends an `error` event with the code `gateway` and then `turn.end`.
+
+Turns the hub did not start reach it too. At construction the hub calls `kernel.sessions.watch` once ([06-sessions-and-users.md](06-sessions-and-users.md) section 4), a call that settles only when the fence closes, and from then on every turn event of every session of the person arrives with its session, its parent and, on `turn.start`, its input. A turn the hub started itself is ignored on that path, because `send` already delivers it: the hub notes the session as its own before it calls `send`, since the watch reports the first event before `send` does. Any other turn, a subagent's or one sent from the command line, opens a running turn on its `turn.start`, is numbered, buffered and sent to the streams like the hub's own, and ends on its `turn.end` through the same bookkeeping, so the child's usage is recorded under the child's id. An event of a turn whose start the hub never saw is dropped. On an older kernel without `sessions.watch` the call rejects, the rejection is logged, and the hub works as before.
 
 The buffer lives in memory in the system userspace agent. A restart of `thetis serve` ends the turns in progress; the kernel saves what each turn had produced.
 
@@ -185,7 +210,7 @@ The buffer lives in memory in the system userspace agent. A restart of `thetis s
 | `packages/gateway-login/src/server.ts` | `createLogin(kernel, { secure })`: `/login`, `/logout`, `/`, and the login page's assets. |
 | `packages/door/src/index.ts` | `createDoor({ loginSocket, socketFor })`: the reverse proxy on the host port. |
 
-Browser modules: `app.js` wires the store, the views, the event stream, the chat bar chips, and the favicon. `lib/store.js` holds `user`, `sessions`, `current`, `running`, `pending`, `activity`, `choices`, `creating`, `connection`, `panel`. `lib/activity.js` reduces every session's turn events into what it is doing now (the step, the tool call count, the cost, when it started) and formats durations, costs, and tokens; its `SHEEN_MS` must equal `--sheen` in `theme.css`, because a working row's sheen is phase-locked to wall time so a redraw does not restart it. `lib/picker.js` is the pill-and-list control the composer uses for the model. `lib/api.js` wraps `fetch` and `EventSource` with paths relative to the page's `<base>`; a `401` sends the page to `/login`. `lib/markdown.js` builds DOM nodes and never uses `innerHTML`. `views/sessions.js` (the grouped list, the ticking clocks, rename, the archive), `views/transcript.js` (messages, tool runs, footnotes, and the hook that offers each tool row to the registered renderers first), and `views/composer.js` (the box, the model pill, stop) are the conversation views; `views/panel*.js` and `lib/panel-ui.js` are the control panel. The todo dock, the todo chip, the `plan:` lines, and the `ask_user` form are not in this package: `@thetis/tools-plan` carries them in its `ui/` directory (section 11).
+Browser modules: `app.js` wires the store, the views, the event stream, the chat bar chips, and the favicon; it registers a subagent from every stream message that carries `parent` before anything draws it, and keeps the child's outcome and cost once its turn ends. `lib/store.js` holds `user`, `sessions`, `current`, `tabs`, `running`, `pending`, `activity`, `agents` (child id → parent, label, task, outcome, cost, with `agentsOf`, `isAgent` and `rootOf`), `choices`, `creating`, `connection`, `panel`. `lib/activity.js` reduces every session's turn events into what it is doing now (the step, the tool call count, the cost, the number of subagents at work, when it started) and formats durations, costs, and tokens; a child's events also touch its parent's record, and `countWorking` counts conversations, not their children; its `SHEEN_MS` must equal `--sheen` in `theme.css`, because a working row's sheen is phase-locked to wall time so a redraw does not restart it. `lib/picker.js` is the pill-and-list control the composer uses for the model. `lib/api.js` wraps `fetch` and `EventSource` with paths relative to the page's `<base>`; a `401` sends the page to `/login`. `lib/markdown.js` builds DOM nodes and never uses `innerHTML`. `views/sessions.js` (the grouped list, the subagent rows under the open conversation, the ticking clocks, rename, the archive), `views/tabs.js` (one pane per open conversation or subagent, the routing of each stream message to its pane and to the block in every open ancestor's pane, `reveal`), `views/transcript.js` (messages, tool runs, footnotes, the hook that offers each tool row to the registered renderers first, and the agent blocks with their nested instances, section 12), and `views/composer.js` (the box, the model pill, stop; disabled on a subagent's tab) are the conversation views; `views/panel*.js` and `lib/panel-ui.js` are the control panel. The todo dock, the todo chip, the `plan:` lines, and the `ask_user` form are not in this package: `@thetis/tools-plan` carries them in its `ui/` directory (section 11).
 
 The page is served with a Content Security Policy that allows only same-origin scripts, styles, and connections. Inline scripts do not run. `index.html` carries `<base href="{{base}}/">`; the server fills the placeholder with the person's prefix.
 
@@ -322,3 +347,47 @@ These packages add to the page through section 11.1. Each one is a plain ECMAScr
 | `@thetis/ui-skills` | The **Skills** dock (wide, order 110, after Tools and Context): the skills the open conversation can reach and which are in force ([23-skills.md](23-skills.md)). The sections: **Loader** (the package that wrote `harness["@thetis/skills"]` on the last turn, or the installed one before its first turn, or "No skill loader is installed" naming the three), **Always in force** (the universal skills), **Retrieved for this conversation** (the pinned cards with `score` and `how`, when any), **Loaded in this conversation** (the bodies the model asked for, when any), **Switched off by the project** (`skills.disable` of the conversation's project, nested skills included, shown at once through the library's `excludedFor`), **Left out for the budget** and **Notes** when the loader wrote any, and the **Catalogue**: every skill by id with a search box that ranks the rows by BM25 in the page (`ui/rank.js`, the library's algorithm copied for the browser and held to it by a test), so no keystroke sends a request. Every row opens the skill's text (`renderBody`, rendered through `ext.markdown`) in the dock with a `← Skills` button back. Two commands: `skills`, whose export `uiSkills` merges the loader's state from `env.kernel.sessions.inspect(env.session)` with `excludedFor` and the catalogue from `loadSkills(env, env.kernel.packages.list())` (without a session, the catalogue alone), and `skill { id }`, whose export `uiSkill` answers the rendered text. It depends on `@thetis/skills`. The dock asks once per conversation and once more when a turn of it ends, like the Tools dock. |
 | `@thetis/ui-admin` | The admin sections of the control panel: **People**, **Models**, **Configuration**, **Mounts**, **Activity**, **Workspaces**, **Overview**, each a `panel` entry with `role: "admin"` and an `order` that sorts it after the built-in **Packages** (order 10). Twenty commands, every one `role: "admin"`, each a thin wrapper over `env.kernel.operator.call(...)` with the argument checks in front (`users`, `user-create`, `user-role`, `user-status`, `user-password`, `user-remove`, `models`, `config`, `config-list`, `config-show`, `config-set`, `config-unset`, `config-reload`, `journal`, `mounts-list`, `mounts-set`, `mounts-browse`, `fence-reload`, `status`, `restart-request`). A user has the package too and sees none of it: `api/ui` drops the entries and verbs above the role, the gateway answers `403` to a verb sent anyway, and the kernel refuses an operator method from a fence whose user is not an admin. See [17-control-panel.md](17-control-panel.md). |
 | `@thetis/ui-marketplace` | The **Marketplace** place: the item in the sidebar's ≡ menu after **Control panel**. Opened plain it is the gallery (a search box, one chip per package type, a note on the registries, a card per package with its name, description, version, registry and the badges Only me, Everyone, Available, update to *v*); opened with `{ name }` it is that package's page (the README copy rendered by `ext.markdown`, the facts, what it brings, and the actions the role allows). Fifteen commands over the index in `env.shared`, `env.kernel.packages` and `env.kernel.config`: `search`, `show`, `install`, `remove`, `delete`, `update`, `config-show`, `config-list`, `config-set`, `config-unset` for everyone (the four `config-*` act on the person's own layer), and `install-everyone`, `install-for`, `remove-for`, `promote`, `people` with `role: "admin"` over `env.kernel.operator.call`. It depends on `@thetis/marketplace` for `readIndex`, `search`, `readReadme` and `behind`. See [18-marketplace.md](18-marketplace.md) section 9. |
+
+## 12. Subagents on the page
+
+A subagent is a session of its own whose `parent` is the conversation that spawned it. Its turn events reach the page on the same stream as everyone else's, each message stamped with `session` and `parent` (section 6), and `GET /api/sessions/<id>` lists a conversation's children (section 5). The page draws nothing special for them beyond what this section describes; an older server that sends neither `parent` nor `children` gets the page as it was.
+
+### 12.1 The block
+
+A `tool.call` named `spawn_subagent` closes the open tool run and places, at message level, a `details.agent` open and `is-running`:
+
+```html
+<details class="agent is-running" open data-call="<call id>" data-agent="<child id, once bound>">
+  <summary class="agent-head">
+    <span class="agent-dot"></span>
+    <span class="agent-label">research</span>          <!-- args.label, else the first words of the task -->
+    <span class="agent-gist" title="<task>">…</span>    <!-- the task, clipped -->
+    <span class="agent-meta"></span>                   <!-- once ended: "12 tool calls · $0.03 · 48k tok" -->
+    <span class="agent-took"></span>                   <!-- once ended: the duration -->
+    <span class="agent-state">starting</span>          <!-- starting | working | done | failed | stopped -->
+    <span class="agent-actions">
+      <button class="agent-open" title="Open in a tab">…</button>
+      <button class="agent-stop" title="Stop this subagent" hidden>Stop</button>  <!-- shown while working -->
+    </span>
+  </summary>
+  <div class="agent-brief"><div class="agent-brief-text">the whole task</div></div>  <!-- clipped to four lines -->
+  <div class="agent-body"></div>                       <!-- the nested transcript -->
+  <!-- on the spawn result: a "stopped" or "error" section, like a tool card's result; a plain reply is quoted only when it differs from the child's last row -->
+</details>
+```
+
+The block is bound to its child by the child's `turn.start`: the first unbound block whose task equals the message's `input` takes it, else the first unbound block, else a block is minted at the end of the transcript. The spawn's `tool.result` binds by id when the block is still unbound (its first line is `[subagent <id> <label>]`, never shown), settles the state from the second line (`stopped: …` and `error: …` are the tool's own words for a stopped and a failed child; a result that is an error as a whole names no child and the block binds by task), fills the duration, quotes the result under the body unless it is the reply the child's last row already shows, and folds the block. The child's own events drive the state word (`working` on `turn.start`; `stopped` on an `error` with the code `cancelled`, `failed` on any other; `done` on `turn.end`), count its tool calls and sum its usage for the meta line, and fold the block when the child ends. Stop posts `/api/sessions/<child>/cancel`. The block's buttons stop the click, so they never toggle the fold.
+
+The child's rows are drawn by a nested transcript instance on `.agent-body`: the same bubbles, tool runs and notes as the conversation's, scaled down, without faces, and without the child's user rows, since the brief above is that message. A nested instance has no jump button and no scroll following of its own (the pane follows the newest row as usual), and offers nothing to the registered renderers: an `ask_user` inside a child is a plain tool card, so no form there can send to the conversation. A grandchild's block is nested in its parent's, at any depth. Each block refuses a message it has drawn, by turn and sequence, because a reconnect replays the running turn.
+
+### 12.2 Replay
+
+On open and on reload the record's `children` are indexed by id. A recorded `spawn_subagent` result draws the block for its child, folded, with the label from the record and the meta from the child's recorded usage and tool count; a child still running is drawn open and live. A finished block keeps its child record and builds its rows on the first open of the fold, so a conversation with many finished children costs nothing until one is looked at; a block whose record did not travel with the conversation (a grandchild's) fetches it then. A spawn that ended in an error without naming its child is matched to the unreferenced child with the same task.
+
+### 12.3 A subagent's tab
+
+The glyph on a block or a sidebar row opens the child as a tab (`.tab.is-agent`: the label in mono, a state dot that stays, its cost as a note). The pane's bar shows the dot, the label, the state word, the step and the spend while it works, **Show in conversation** (the conversation's tab, with the block opened, scrolled to the centre and flashed), and **Stop** while it works. Its transcript is restored from `GET /api/sessions/<child>`; its user rows are drawn as its brief. The composer is disabled with "A subagent has no composer. Talk to its conversation." and hides Send; Stop stays and cancels the child. The page title and the sidebar's current row follow the conversation while a child's tab is active.
+
+### 12.4 The sidebar
+
+Under the row of the open conversation, one row per subagent, in creation order, indented behind a rail with an elbow into each: a dot, the label, and `working · <step>` while it works, then `done`, `failed` or `stopped` and the cost. Clicking a row shows the child: its own tab when one is open, else its block in the conversation, revealed and flashed. The glyph at the end opens it in a tab. Any other working conversation counts its subagents among its facts (`2 tool calls · 1 agent · $0.03`). The clocks tick in place; a subagent's rows are only rebuilt when something about them changes.

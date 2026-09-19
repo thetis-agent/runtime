@@ -105,8 +105,11 @@ The kernel writes the file at the end of every turn, also after an error. Writes
 | `cancel(userId, sessionId)` | `boolean` | Stops the running turn of the session. Returns `false` when no turn runs. See [04-pipeline.md](04-pipeline.md) section 5.1. |
 | `inspect(userId, sessionId)` | `SessionRecord & { status }` | `status` is `running` or `idle`. |
 | `list(userId)` | `SessionRef[]` | Sorted by creation time. |
+| `watch(userId, fn, signal?)` | `Promise<void>` | Calls `fn` with `{ session, parent?, input?, event }` for every turn event of every session of the user from the call on, whoever started the turn. `parent` is set when the session is a subagent; `input` rides on `turn.start` only, when the turn was sent as text. Resolves when `signal` aborts, after the watcher is removed; without a signal, never. A watcher that throws is dropped. |
 
 `SessionRef` is `{ id, user, parent?, createdAt, updatedAt, turns }`.
+
+The mechanism of `watch` is `TurnTaps` in `@thetis/lib/turn-taps`: `send` wraps the turn's event sink in `taps.emitter(user, { session, parent, input }, sink)`, so the sink gets every event first and the user's watchers get it stamped after. The kernel adds the authorization and the wiring; over the fence RPC it is `sessions.watch` ([03-fence.md](03-fence.md) section 6).
 
 ### 4.1 Concurrency
 
@@ -124,10 +127,14 @@ A subagent is a session with a `parent`. It lives in the same userspace as its p
 
 Two ways create a subagent:
 
-- The tool `spawn_subagent` in `@thetis/tool-exec`. It creates a child session, sends the task with `sessions.ask`, and returns the final reply.
+- The tool `spawn_subagent` in `@thetis/tool-exec`. It takes `task` and an optional `label`, a short name the person sees, such as `research`. It creates a child session, runs the task with `sessions.send`, and returns the reply behind a first line that names the child: `[subagent <id>]`, or `[subagent <id> <label>]` when a label was given. When the child was stopped, the second line is `stopped: the subagent was stopped before it finished.` followed by what it had said so far, if anything; when its turn failed, the second line is `error: <message>`. The child's failure is a result, never a thrown error: a throw from a tool carries its stack back to the model. Every reader of that line parses it with `/^\[subagent (s_[a-f0-9]+)(?: ([^\]]*))?\]/`; a `]` or a line break in the label is replaced by a space.
 - Package code through `env.kernel.sessions.create(parentId)` and `env.kernel.sessions.ask(childId, text)`.
 
 The child session persists after the reply. A later call with the same id continues the child conversation.
+
+A stop cascades. The tool runs with `env.signal`, which aborts when the parent turn is stopped while the tool waits; the tool then calls `sessions.cancel` on the child, whose turn ends with an `error` event of code `cancelled`. A subagent may spawn subagents of its own: nothing limits the depth, and each level is a session whose `parent` leads back to the conversation, so a stop at the top reaches every level.
+
+What a subagent does is visible. Its turn events reach the person's gateway through `watch` (section 4), each stamped with the child's id and its parent, so the web gateway draws the child's work inside the conversation that spawned it and lists the children in the conversation's record ([15-web-gateway.md](15-web-gateway.md) sections 5 to 7).
 
 **Note:** A subagent turn runs inside a tool call of the parent turn. The parent fence request waits. The default request timeout is 600000 milliseconds. A long subagent task must fit in that time, or `requestTimeoutMs` must be raised.
 
