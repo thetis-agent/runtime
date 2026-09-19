@@ -72,6 +72,8 @@ A reference to a variable that is not set is **not** an empty string. The string
 | `fence.limits` | `{ memoryMb, pids, cpuPercent }` | `1024`, `512`, `200` | Per-fence resource limits. Need a delegated cgroup. See [03-fence.md](03-fence.md) section 3.3. |
 | `fence.readOnly` | string[] | `[<root>/packages, <root>/node_modules, <home>/packages]` | Extra read-only binds. Derived. |
 | `fence.hidden` | string[] | `[<home>]` | Paths masked with an empty tmpfs. Derived. |
+| `fence.docker` | `auto`, `on`, `off` | `auto` | Whether every fence is given the host's Docker socket. Socket access is host root. See [03-fence.md](03-fence.md) section 3.9 and [12-security.md](12-security.md) section 3. |
+| `fence.dockerSocket` | string | unset | The host Docker socket to bind, when it is not in one of the usual places. When set it is the only candidate. |
 | `requestTimeoutMs` | number | `600000` | Timeout of one fence request. |
 | `control.allowRestart` | boolean | `true` | Whether a restart of the daemon may be asked for at all. `false` refuses every request, whoever makes it. See [25-restart.md](25-restart.md). |
 | `control.minUptimeSecs` | number | `60` | A restart is refused before this uptime, so a restart that fixes nothing cannot become a loop. |

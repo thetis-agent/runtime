@@ -122,6 +122,7 @@ The kernel gives the agent this environment and nothing else:
 | `THETIS_SHARED` | The shared directory. See section 3.7. |
 | `THETIS_USER` | The user id. |
 | `THETIS_MOUNTS` | A JSON list of the mounts bound into the fence, each `{ "path", "mode" }` with mode `rw` or `ro`. `[]` when there is none. Set in every sandbox mode. A mount whose host path is not a directory is skipped and is not in the list, so this is what the fence has, not what was asked for. See [12-security.md](12-security.md) section 10. |
+| `THETIS_DOCKER` | The path of the Docker socket inside the fence, `/var/run/docker.sock`. Set only when a socket is really bound, and absent otherwise, so a tool asks the environment what this fence has instead of probing a path and guessing why it is missing. See section 3.9. |
 
 The kernel does not pass its own environment. Secrets in the host environment do not reach the fence.
 
@@ -135,14 +136,15 @@ In mode `bwrap` the kernel builds the command in this order:
 4. The shared directory: `--bind` for the system userspace, `--ro-bind` for everyone else.
 5. In `egress` mode: `--ro-bind $THETIS_HOME/fence-resolv.conf /etc/resolv.conf`.
 6. When the kernel has a delegated cgroup: `--ro-bind-try <delegated root>/fence-<user> /sys/fs/cgroup`, which goes with `--unshare-cgroup` in step 9. On a host without cgroup namespaces the destination is instead `/sys/fs/cgroup/<that directory's path under the cgroup filesystem>` — the fence's own `/proc/self/cgroup` line, on this host `/sys/fs/cgroup/system.slice/thetis-runtime.service/fence-<user>` — and bubblewrap makes the intermediate directories. The mount root and the namespace are one choice: either together or neither, because a runtime resolves its group by concatenating that line with the mount point. See section 3.3. The flag is `-try`, and the option is left out entirely when limits are off, because this must never keep a fence from starting.
-7. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
-8. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
-9. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts`, then `--unshare-cgroup` when step 6 bound the group at the mount root, then `--cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
-10. `--setenv` for each variable of section 3.5.
+7. When the fence is given Docker: `--ro-bind-try <host socket> /var/run/docker.sock`. See section 3.9.
+8. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
+9. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
+10. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts`, then `--unshare-cgroup` when step 6 bound the group at the mount root, then `--cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
+11. `--setenv` for each variable of section 3.5.
 
-The agent sees the operating system read-only, its own userspace read-write, the shared directory, the promoted packages, its mounts, and its own cgroup read-only. It does not see `$THETIS_HOME`, other userspaces, `/home`, the host `/tmp`, or any other fence's cgroup — with the namespace it cannot even name one. It has no capabilities and cannot make a nested user namespace.
+The agent sees the operating system read-only, its own userspace read-write, the shared directory, the promoted packages, its mounts, its own cgroup read-only, and the Docker socket when it is given one. It does not see `$THETIS_HOME`, other userspaces, `/home`, the host `/tmp`, or any other fence's cgroup — with the namespace it cannot even name one. It has no capabilities and cannot make a nested user namespace. What it can do through the Docker socket is another matter, and section 3.9 is explicit about it.
 
-Steps 6 and 9 depend on the launch gate of section 3.4. `Cgroups.place` creates `fence-<user>` and the kernel moves the launcher into it while the gate is still shut, so the directory is there by the time bubblewrap execs and the process is already in the group when bubblewrap unshares — which is what makes that group, and not the delegated root, the namespace's root. In mode `none` there is no bubblewrap, no bind and no namespace; on a cgroups v1 host `Cgroups.detect` finds no `0::` line in `/proc/self/cgroup`, returns nothing, and both are left out with the limits. In `egress` mode the launcher is wrapped in `unshare --map-root-user --net`; the cgroup namespace is taken by bubblewrap inside that and the two do not interact.
+Steps 6 and 10 depend on the launch gate of section 3.4. `Cgroups.place` creates `fence-<user>` and the kernel moves the launcher into it while the gate is still shut, so the directory is there by the time bubblewrap execs and the process is already in the group when bubblewrap unshares — which is what makes that group, and not the delegated root, the namespace's root. In mode `none` there is no bubblewrap, no bind and no namespace; on a cgroups v1 host `Cgroups.detect` finds no `0::` line in `/proc/self/cgroup`, returns nothing, and both are left out with the limits. In `egress` mode the launcher is wrapped in `unshare --map-root-user --net`; the cgroup namespace is taken by bubblewrap inside that and the two do not interact.
 
 ### 3.7 The shared directory
 
@@ -151,6 +153,30 @@ Steps 6 and 9 depend on the launch gate of section 3.4. `Cgroups.place` creates 
 ### 3.8 The `run` directory
 
 `<userspace>/run` holds the unix sockets a service of that userspace listens on. `@thetis/gateway-web` listens on `run/web.sock`; `@thetis/gateway-login` on `run/login.sock` in the system userspace. The door on the host connects to them. See [15-web-gateway.md](15-web-gateway.md).
+
+### 3.9 Docker
+
+`fence.docker` decides whether every fence is given the host's Docker socket, bound read-only at `/var/run/docker.sock` — the path the Docker CLI reads without being told, whatever the socket is called on the host, so `docker` and `docker compose` work inside the fence with nothing configured.
+
+| Value | Behavior |
+|---|---|
+| `auto` | Bind a socket the kernel can actually use, and otherwise nothing, silently. This is the default. |
+| `on` | Bind the socket whether or not the probe passes. For a daemon that starts after the kernel, or a socket whose permissions arrive later. |
+| `off` | Never bind. |
+
+`dockerSocket` in `packages/sandbox/src/docker.ts` chooses the host path. A path named in `fence.dockerSocket` is the **only** candidate: naming one and silently getting a different daemon because that one failed a probe is a worse outcome than no Docker at all. With nothing named the order is `DOCKER_HOST` when it is a `unix://` endpoint — a `tcp://` one names no path and cannot be bound, so it is not a candidate — then `/var/run/docker.sock`, `/run/docker.sock`, and `$XDG_RUNTIME_DIR/docker.sock` for a rootless daemon. Usable means the path is a socket and `access(W_OK)` passes for the kernel's own user and its supplementary groups, which for a `root:docker` socket is exactly the question of whether the kernel's user is in the `docker` group. A socket that is there but unusable is worth telling apart from no socket at all: binding it would hand the fence a permission error from the CLI rather than the honest absence of Docker.
+
+Three properties of the bind, each deliberate:
+
+- **A unix socket is filesystem, not network.** The bind works in every network mode, `none` included. `packages/sandbox/test/docker.test.ts` proves it by asking the daemon for its version from a fence started with `--unshare-net`.
+- **Read-only still permits `connect`.** That needs write permission on the socket *inode*, which a mount's read-only flag does not govern. What read-only does buy is that the fence cannot unlink the socket or put its own there.
+- **It is bound last among the read-only binds, and under no other bind's path.** A bind of a parent directory lands on top of whatever was mounted beneath it. Getting this backwards is not hypothetical; it is how `fence.hidden` stopped masking `$THETIS_HOME` when the data directory moved under `/opt`.
+
+Host paths line up, which is what makes `docker compose` work against a mounted repository: a mount appears in the fence at its host path, so a relative bind mount in a compose file resolves to the same directory whether the CLI in the fence or the daemon on the host reads it.
+
+**What this gives away.** Everything. A process that can talk to the daemon can start a container with `--privileged` and `/` bound into it, so socket access is host root: the filesystem, process, capability, cgroup and network rules of sections 3.2, 3.3 and 3.6 stop applying to anything it asks the daemon to run. It is on by default because on a single-operator installation the fence is not relied on as a boundary, and because each alternative — a filtering proxy over the daemon API, a daemon per userspace, a separate build host — costs considerably more than it buys there. Set `fence.docker` to `"off"` on any installation where a fence holds code you do not already trust with the host. See [12-security.md](12-security.md) section 3.
+
+**Reachability is a separate question, and the answer surprises people.** In network mode `egress` the fence has no route to the host's loopback, so a container listening there — which is what `network_mode: host` with a loopback bind address gives, and what a published port on `127.0.0.1` gives — cannot be reached from the fence that started it. The fence can reach a container on a bridge network by its address. `ProcessFence` logs this once when it binds a socket in `egress` mode, because the failure otherwise reads as a broken stack rather than a fence rule. `fence.network: "host"` is the way to reach loopback containers, and it is not much of a concession next to the socket itself.
 
 ## 4. The userspace agent
 
