@@ -194,7 +194,7 @@ The restart runs in the fence the service already runs in. The journal shows `se
 
 ### 5.2 What still needs a restart
 
-`fence`, `door`, `systemPackages`, `control`, `storage`, `model`, `phases`, `callPhase`, `enumerator` and `requestTimeoutMs` are read once by `thetis serve` and held for its life. A change to them needs a new daemon process: `sudo systemctl restart thetis-runtime.service`, `thetis restart`, or the `restart_daemon` tool. Reloading a workspace does not help: it replaces the code in a fence, not what the kernel holds. See [25-restart.md](25-restart.md) and [10-development.md](10-development.md) section 4.1.
+`door`, `storage` and `requestTimeoutMs` are read once by `thetis serve` and held for its life; so is any key with no entry in `CONFIG_TIERS`. A change to them needs a new daemon process: `sudo systemctl restart thetis-runtime.service`, `thetis restart`, or the `restart_daemon` tool. Reloading a workspace does not help: it replaces the code in a fence, not what the kernel holds. See [25-restart.md](25-restart.md) and [10-development.md](10-development.md) section 4.1.
 
 To change the model for one user only, install a package with a `prompt` step that sets `call.model`.
 

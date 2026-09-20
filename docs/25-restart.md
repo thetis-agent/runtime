@@ -7,9 +7,10 @@ tells them apart is [10-development.md](10-development.md) section 4.1.
 | Tier | What is in it | What puts it into service |
 |---|---|---|
 | 1 | Browser files, package manifests, and the **entry module** a `tool`, `step`, `enumerator` or UI-command export is declared in | Nothing. The next request or turn has it. |
-| 1 | **Configuration**: `packages[*]` of `thetis.config.json` and the `.env` file | `thetis config reload` for the file (`config.set` from the CLI, the panel or the tool needs nothing at all); the next call for a changed `.env` variable. A changed package's service restarts in place, fence open. See [09-configuration.md](09-configuration.md) section 5. |
+| 1 | **Configuration**: `packages[*]` of `thetis.config.json`, the `.env` file, and every key declared `dispatch` in `CONFIG_TIERS` (`model`, `phases`, `callPhase`, `enumerator`, `systemPackages`, `control`) | `thetis config reload` for the file (`config.set` from the CLI, the panel or the tool needs nothing at all); the next call for a changed `.env` variable. A changed package's service restarts in place, fence open. See section 1.1. |
+| 2 | **Configuration** declared `fence`: the whole `fence` block | `thetis config reload`, which closes every fence so each reopens with the new settings. See section 1.1. |
 | 2 | **Anything an entry module imports**, a service's module graph, a provider, the userspace agent | A **reload** of that person's workspace (section 2) |
-| 3 | The kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, and everything else in `thetis.config.json` (`fence`, `door`, `systemPackages`, `control`, `storage`, `model`, `phases`) | A **restart** of the daemon (section 4) |
+| 3 | The kernel, the host, the sandbox, the door, `@thetis/lib`, `@thetis/contracts`, the `thetis` command, and the keys declared `boot` (`door`, `storage`, `requestTimeoutMs`, and anything undeclared) | A **restart** of the daemon (section 4) |
 
 ## 1. Why the tiers exist
 
@@ -22,14 +23,53 @@ is tool code, so it is live" — is the wrong one, and it costs an afternoon to 
 A **service** is imported once, when its agent starts, and the query versions only a package's entry
 module — `@thetis/gateway-web`'s `index.js` imports `./server.js` with a
 plain specifier, so that file stays in the process's module registry however many times the entry is
-re-imported. Node has no way to reload a module graph. The only thing that reads one again is a new
-process, and for a service that means a new agent: a new fence.
+re-imported.
 
-The kernel, the door and the rest of the configuration are read once by `thetis serve` and held for its
-life, so `fence`, `door`, `systemPackages`, `control`, `storage` and `model` are tier 3. `packages[*]` is
-not: the config service resolves a package's configuration on every dispatch, `thetis config reload`
-reads the file layer again, and a service whose configuration changed is stopped and started in its
-fence with the new one. The `.env` file is read again whenever its modification time changes.
+Reloading a module *graph* is possible — a resolve hook registered with `module.registerHooks()` can stamp
+a version onto every resolved specifier, which is what Vite's server-side module runner does for tests —
+so this tier is a choice rather than a limit of Node. The choice is that it would not buy much and would
+cost a real hazard. New modules do not reconcile the old ones' **state**: `@thetis/gateway-web` holds a
+bound unix socket under `run/`, plus timers and in-flight requests, all captured in closures the new
+modules do not own, so the service has to be stopped and started anyway — which is already what a
+configuration change does to it. What a graph reload would add is two versions of a module live in one
+process across a trust boundary, in exchange for saving a fence reopen that takes about a second.
+
+### 1.1 A key's tier is how its consumer reads it
+
+Which tier a configuration key is in was, for a while, a property of this table and of nothing else — and
+the table drifted, because nothing checked it. It now follows from `CONFIG_TIERS` in
+`packages/kernel/src/config.ts`, and `thetis config reload` derives its behaviour from that declaration.
+
+The tier is decided by how the key's consumer reads it, not by what the key is about:
+
+| Tier | Because | Examples |
+|---|---|---|
+| `dispatch` | Read on every turn, enumerate or install, straight off the configuration object | `model`, `phases`, `callPhase`, `enumerator`, `systemPackages`, `packages`, `control` |
+| `fence` | Read by `ProcessFence` on every open, so closing the fences is enough | the whole `fence` block |
+| `boot` | Read once into something that then holds it: a bound socket, a storage driver, a request timer | `door`, `storage`, `requestTimeoutMs` |
+
+A reload writes the new file **into the configuration object the kernel bound at boot**, in place, rather
+than replacing it. That is the whole of the `dispatch` tier: every consumer holds that one object — the
+runner reads `config.model` on each turn, the enumerator `config.phases`, `ProcessFence` holds
+`config.fence` — so replacing it would update nobody and writing into it updates everybody, with no call
+site to change. `RestartLatch` holds `config.control` the same way. A key removed from the file is
+removed from the object too, so it goes back to its default rather than lingering.
+
+**A key nobody declared is treated as `boot`.** A reload that silently ignored an undeclared key is the
+exact failure this replaces, so the safe answer is the default and adding a key to `CONFIG_TIERS` is the
+deliberate act that makes it live.
+
+The point is not that everything became live. It is that the reload now **says which**:
+
+```
+$ thetis config reload
+changed: model, fence.docker, door.port
+live now: model
+applied by reopening every fence: fence.docker
+NOT applied -- these are read once at startup and need a daemon restart: door.port
+```
+
+The `.env` file is read again whenever its modification time changes, independently of all this.
 
 ## 2. Reload
 
