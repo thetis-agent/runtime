@@ -39,6 +39,16 @@ The test `fence isolation` in `test/e2e.test.ts` verifies the filesystem part.
 - **Mode `none`.** No isolation at all. The agent runs as the host user with full access.
 - **Kernel exploits.** `bwrap` is a user-namespace sandbox, not a virtual machine. The design target is a microVM per userspace.
 
+### 3.1 The control socket
+
+`$THETIS_HOME/thetis.sock` is `srw-------`, which defends it against other *users*. It has never defended it against a process running as the same one, and every fence is one: the daemon and its fences all run as the unit's `User=`. That was not theoretical — for two days a masking bug left the data directory visible inside fences, and a fence with no network at all had `users.list` answered on the operator channel.
+
+The mask is the fix and is verified ([03-fence.md](03-fence.md) section 3.6). Behind it, the socket can also require a **token**, which the daemon writes at startup and the command line presents on every frame. Two things that sound like the fix are not: `SO_PEERCRED` is not exposed by Node's `net`, and would report a fence's uid as the daemon's own in any case.
+
+The token's location is the whole of its value. It goes in a run directory the service manager guarantees — `RuntimeDirectory=thetis` makes `/run/thetis` for the unit's lifetime — and never in the data directory, which a fence would see if one were ever granted a mount of it. There is deliberately **no fallback** to `/run/user/<uid>`: logind removes that with the last login session unless lingering is on, and a token file vanishing under a running daemon would refuse every operator command including `thetis restart`, which is the way out. So an installation whose unit declares no runtime directory requires no token and admits anyone who can open the socket, exactly as before. The feature arms itself where the directory is guaranteed.
+
+It is defence in depth, not the lock on the door. Anything running as the daemon's own user on the host can read the token, and the mask is what keeps a fence from reaching either.
+
 ## 4. Authorization rules the kernel enforces
 
 - Every session API call runs `users.authorize(id)`. Unknown and suspended users are rejected.

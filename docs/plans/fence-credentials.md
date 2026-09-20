@@ -75,17 +75,12 @@ already declares per-key metadata that the kernel centrally enforces.
 
 ## 5. Not done, and why
 
-- **`requestTimeoutMs` is `boot`.** It is passed to each `ProcessHandle` as a number and captured there.
-  Making it `fence` is a small change and was not made, so it is declared honestly instead.
+- **gcloud brokering.** The ssh agent is one instance of a general shape: the kernel holds the credential,
+  the fence gets the *use* of it. The same applies to short-lived ADC tokens rather than a bound refresh
+  token. Genuinely separate scope, and the only item here that is deferred on size rather than on risk.
 - **`door` and `storage.driver` stay `boot`.** The door owns a bound listening socket; the right tool for
   changing it without a blip is systemd socket activation, not a configuration reload. Swapping a storage
   driver under a live kernel, mid-write, is not worth the machinery.
-- **Brokering for gcloud.** The ssh agent is one instance of a general shape: the kernel holds the
-  credential, the fence gets the *use* of it. The same applies to short-lived ADC tokens rather than a
-  bound refresh token. Not built.
-- **Per-fence generated keys.** For GitHub specifically, the least machinery is no host credential at all:
-  generate a keypair per userspace, register the public half, and let each fence be its own machine. The
-  agent is for keys that already exist and cannot move. Worth doing, not done.
 - **The control socket authenticates nothing.** Reachability implies authority there: whoever can reach
   the path is an operator. The mask bug made it reachable from inside a fence; masking works again, so the
   hole is shut, and what is left is defence in depth against a future mount of the data directory.
@@ -101,7 +96,13 @@ already declares per-key metadata that the kernel centrally enforces.
   which no fence sees, because bubblewrap gives each one a fresh one — and which the command line presents
   on connect. That is implementable in plain Node.
 
-  It is not built, deliberately. It changes the handshake every operator command depends on, including
-  `thetis restart`, which is the way back if the handshake is wrong; the security benefit today is zero,
-  since the mask already denies the path; and it is worth doing when someone decides it is, not as the
-  tail end of an unrelated change.
+  **Built**, and shaped by the failure it could cause rather than the one it prevents. The token is carried
+  on every frame instead of exchanged on connect, so a command line and a daemon of different vintages
+  still work in both directions. There is no fallback location: `/run/user/<uid>` is removed by logind with
+  the last login session unless lingering is on, and a token file vanishing under a running daemon would
+  refuse every operator command including the restart that is the way out. An installation whose unit
+  declares no `RuntimeDirectory` therefore requires no token and behaves as it always did.
+
+  **This needs a unit change to take effect.** `deploy/thetis-runtime.service` declares
+  `RuntimeDirectory=thetis`, but the live unit is hand-adapted, so the line has to be added there by hand
+  for the token to arm.

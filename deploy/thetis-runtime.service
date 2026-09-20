@@ -31,6 +31,14 @@ RestartSec=2
 KillSignal=SIGINT
 TimeoutStopSec=30
 Delegate=yes
+# /run/thetis, made at start and removed at stop, owned by User=. The daemon puts the control socket's
+# token there: somewhere no fence can read, because bubblewrap gives each fence a fresh /run. Without this
+# line the daemon requires no token and the socket admits anyone who can open it, which is what it did
+# before -- the feature arms itself when the directory is guaranteed. /run/user/<uid> is deliberately not
+# used as a fallback: logind removes it with the last login session unless lingering is on, and a token
+# file vanishing under a running daemon would lock the command line out of its own restart.
+RuntimeDirectory=thetis
+RuntimeDirectoryMode=0700
 
 [Install]
 WantedBy=multi-user.target

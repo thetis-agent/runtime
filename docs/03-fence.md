@@ -219,6 +219,8 @@ The client options are chosen so that ssh **fails** rather than waits:
 
 The agent is a kernel-owned child, exactly like the `slirp4netns` helper of section 3.2: it is placed in the fence's cgroup, so its memory is the fence's, and it is stopped by the same cleanup list when the fence closes. Revoking a key is killing a process.
 
+**A key of its own.** When there is no host credential to share and none is needed, `thetis ssh keygen <user>` makes that person's fence a keypair, grants it, and prints the public half to register wherever it is going. The private half lands with the other things the kernel holds for that fence, so it is agent-held like any granted key and the fence still cannot read it. Each fence is then its own machine: nothing on the host is lent out, and revocation is per person and visible at the far end — which key pushed this. An existing key is kept rather than replaced, because generating over one that is already registered somewhere breaks whatever trusts it without saying so.
+
 **What this is not.** The grant is per *person*, because the fence is per person: every package in a fence shares its agent, and a package cannot be given a key that its neighbour in the same fence cannot use. Per-package credentials would need a fence per package. See [12-security.md](12-security.md) section 3.
 
 ## 4. The userspace agent
