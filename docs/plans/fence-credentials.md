@@ -87,6 +87,21 @@ already declares per-key metadata that the kernel centrally enforces.
   generate a keypair per userspace, register the public half, and let each fence be its own machine. The
   agent is for keys that already exist and cannot move. Worth doing, not done.
 - **The control socket authenticates nothing.** Reachability implies authority there: whoever can reach
-  the path is an operator. The mask bug made that reachable from inside a fence; masking works again, so
-  the immediate hole is closed, but the rule is still wrong and should be an explicit actor check
-  (`SO_PEERCRED` or a token), the way `users.authorize` already works for every session call.
+  the path is an operator. The mask bug made it reachable from inside a fence; masking works again, so the
+  hole is shut, and what is left is defence in depth against a future mount of the data directory.
+
+  Two things that sound like the fix are not. The socket is already `srw-------`, so it is defended
+  against *other users* — what it never defended against is a process running as the **same** user, and
+  every fence is one, because the daemon and its fences all run as the unit's `User=`. And `SO_PEERCRED`,
+  which would at least name the peer, is not exposed by Node's `net` at all; even if it were, it would
+  report the fence's uid as the daemon's own and distinguish nothing. An earlier draft of this plan
+  recommended it, and that recommendation was wrong.
+
+  What would work is a token the daemon writes **outside the data directory** — under the host's `/run`,
+  which no fence sees, because bubblewrap gives each one a fresh one — and which the command line presents
+  on connect. That is implementable in plain Node.
+
+  It is not built, deliberately. It changes the handshake every operator command depends on, including
+  `thetis restart`, which is the way back if the handshake is wrong; the security benefit today is zero,
+  since the mask already denies the path; and it is worth doing when someone decides it is, not as the
+  tail end of an unrelated change.
