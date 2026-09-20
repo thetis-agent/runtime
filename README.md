@@ -4,8 +4,9 @@ A multi-user recursive language model service with a continual harness. The mode
 work by writing code that runs in its own fenced userspace. That code can rewrite the harness
 the model runs inside: prompt, tools, memory, subagents.
 
-Full documentation is in [docs/](docs/README.md). The design specification is
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Each package has a `README.md` describing what it does and what enforces it. The skills in
+`packages/skills-thetis/skills/thetis/` are the documentation an agent reads to use Thetis and to change
+it: start at `thetis/using`, and at `thetis/developing` for the host-side build, test and guard rules.
 
 ## Quick start
 
@@ -35,9 +36,8 @@ tests it with `exec`, calls `install_package`, and the step and tool are live on
 |---|---|
 | `bin/thetis.js` | Command-line entry point. |
 | `packages/` | Git submodule with all packages. Service plane: `contracts`, `lib`, `sandbox`, `kernel`, `host`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`. On the host: `gateway-cli`, `door`, `bench`. |
-| `docs/` | Documentation. |
-| `deploy/` | The systemd unit for `thetis serve`. See [docs/15-web-gateway.md](docs/15-web-gateway.md). |
-| `bench/` | Benchmark reports, one per suite. Written by `thetis bench run --write`. See [docs/21-benchmarks.md](docs/21-benchmarks.md). |
+| `deploy/` | The systemd unit for `thetis serve`. |
+| `bench/` | Benchmark reports, one per suite. Written by `thetis bench run --write`. See `packages/bench/README.md`. |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |
 
 ## Commands
@@ -56,4 +56,4 @@ thetis config
 thetis bench run <suite> [--write]
 ```
 
-See [docs/08-cli.md](docs/08-cli.md) and [docs/15-web-gateway.md](docs/15-web-gateway.md).
+See `packages/gateway-cli/README.md` and `packages/gateway-web/README.md`.
