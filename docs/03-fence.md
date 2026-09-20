@@ -126,29 +126,39 @@ The kernel gives the agent this environment and nothing else:
 | `THETIS_SHARED` | The shared directory. See section 3.7. |
 | `THETIS_USER` | The user id. |
 | `THETIS_MOUNTS` | A JSON list of the mounts bound into the fence, each `{ "path", "mode" }` with mode `rw` or `ro`. `[]` when there is none. Set in every sandbox mode. A mount whose host path is not a directory is skipped and is not in the list, so this is what the fence has, not what was asked for. See [12-security.md](12-security.md) section 10. |
+| `SSH_AUTH_SOCK`, `THETIS_SSH` | The per-fence ssh agent socket, `/run/thetis/ssh-agent.sock`. Both are set, and only when an agent is really running with a key in it: `SSH_AUTH_SOCK` is what ssh itself reads, `THETIS_SSH` is what a tool or a skill checks. See section 3.10. |
 | `THETIS_DOCKER` | The path of the Docker socket inside the fence, `/var/run/docker.sock`. Set only when a socket is really bound, and absent otherwise, so a tool asks the environment what this fence has instead of probing a path and guessing why it is missing. See section 3.9. |
 
 The kernel does not pass its own environment. Secrets in the host environment do not reach the fence.
 
 ### 3.6 The bubblewrap command
 
-In mode `bwrap` the kernel builds the command in this order:
+In mode `bwrap` the kernel declares a **mount plan** — a list of intents, each `{ kind, target, source?, optional?, why }` — and then orders, validates and renders it. `fencePlan` in `packages/sandbox/src/bwrap.ts` declares it; `packages/sandbox/src/plan.ts` does the other three.
 
-1. `--dev /dev`, `--proc /proc`, `--tmpfs /tmp`.
-2. `--tmpfs <path>` for each path in `fence.hidden`. The default hides `$THETIS_HOME`. This comes before the read-only binds, so a bind inside a hidden path still shows.
-3. For each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skip it when it does not exist; `--symlink <target> <path>` when it is a symbolic link; otherwise `--ro-bind <path> <path>`. The defaults include `<root>/packages`, `<root>/node_modules`, and the promoted packages `$THETIS_HOME/packages`.
-4. The shared directory: `--bind` for the system userspace, `--ro-bind` for everyone else.
-5. In `egress` mode: `--ro-bind $THETIS_HOME/fence-resolv.conf /etc/resolv.conf`.
-6. When the kernel has a delegated cgroup: `--ro-bind-try <delegated root>/fence-<user> /sys/fs/cgroup`, which goes with `--unshare-cgroup` in step 9. On a host without cgroup namespaces the destination is instead `/sys/fs/cgroup/<that directory's path under the cgroup filesystem>` — the fence's own `/proc/self/cgroup` line, on this host `/sys/fs/cgroup/system.slice/thetis-runtime.service/fence-<user>` — and bubblewrap makes the intermediate directories. The mount root and the namespace are one choice: either together or neither, because a runtime resolves its group by concatenating that line with the mount point. See section 3.3. The flag is `-try`, and the option is left out entirely when limits are off, because this must never keep a fence from starting.
-7. When the fence is given Docker: `--ro-bind-try <host socket> /var/run/docker.sock`. See section 3.9.
-8. `--bind <root> <root>` for the userspace root and `--chdir <home>`.
-9. For each mount of the user (`Userspace.mounts`): `--bind <path> <path>` for mode `rw`, `--ro-bind <path> <path>` for mode `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. A mount comes after the binds above, so it wins over a read-only bind of a parent directory. `THETIS_MOUNTS` lists the mounts that were bound.
-10. `--unshare-user --unshare-pid --unshare-ipc --unshare-uts`, then `--unshare-cgroup` when step 6 bound the group at the mount root, then `--cap-drop ALL --disable-userns --die-with-parent --new-session`, and `--unshare-net` in mode `none`.
-11. `--setenv` for each variable of section 3.5.
+**The ordering rule is the whole of it: a shallower target is mounted before a deeper one.** Bubblewrap applies its options in order and a mount lands on top of whatever was beneath it, so this is the only order in which every intent survives — a later mount can then be *inside* an earlier one and never *over* it. Entries of equal depth keep the order they were declared, which is why a person's mount, declared last, beats a read-only bind of the same path.
+
+That rule replaced a hand-ordered list, and it is worth saying why. The list had to be read in full to know whether any one line still did anything, and twice it did not. `fence.hidden` masks `$THETIS_HOME` with an empty tmpfs; the mask was written before the read-only binds, so when the data directory moved under `/opt` on 2026-09-18 the later `--ro-bind /opt /opt` landed on top of it and the mask stopped existing. Every fence could read the journal, the password file and every other userspace, and connect to the control socket — with no error, no failing test, and the flag still present in the command line. The cgroup destination and `--unshare-cgroup` came apart the same way twice before that (section 3.3). Ordering by depth makes both impossible rather than merely documented.
+
+The plan holds, in declaration order:
+
+1. `/dev`, `/proc`, and an empty `/tmp`.
+2. Each of `/usr`, `/etc`, `/opt`, `/bin`, `/sbin`, `/lib`, `/lib32`, `/lib64`, the Node install prefix, and each path in `fence.readOnly`: skipped when it does not exist, a `symlink` when it is one, otherwise `ro`. The defaults include `<root>/packages`, `<root>/node_modules`, and the promoted packages `$THETIS_HOME/packages`.
+3. A `tmpfs` for each path in `fence.hidden`. The default hides `$THETIS_HOME`. Declared after the binds it sits inside, and ordered beneath them, so the mask applies and a bind inside it — the promoted packages — still shows through.
+4. The shared directory: `rw` for the system userspace, `ro` for everyone else.
+5. In `egress` mode, the resolver file at `/etc/resolv.conf`.
+6. When the kernel has a delegated cgroup: this fence's group at `/sys/fs/cgroup`, optional. It goes with `--unshare-cgroup` below; on a host without cgroup namespaces the target is instead the fence's own `/proc/self/cgroup` path. The mount root and the namespace are one choice, because a runtime resolves its group by concatenating that line with the mount point. See section 3.3.
+7. When the fence is given Docker: the host socket at `/var/run/docker.sock`, optional. See section 3.9.
+8. When the fence has an ssh grant: an empty `tmpfs` over `/etc/ssh`, then the agent socket, the client configuration and the known hosts, all optional and all read-only. See section 3.10.
+9. The userspace root, `rw`.
+10. Each mount of the user (`Userspace.mounts`), `rw` or `ro`. A mount whose path does not exist on the host is logged and skipped; the fence still opens. `THETIS_MOUNTS` lists the mounts that were bound.
+
+Then `--chdir <home>`, `--unshare-user --unshare-pid --unshare-ipc --unshare-uts`, `--unshare-cgroup` when entry 6 bound the group at the mount root, `--cap-drop ALL --disable-userns --die-with-parent --new-session`, `--unshare-net` in mode `none`, and `--setenv` for each variable of section 3.5.
+
+**Validation.** After ordering, shadowing is structurally impossible — a later entry is deeper, so it lands inside its predecessor — which leaves two things to report: two entries claiming one path, where only the second happens, and an entry naming no source when its kind needs one. A conflict is logged as `[fence] <user>: mount plan conflict at <path>` and is never fatal. The plan still renders; the operator learns which entry took the path. Silence is what the old list gave, and silence is what let the mask bug survive.
 
 The agent sees the operating system read-only, its own userspace read-write, the shared directory, the promoted packages, its mounts, its own cgroup read-only, and the Docker socket when it is given one. It does not see `$THETIS_HOME`, other userspaces, `/home`, the host `/tmp`, or any other fence's cgroup — with the namespace it cannot even name one. It has no capabilities and cannot make a nested user namespace. What it can do through the Docker socket is another matter, and section 3.9 is explicit about it.
 
-Steps 6 and 10 depend on the launch gate of section 3.4. `Cgroups.place` creates `fence-<user>` and the kernel moves the launcher into it while the gate is still shut, so the directory is there by the time bubblewrap execs and the process is already in the group when bubblewrap unshares — which is what makes that group, and not the delegated root, the namespace's root. In mode `none` there is no bubblewrap, no bind and no namespace; on a cgroups v1 host `Cgroups.detect` finds no `0::` line in `/proc/self/cgroup`, returns nothing, and both are left out with the limits. In `egress` mode the launcher is wrapped in `unshare --map-root-user --net`; the cgroup namespace is taken by bubblewrap inside that and the two do not interact.
+Entries 6 and the `--unshare-cgroup` that goes with it depend on the launch gate of section 3.4. `Cgroups.place` creates `fence-<user>` and the kernel moves the launcher into it while the gate is still shut, so the directory is there by the time bubblewrap execs and the process is already in the group when bubblewrap unshares — which is what makes that group, and not the delegated root, the namespace's root. In mode `none` there is no bubblewrap, no bind and no namespace; on a cgroups v1 host `Cgroups.detect` finds no `0::` line in `/proc/self/cgroup`, returns nothing, and both are left out with the limits. In `egress` mode the launcher is wrapped in `unshare --map-root-user --net`; the cgroup namespace is taken by bubblewrap inside that and the two do not interact.
 
 ### 3.7 The shared directory
 
@@ -181,6 +191,35 @@ Host paths line up, which is what makes `docker compose` work against a mounted 
 **What this gives away.** Everything. A process that can talk to the daemon can start a container with `--privileged` and `/` bound into it, so socket access is host root: the filesystem, process, capability, cgroup and network rules of sections 3.2, 3.3 and 3.6 stop applying to anything it asks the daemon to run. It is on by default because on a single-operator installation the fence is not relied on as a boundary, and because each alternative — a filtering proxy over the daemon API, a daemon per userspace, a separate build host — costs considerably more than it buys there. Set `fence.docker` to `"off"` on any installation where a fence holds code you do not already trust with the host. See [12-security.md](12-security.md) section 3.
 
 **Reachability is a separate question, and the answer surprises people.** In network mode `egress` the fence has no route to the host's loopback, so a container listening there — which is what `network_mode: host` with a loopback bind address gives, and what a published port on `127.0.0.1` gives — cannot be reached from the fence that started it. The fence can reach a container on a bridge network by its address. `ProcessFence` logs this once when it binds a socket in `egress` mode, because the failure otherwise reads as a broken stack rather than a fence rule. `fence.network: "host"` is the way to reach loopback containers, and it is not much of a concession next to the socket itself.
+
+### 3.10 ssh
+
+A fence with an ssh grant gets its own `ssh-agent`, holding only the keys granted to that person. The private key never enters the fence: what is bound in is the agent's socket at `/run/thetis/ssh-agent.sock`, so the fence can ask for a signature and can never ask for the key.
+
+A grant is `{ key, hosts? }` — one key *file* on the host, and the `known_hosts` lines vouched for with it. It is one file rather than a directory on purpose: a host `~/.ssh` holds unrelated credentials, and granting the directory would hand a fence all of them when it needed one. Grants are set by an admin with `thetis ssh grant <user> <key> [--host <name>] [--scan <name>]` or the operator method `ssh.set`, are journalled by key path and never by key material, are capped at 16 per person, and are refused for `_system`. Like a mount, a change reaches the fence by closing it, and `ssh.list` answers `present` for each key so a caller can tell a grant that works from one that is only written down.
+
+| Path in the fence | What it is |
+|---|---|
+| `/run/thetis/ssh-agent.sock` | The agent. `SSH_AUTH_SOCK` and `THETIS_SSH` both name it. |
+| `/etc/ssh/ssh_config` | The client options the kernel wrote, read-only. |
+| `/etc/ssh/ssh_known_hosts` | The hosts the grants vouch for, read-only. |
+
+`/etc/ssh` is replaced by an empty tmpfs before those two are bound. That is two things at once: `/etc` is bound read-only, so bubblewrap has nowhere to create a mount point inside it, and the fence is left with exactly the configuration written for it and no host defaults underneath. The configuration is written as `ssh_config` itself rather than as a drop-in under `ssh_config.d`, because a drop-in is read only when the host's own main configuration happens to carry an `Include` line for it — true on Debian, and not a thing to rest host-key checking on.
+
+The client options are chosen so that ssh **fails** rather than waits:
+
+| Option | Why |
+|---|---|
+| `BatchMode yes`, `ConnectTimeout 10` | A missing credential or an unknown host otherwise waits on a prompt nobody can answer, and the fence's request timer runs out instead. That reads as "ssh is broken" rather than "this fence has no key for that host". |
+| `IdentitiesOnly yes` | Without it ssh walks through other identities and can spend a rate limit on each. |
+| `StrictHostKeyChecking yes` | The point of shipping a known-hosts file. `no` would turn a missing entry into silent acceptance of any key: a downgrade wearing the costume of a fix. |
+| `IdentityAgent`, `UserKnownHostsFile` | Named explicitly, so neither depends on the fence's `HOME`, which the fence can write. |
+
+**What fails softly.** A granted key that is not on the host, or cannot be loaded, is logged and skipped: one revoked key should not cost a person their workspace. If *no* granted key loads, the fence gets no agent at all and `SSH_AUTH_SOCK` is unset — better than an agent holding nothing, which would look like ssh works and refuse every connection. A host without `ssh-agent` is the same case.
+
+The agent is a kernel-owned child, exactly like the `slirp4netns` helper of section 3.2: it is placed in the fence's cgroup, so its memory is the fence's, and it is stopped by the same cleanup list when the fence closes. Revoking a key is killing a process.
+
+**What this is not.** The grant is per *person*, because the fence is per person: every package in a fence shares its agent, and a package cannot be given a key that its neighbour in the same fence cannot use. Per-package credentials would need a fence per package. See [12-security.md](12-security.md) section 3.
 
 ## 4. The userspace agent
 
