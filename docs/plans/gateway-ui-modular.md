@@ -78,6 +78,10 @@ to that package, so a panel cannot name another package because it never names o
 - **Shelf** (the bottom dock): the terminal's home in the canvas (`Terminal.dc.html`): 360px tall,
   resizable by a grip, sits *under* the conversation and shortens it, with a vertical list of terminals at
   its right (190px). The skeleton reserves the slot and draws nothing until a package registers.
+  *Note (2026-09-20):* the shelf's chrome is the legacy terminal drawer's, made generic — the grip, the
+  uppercase title, the tenant's buttons then collapse and hide, a 300px default height dragged and kept in
+  `localStorage`, the animated open and close — and a shelf entry's `mount(body, { actions, fit })` receives
+  those two hooks. See `docs/plans/terminal-drawer.md` section 2.
 - **Chat bar chips** are shortcuts into the matching surface (`todo 4/7` opens the Todo dock, `2 shells` the
   shelf, `$0.42` the Context dock's Usage tab). **Composer pickers** (mode "Plan", the model, later an agent)
   are a slot too; the model picker is built in, the mode picker comes with a package.

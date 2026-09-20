@@ -13,7 +13,7 @@ It replaces the `exec` tool of `@thetis/tool-exec` ([20-tools.md](20-tools.md) s
 | The service, export `startTerminals` | The userspace agent process | Holds the session table. Spawns each shell. Pumps its output into a ring buffer. Listens on `<root>/run/term.sock`. Closes every session when the fence closes. |
 | The five tools | The same process | `shell`, `shell_read`, `shell_send`, `shell_interrupt`, `shell_sessions`. They reach the service over the socket. |
 | The eight `ui` commands | The person's gateway process | `sessions`, `open`, `write`, `interrupt`, `resize`, `close`, `rename`, and the stream `watch`. They reach the same socket. |
-| `ui/index.js`, `ui/shelf.js`, `ui/screen.js` | The browser page | The shelf entry `terminal`, the statusbar chip, and one live subscription for the whole page. |
+| `ui/index.js`, `ui/shelf.js`, `ui/screen.js` | The browser page | The shelf entry `terminal`, the chat-bar chip, and one live subscription for the whole page. |
 
 A service starts with the fence and stops with it ([05-packages.md](05-packages.md) section 13). A `ui` command runs in the **gateway** process, not in the agent process ([15-web-gateway.md](15-web-gateway.md) section 11.4). Two processes, one fence, one filesystem.
 
@@ -52,7 +52,7 @@ The part no pipe can give is the interrupt. `shell_interrupt` writes one `0x03` 
 
 ### 2.2 The marks that frame a command
 
-A shell's output is one stream that never ends, so the only way to know where one command's output stops is to have the shell say so. The package writes a per-session bash init file, `<root>/run/term-<id>.rc`, mode `0600`, deleted when the session closes, and starts the shell as `<shell> --rcfile <that file> -i`. The file sets the pty size, sources the person's own `~/.bashrc` when it is readable, and then wraps the prompt. `PROMPT_COMMAND` is appended to, never replaced: one function goes on the front to capture `$?` before the person's own hook can clobber it, and one on the back to emit the marks, with the person's hook in between. Both of bash's shapes for `PROMPT_COMMAND`, the string and the array, are handled.
+A shell's output is one stream that never ends, so the only way to know where one command's output stops is to have the shell say so. The package writes a per-session bash init file, `<root>/run/term-<id>.rc`, mode `0600`, deleted when the session closes, and starts the shell as `<shell> --rcfile <that file> -i`. The file sets the pty size, reports the shell's own tty path once (section 7), sources the person's own `~/.bashrc` when it is readable, and then wraps the prompt. `PROMPT_COMMAND` is appended to, never replaced: one function goes on the front to capture `$?` before the person's own hook can clobber it, and one on the back to emit the marks, with the person's hook in between. Both of bash's shapes for `PROMPT_COMMAND`, the string and the array, are handled.
 
 The marks are the escapes every modern terminal already uses for this.
 
@@ -64,6 +64,7 @@ The marks are the escapes every modern terminal already uses for this.
 | Command finished | `OSC 133;D;<status>` | The command ended with this exit status. |
 | Working directory | `OSC 7;file://<host><path>` | The directory is now this. Emitted **before** the finish mark, so a reader waiting on the finish has it. |
 | Alternate screen | `CSI ?1049h` / `CSI ?1049l` | A full-screen program took the terminal, or gave it back. |
+| The shell's tty | `OSC 7770;tty=<path>` | Emitted once by the init file, before the prompt is wrapped. Only `/dev/pts/N` and `/dev/tty*` are believed; the session keeps the path as `tty` in its state, and a resize is an `stty -F` on it. 7770 is a private number no emulator knows, so the emulator drops it. It is not proof that the shell is framed: only the prompt marks are. |
 
 `lib/marks.js` parses them back out. Two rules shape the parser. It never modifies the stream, so the marks stay in the bytes the browser's emulator consumes; only the text handed to the agent is cleaned. And it is strict: a candidate is a mark only when its whole body matches a shape the package emits, so an escape a program printed itself is not read as one. An escape split across two chunks is held until the rest arrives. An OSC body over 4096 characters or a CSI over 64 is abandoned as not one of ours.
 
@@ -91,7 +92,7 @@ A consumer the session has never seen starts at the oldest character still held,
 
 A consumer whose offset has fallen off the back of the ring is told. Every answer carries `dropped`, the number of characters that consumer lost between where it was and the oldest character still held. It is never handed a hole in silence. Ring buffers lie by default; this one is made to say so.
 
-The buffer itself is never edited. The bytes in it are the bytes the person's emulator gets, marks and all. The text handed to the agent is a cleaned copy: the escapes removed, a carriage return taken as an overwrite so a progress bar collapses to its last state, the remaining control characters dropped, and the hidden regions cut out — the prompt, the echo of the command, the marker line of an unframed shell, and any command this package sent for its own reasons, such as the `stty` of a resize.
+The buffer itself is never edited. The bytes in it are the bytes the person's emulator gets, marks and all. The text handed to the agent is a cleaned copy: the escapes removed, a carriage return taken as an overwrite so a progress bar collapses to its last state, the remaining control characters dropped, and the hidden regions cut out — the prompt, the echo of the command, the marker line of an unframed shell, and any command this package sent for its own reasons, which is the typed `stty` of a fallback resize (section 7) and nothing else.
 
 Two numbers are called `dropped` and they are not the same. In an answer it is what **that consumer** lost. In a session's state, which is what the shelf row draws from, it is the ring's own floor: how much the ring has thrown away since the session opened.
 
@@ -124,58 +125,61 @@ A `run`, `read`, `write` or `interrupt` answers with these. The tools render the
 
 The cap keeps the head and the tail and says how much of the middle is missing: `...[N characters not shown; the middle of the output]...`. A truncation that does not say so is the same failure as a ring buffer that hands over a hole. A browser's answer is not capped, because it is streaming the same bytes anyway.
 
-## 5. The shelf
+## 5. The drawer
 
-The package declares `shelf: [{ "id": "terminal", "label": "Terminals" }]` and `statusbar: [{ "id": "terminal", "order": 100 }]` ([15-web-gateway.md](15-web-gateway.md) section 11.1). The shelf is the bottom dock: it shortens the conversation rather than covering it. Its stylesheet is scoped under `.tm-`.
+The package declares `shelf: [{ "id": "terminal", "label": "Terminals" }]` and `chips: [{ "id": "terminal", "order": 50 }]` ([15-web-gateway.md](15-web-gateway.md) section 11.1). The shelf is the bottom dock under the conversation, and its chrome is the legacy terminal drawer's: it shortens the transcript rather than covering it, animates up when it opens, has a grip to drag its height (300px by default, 140px at least, 72% of the window at most, remembered in `localStorage` under `thetis.shelf.height`), a head with the uppercase title, the package's buttons (**+** opens a shell in the open conversation, the eraser clears the chosen view), collapse and hide. Everything under the head is this package's, scoped under `.term-`, on the `--term-*` tokens of `theme.css`: the terminal is a dark device set into the page in both colour schemes, its greys a touch warmer than the app's, and inside it green is the accent.
 
-The page holds one `watch` subscription for the whole page, opened by `ui/index.js` at install and never stopped while the page lives ([15-web-gateway.md](15-web-gateway.md) section 11.5). It is one subscription and not one per view, because the chip counts shells while the shelf is closed and a screen keeps filling while nobody is looking, so opening the shelf must cost no request. Every value is written to be replayed: an output chunk carries the session's counter, and a chunk at or below the counter the page has already written is dropped, so a reconnect costs nothing and loses nothing.
+The page holds one `watch` subscription for the whole page, opened by `ui/index.js` at install and never stopped while the page lives ([15-web-gateway.md](15-web-gateway.md) section 11.5). It is one subscription and not one per view, because the chip counts shells while the drawer is closed and a screen keeps filling while nobody is looking, so opening the drawer must cost no request. Every value is written to be replayed: an output chunk carries the session's counter, and a chunk at or below the counter the page has already written is dropped, so a reconnect costs nothing and loses nothing.
 
-The shelf opens by itself the first time a session in the open conversation starts a command, once per page load. It never takes the focus from the composer. A person who closes it is not reopened.
+Two rules decide when the drawer is up. A shell appearing in the open conversation opens it, every time, without a click, and a shell of another conversation opens nothing. Switching conversations closes it and reopens it at once when the new conversation has shells; the chosen row follows to that conversation's first shell. The chip in the chat bar toggles it by hand. Nothing here takes the focus from the composer.
 
-### 5.1 The state words
+### 5.1 The body
 
-The state word is computed on the server, in one word, and this page only says it in plain words and offers the repair. Nothing in the page derives a state from output, from a clock or from a command line, so the page, the prompt and the command line cannot disagree.
+```
+div.term-body
+├── div.term-panes                   the emulator, first in the DOM
+│   └── div.term-pane                the chosen session's screen
+└── nav.term-list                    one row per session
+    ├── div.term-tab[.is-active][.has-activity][.is-elsewhere][data-id]
+    │   ├── button.term-tab-pick     span.term-dot · span.term-tab-label · span.term-tab-sub · span.term-tab-note
+    │   ├── button.term-tab-stop     while busy: the interrupt
+    │   ├── button.term-tab-info     the details card
+    │   └── button.term-tab-kill     close (a popover), or remove a closed row
+    └── span.term-empty
+div.term-foot                        span.term-cwd · span.term-meta
+```
 
-| State | The row says | The row offers |
-|---|---|---|
-| `idle` | the working directory, with the home shown as `~`, or `no working directory` | Close |
-| `busy` | `the agent is running cargo test · 14s` | Interrupt |
-| `busy-quiet` | `running cargo test · no output for 20s` | Interrupt |
-| `person` | `you are running vim` | Interrupt |
-| `fullscreen` | `a full-screen program has the terminal` | Interrupt |
-| `unframed` | `this shell does not report exit codes` | — |
-| `closed` | `closed · exit 130`, or `closed` when no status was carried | Reopen |
+Rows are sorted by conversation — the open conversation's shells and the person's own first, then the rest, which carry `.is-elsewhere` and name their conversation in the sub line — and then by name with numeric collation. The label is the name, or the id when it has none; the sub line is the last segment of the working directory; a closed row says `exited`. The dot is the state: busy (`busy`, `busy-quiet`, `person`, `fullscreen`) pulses in `--term-yellow`, `idle` and `unframed` are `--term-bright-green`, `closed` is `--term-bright-black`. Output arriving in a row that is not chosen makes it `.has-activity` (the label bold and bright) until it is chosen; a replay of the ring buffer is not activity. The chosen row wears the terminal's green wash and a left edge. A second shell appearing does not steal the view: its row brightens instead.
 
-The command in those sentences is the command line as it was submitted, whatever it is, or `a command` when the session has none recorded. `busy` names who holds the prompt and `busy-quiet` does not. The clock reads `14s` under a minute, `3m 20s` under an hour, and `2h 05m` above it. A word this page does not know reads `the workspace calls this "<word>", which this page does not know` and offers nothing, so a newer service cannot make the page lie.
+Clicking a row chooses it and focuses the emulator. Double-clicking the label renames: the input takes the label's place, Enter keeps, Escape or leaving the field drops, and a redraw while a name is being typed is held back. A person can rename a session; the model cannot.
 
-The order the service resolves them in is closed, fullscreen, person, busy or busy-quiet, unframed, idle. A running command that has printed nothing for 5000 milliseconds is `busy-quiet` rather than `busy`.
+The footer carries the chosen shell's full working directory, with the home shown as `~`, and one sentence: `<shell> · <state>`.
 
-Seven words, and no eighth. There is no `waiting` for a command that has stopped at a prompt: there is no way to know that without guessing what a program meant by printing nothing, and a guessed state is the thing this design is against. `busy-quiet` says what is observed and the person decides what it means.
-
-### 5.2 What is a fact about a row, not a state
-
-A fact can be true of an idle session as much as a busy one, so it is a line under the row and never a word in it.
-
-| Line | When |
+| State | The footer says |
 |---|---|
-| `some output was dropped` | The session's ring has thrown something away. |
-| `opened by "<conversation title>"`, or `opened by another conversation` | The session belongs to a conversation other than the open one. |
-| `the program now running keeps the old size; the next one starts at this one` | A resize was deferred (section 7). |
-| `the shell was not told the new size: <reason>` | The resize was refused. |
+| `idle` | `bash · idle` |
+| `busy` | `bash · the agent is running cargo test · 14s`, the clock ticking once a second |
+| `busy-quiet` | `bash · running cargo test · no output for 20s` |
+| `person` | `bash · you are running vim` |
+| `fullscreen` | `bash · a full-screen program has the terminal` |
+| `unframed` | `shell · this shell does not report exit codes` |
+| `closed` | `bash · closed · exit 130`, or `closed` when no status was carried |
 
-### 5.3 The head, the pane and the chip
+The state word is computed on the server, in one word, and this page only says it in plain words and offers the repair. Nothing in the page derives a state from output, from a clock or from a command line, so the page, the prompt and the command line cannot disagree. The command in those sentences is the command line as it was submitted, or `a command` when the session has none recorded. The clock reads `14s` under a minute, `3m 20s` under an hour, and `2h 05m` above it. A word this page does not know reads `the workspace calls this "<word>", which this page does not know`, so a newer service cannot make the page lie. The order the service resolves them in is closed, fullscreen, person, busy or busy-quiet, unframed, idle; a running command that has printed nothing for 5000 milliseconds is `busy-quiet`. Seven words, and no eighth: there is no `waiting` for a command that has stopped at a prompt, because that would be a guess about what a program meant by printing nothing.
 
-The head carries one sentence when a row is running something or is closed — `2 of 3 shells are running something. 1 is closed.` — a **Reconnect** button that appears only when the stream is not live, and a **+** that opens a shell in the open conversation. When the stream is down the head says `Not live: <reason>. What the rows say may be out of date.`, and the page retries by itself after a second, doubling to thirty.
+When a resize could not be applied to the device (section 7, the typed fallback) the footer adds `size applies at the next prompt`; when the gateway refused it, `the shell was not told the new size: <reason>`. When the stream is not live the footer says `not live: <reason>` in the warning tone with a **Reconnect** link beside it, and the page retries by itself after a second, doubling to thirty; the chip turns `.is-stale`.
 
-The pane on the right holds the chosen session's screen. A session with no screen yet says `This shell has printed nothing yet.`; no session at all says `No shell is open. The + above opens one in this conversation.`; a closed one repeats its row's sentence and says to reopen it from its row.
+### 5.2 The row's controls
 
-**The input is always enabled, including while the agent holds the prompt.** That is how a person answers the question the agent's command asked. When the agent holds it the pane says `What you type reaches the agent's command: <command>.` A terminal that quietly swallows keystrokes is a failure; one that quietly redirects them would be worse. Keystrokes are held for 15 milliseconds so a paste is one request, and sent one batch at a time so they arrive in the order they were typed. A batch the gateway did not take is said out loud in the corner, never dropped in silence.
+The stop square on a busy row is the deliberate Ctrl-C: `interrupt`, delivered to the foreground process group, so the runaway dies and the shell lives. The info button opens the details card, `.term-card`, placed left of the list: Name, Session id, Working directory, Conversation (its title, or `opened by you` for a shell opened from the drawer with no conversation), Shell, State, Command and Running since while it runs, Last exit, Terminal (the pty device the shell reported, or `not reported`), Reports exit codes. Its foot says `What you type here goes to the shell.` A second click on the same button closes it; so do Escape and a click outside; a redraw re-anchors it rather than dismissing it, because a busy shell redraws the list on every command. The trash on a live row opens the popover `Close <name>?` with the consequence spelled out — the shell in that directory and everything it is running will be terminated, and the agent may be using it — and a **Close** button in the error tone; Escape or a click outside cancels. On a closed row the trash removes it from this page's list without asking: the host keeps its record, and the row is back after a reload until the host drops it.
 
-The statusbar chip reads `2 shells · 1 busy` and opens the shelf. It is hidden when there are no shells and the stream is live, because then there is nothing to say. When the stream is down with no shells it reads `shells · not connected`.
+### 5.3 The chip
 
-### 5.4 Renaming
+Every conversation pane's chat bar carries the chip (`.chip.term-chip` in `.chips`): a dot and `N terminals` for the shells of that conversation plus the person's own, or `Terminal` when there are none. It is never hidden, because the button that opens the first shell is inside the drawer and the chip is the way in. The dot pulses in the warning colour while any of them is busy, is green while any is alive, and grey when none is. `.is-on` while the drawer is open; the title says which way the click goes. It lives in the app's chrome, so it keeps the app's colours.
 
-A row's name is a button; clicking it makes it an input. Enter renames, Escape cancels, and a redraw while a name is being typed is held back so the field is not taken away mid-word. A person can rename a session. The model cannot.
+### 5.4 Typing
+
+**The input is always enabled, including while the agent holds the prompt.** That is how a person answers the question the agent's command asked. A terminal that quietly swallows keystrokes is a failure; one that quietly redirects them would be worse. Keystrokes are held for 15 milliseconds so a paste is one request, and sent one batch at a time so they arrive in the order they were typed. A batch the gateway did not take is said out loud in the corner, never dropped in silence. A closed session keeps its picture and stops taking keys: the cursor stops blinking.
 
 ### 5.5 The emulator
 
@@ -183,9 +187,9 @@ A row's name is a button; clicking it makes it an input. Enter renames, Escape c
 
 The emulator is `@xterm/xterm` 6.0.0, MIT, vendored under `ui/vendor/` with its `LICENSE`. It is the first third-party runtime file in the repository, about 337 KiB of JavaScript and 7 KiB of CSS. It is imported lazily by the first session that appears, so a person who never opens a shell never fetches it. `/ext/` serves `.js` and `.css` already ([15-web-gateway.md](15-web-gateway.md) section 11.3), which is why `lib/xterm.mjs` is vendored under the name `xterm.js`.
 
-The reason for vendoring rather than writing one: the terminal is writable, so `less`, `git rebase -i`, `htop` and `vim` are things people will run in it, and every hand-rolled attempt at an emulator turns a build log into a screenful of escape soup. The colours are read from the page's own variables, so a terminal looks like the page it sits in, in whichever scheme is in force. An emulator that fails to load is said in the pane, and the row still works: the shell is still running and the tools still reach it.
+The reason for vendoring rather than writing one: the terminal is writable, so `less`, `git rebase -i`, `htop` and `vim` are things people will run in it, and every hand-rolled attempt at an emulator turns a build log into a screenful of escape soup. The palette is the `--term-*` tokens read back through `getComputedStyle` — every one a plain hex literal, because the emulator parses real colours and a `color-mix()` would arrive unresolved — at 12.5px, a line height of 1.45, 5000 lines of scrollback, and a blinking cursor, since the terminal is writable. A cell is measured the way the emulator measures it, and the pane is divided by that cell; one `resize` is sent when the grid changed. An emulator that fails to load is said in the pane, and the row still works: the shell is still running and the tools still reach it.
 
-The screen belongs to the session, not to the view. Closing the shelf takes the element out of the page and leaves the emulator and its scrollback alone, so opening it again costs no request and loses no output. A closed session keeps no screen.
+The screen belongs to the session, not to the view. Hiding the drawer leaves the emulator and its scrollback alone, so showing it again costs no request and loses no output. A closed session keeps no new screen.
 
 ## 6. Limits and configuration
 
@@ -205,7 +209,8 @@ Every constant is in `packages/terminal/lib/host.js` and `packages/terminal/lib/
 | Grace for a new session to prove it is framed | 2000 milliseconds | — |
 | Wait for the prompt before writing the next command | 2000 milliseconds | — |
 | Wait for a `cwd` change | 5000 milliseconds | — |
-| Wait for the `stty` of a resize | 1000 milliseconds | — |
+| A resize's `stty -F` on the device | 2000 milliseconds before it is given up and the fallback used | — |
+| Wait for the typed `stty` of a fallback resize | 1000 milliseconds | — |
 | Grace for a finish mark that arrived after its output | 50 milliseconds | — |
 | Between SIGTERM and SIGKILL on close | 300 milliseconds | — |
 | A new pty | 24 rows, 120 columns | — |
@@ -237,7 +242,9 @@ The idle reaper closes a session only when nothing is running, no browser is wat
 | A transcript on disk, or one kept across reloads | Section 8. A reconnecting browser gets the ring buffer, which is the last screenful and a bit, and is told when that is not the whole story. |
 | A shell as the way to read and edit files | The file tools are cheaper and safer, and the tool descriptions say so ([20-tools.md](20-tools.md) section 2). |
 
-**Resize, and the one honest limitation.** Node cannot set a pty's window size without a native module, and this repository has no third-party runtime dependency outside the vendored emulator. So a resize is an `stty rows R cols C` written on the session's own tty, which can only be done when nothing is running. A resize asked for while a command is running is deferred to the next prompt and answers `applied: false` with the reason, and the shelf puts that in the row. The consequence, said in the page rather than hidden: **a full-screen program that is already running keeps its old size.** It learns the new one when it next starts. Everything else — wrapping, `less`, a new `vim` — is correct. The `stty` the package sends for its own reasons is hidden from the agent's transcript.
+**Resize, and the one honest limitation.** Node cannot set a pty's window size without a native module, and this repository has no third-party runtime dependency outside the vendored emulator. But `stty` can, from outside the shell: the init file reports the shell's tty once (`OSC 7770`, section 2.2), and a resize is `stty -F /dev/pts/N rows R cols C` run as a sibling process of the service, with no shell involved. That is an ioctl on the device. Nothing is written into the pty, nothing is echoed, the kernel raises `SIGWINCH` in the foreground process group, and it works whether or not something is running: `vim`, `less` and `top` redraw at once, and a program in the middle of a `sleep` finds the new size when it wakes. Readline redraws its prompt in place when it gets the signal, as it does in any terminal. The answer is always `applied: true`, and `wantRows`/`wantCols` are kept so a reopen starts at the size. Inside a fence the service and the shell share the mount and pid namespaces, so `/dev/pts/N` is the same device for both.
+
+The limitation is the fallback's. A shell that never reported its tty — one that is not bash and so ran no init file, or a bash still starting — is resized the old way: an `stty rows R cols C` typed at the prompt, which can only be done when nothing is running. Asked for during a command, it is deferred to the next prompt and answers `applied: false, deferred: true` with the reason, and the shelf puts that in the row; the program running now keeps its old size and the next one starts at the new one. The typed `stty` is a real command in a real shell: the person sees it, and it is hidden from the agent's transcript. An `stty -F` that fails (the device gone, `stty` missing) takes the same fallback and is logged, not raised.
 
 ### 7.1 A cancelled turn does not kill the command
 
@@ -271,10 +278,10 @@ away a build that was nearly done because someone stopped the model from talking
 
 | File | Content |
 |---|---|
-| `marks.test.js` | The parser: each mark with its offsets, a finish with no status, the working directory with its host and path apart and a percent-encoded path, BEL and ST terminators, an escape split across two chunks and one split a character at a time, the escapes a program prints itself that must not be read as marks, the alternate screen both ways. The init file: the four marks, the person's rc sourced, `PROMPT_COMMAND` appended to in both of bash's shapes, a quoted rc path. The legacy marker: the status and directory it reports, that it is not found in the echo of the command carrying it, and the id made safe for a regular expression. |
-| `session.test.js` | The exit status the shell reported, a `cd` carried to the next command, a `cwd` that does not exist as the whole answer, a command that outruns its wait and is collected later, a second command refused while one is out, an interrupt that leaves the session alive, a ring that drops and says so, an unframed shell that reports only its own commands, each state word, a command the person typed making the session theirs, a full-screen program taking the terminal and giving it back, a deferred resize applied at the next idle, a resize at idle hidden from the agent, independent cursors, the raw buffer keeping the marks the agent's text lost, a closed session refusing to be written to, and a subscriber seeing output with the offset it arrived at. |
-| `host.test.js` | The socket path and its mode, a command over the socket, the names `main`, `2`, `3`, the session limit and its refusal, `list` scoped to a conversation, a session and an op refused by name, two consumers with independent cursors, a subscriber's snapshot and its events, a replay from an offset, the watcher count, the idle reaper with and without a browser attached, closing the host closing every session, the wording when nothing is listening, rename, who typed read from the cursor key, a deferred resize, the answer cap, and that an agent's answer is capped where a browser's is not. |
+| `marks.test.js` | The parser: each mark with its offsets, a finish with no status, the working directory with its host and path apart and a percent-encoded path, BEL and ST terminators, the shell's tty report as a mark with its path and one outside `/dev` ignored, an escape split across two chunks and one split a character at a time, the escapes a program prints itself that must not be read as marks, the alternate screen both ways. The init file: the four marks, the tty report line, the person's rc sourced, `PROMPT_COMMAND` appended to in both of bash's shapes, a quoted rc path. The legacy marker: the status and directory it reports, that it is not found in the echo of the command carrying it, and the id made safe for a regular expression. |
+| `session.test.js` | The exit status the shell reported, a `cd` carried to the next command, a `cwd` that does not exist as the whole answer, a command that outruns its wait and is collected later, a second command refused while one is out, an interrupt that leaves the session alive, a ring that drops and says so, an unframed shell that reports only its own commands, each state word, a command the person typed making the session theirs, a full-screen program taking the terminal and giving it back, a session knowing its own tty, a resize during a command applied at once and seen by the program running, a resize at idle that prints nothing for the agent or the person, a shell without the rc whose resize during a command is deferred to the next idle and whose resize at idle is a typed `stty` hidden from the agent, independent cursors, the raw buffer keeping the marks the agent's text lost, a closed session refusing to be written to, and a subscriber seeing output with the offset it arrived at. |
+| `host.test.js` | The socket path and its mode, a command over the socket, the names `main`, `2`, `3`, the session limit and its refusal, `list` scoped to a conversation, a session and an op refused by name, two consumers with independent cursors, a subscriber's snapshot and its events, a replay from an offset, the watcher count, the idle reaper with and without a browser attached, closing the host closing every session, the wording when nothing is listening, rename, who typed read from the cursor key, a resize applied over the socket while a command runs with the row carrying the tty, a deferred resize in a shell without the rc, the answer cap, and that an agent's answer is capped where a browser's is not. |
 
 The gateway's own suite covers the seam this package is the first to use: a streaming verb that yields and ends, a browser that lets go aborting the export, the two refusals that keep a command and a stream apart, and the style nonce that the page and the policy must agree on.
 
-There is no automated test of the browser side itself. It is checked by hand, with steps 53 to 61 of `packages/gateway-web/test/BROWSER.md`, which walk the chip, colour, a person's command and its interrupt, the agent's command watched live, a full-screen program, a deferred resize, a closed session that keeps its transcript, and a workspace that stops answering.
+There is no automated test of the browser side itself. It is checked by hand, with steps 53 to 61 of `packages/gateway-web/test/BROWSER.md`, which walk the chip, colour, a person's command and its interrupt, the agent's command watched live, a full-screen program, a resize while something runs, a closed session that keeps its transcript, and a workspace that stops answering.
