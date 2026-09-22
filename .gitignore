@@ -5,3 +5,8 @@ dist/
 .thetis/
 .env.bak
 .env.bak-*
+
+# Throwaway data directories for the browser checklist (gateway-web/test/BROWSER.md).
+# They hold a whole running install, and a parallel pass leaves several behind.
+.devhome*
+.dh-*

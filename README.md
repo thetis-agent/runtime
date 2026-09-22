@@ -49,7 +49,9 @@ confirms slirp4netns, without which fences share the host network. An existing N
 3. This repository with `packages/` as its submodule at `<prefix>/runtime`; the default prefix is `/opt/zero`.
 4. `npm ci` and `npm run build`.
 5. `.env` (mode 0600) with `OPENROUTER_API_KEY` and `THETIS_HOME=<prefix>/data`, then `thetis init` and the
-   door's address and port written into `thetis.config.json`.
+   door's address and port written into `thetis.config.json`. `init` refuses a data directory longer than
+   73 bytes, where no user id at all would fit: every unix socket of the installation hangs off it, and a
+   socket path cannot exceed 107. Past 49 bytes it serves but notes how long a user id it can carry.
 6. The first admin with a password: `thetis users add <id> --admin` and `thetis users passwd`.
 7. A `thetis` launcher in `~/.local/bin`, and `~/.local/bin` added to `PATH` in your shell's rc file when
    it is not there yet.
