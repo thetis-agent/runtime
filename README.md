@@ -66,8 +66,9 @@ running the installer, `<prefix>/runtime`, and the absolute path of the Node it 
 other line is kept: `Restart=always` so a restart Thetis asks for comes back, `KillSignal=SIGINT` for a
 clean stop, `Delegate=yes` so each fence gets its cgroup limits, the crash-loop brake, and
 `RuntimeDirectory=thetis`, which is what makes the daemon require a token on its control socket. It is
-installed to `/etc/systemd/system/thetis-runtime.service`, reloaded, enabled and started; on an update
-it is restarted. If the unit stops or stays silent the installer prints the last 40 journal lines and
+installed to `/etc/systemd/system/thetis-runtime.service`, reloaded, enabled and started. On an update
+the installer renders the unit again and compares it with the installed one; only a changed unit is
+reinstalled. If the unit stops or stays silent the installer prints the last 40 journal lines and
 stops. Never copy the template over a deployed unit by hand: it looks installed and fails on the next
 restart.
 
@@ -102,9 +103,22 @@ the default is a file under `/tmp`, named in the summary).
 ### Updating and removing
 
 Run the same command again. An existing checkout at the prefix is pulled to `--ref`, the submodule
-updated, the build redone, `.env` and the users kept, and the service restarted. `--uninstall` disables
-and removes the unit and the launcher and leaves `<prefix>/runtime` and `<prefix>/data` in place;
-`rm -rf` those to remove everything.
+updated, the build redone, `.env` and the users kept. Then the running daemon is told what changed, and
+no more than that: `thetis config reload` re-reads the configuration and `.env`, `thetis reload --all`
+puts the package code on disk into every workspace, and a new daemon process is asked for only when the
+rendered unit differs from the installed one or `thetis status --json` reports the daemon itself stale.
+That restart is the daemon's own, `thetis restart --yes --reason "install.sh: daemon code updated"`: it
+waits for every turn to end, counts down where everyone can see it, and exits so systemd starts it again;
+`systemctl restart` is the fallback only when the latch refuses. An update that changes only packages
+restarts nothing, and `thetis status` then says every process is on the code on disk. `--uninstall`
+disables and removes the unit and the launcher and leaves `<prefix>/runtime` and `<prefix>/data` in
+place; `rm -rf` those to remove everything.
+
+The rule behind that: the daemon (`kernel`, `host`, `sandbox`, `door`, `lib`, `contracts`, `gateway-cli`)
+carries no user-facing behaviour. It runs steps and moves data, and the only reason for a new process is a
+bug of its own. Everything else is a package, and a package change is live on its next call, on
+`thetis reload`, or on `thetis config reload`. A feature that seems to need the daemon is a feature in
+the wrong package; `packages/kernel/README.md` lists the frozen seams.
 
 ## Quick start (a development checkout)
 
@@ -126,14 +140,15 @@ node bin/thetis.js serve         # http://127.0.0.1:8777
 
 Inside chat, ask Thetis to change itself, for example: *"Add a tool that counts words and a
 prompt step that injects the current time. Install it."* It writes `home/packages/<name>/`,
-tests it with `exec`, calls `install_package`, and the step and tool are live on the next turn.
+tests it with the shell, calls `install_package`, and the step and tool are live on the next turn. Nothing
+is restarted for that, and nothing ever needs to be: see "Updating and removing".
 
 ## Layout
 
 | Path | Content |
 |---|---|
 | `bin/thetis.js` | Command-line entry point. |
-| `packages/` | Git submodule with all packages. Service plane: `contracts`, `lib`, `sandbox`, `kernel`, `host`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`. On the host: `gateway-cli`, `door`, `bench`. |
+| `packages/` | Git submodule with all packages. The daemon: `contracts`, `lib`, `sandbox`, `kernel`, `host`, `door`, `gateway-cli`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core` (the model-call loop, as the `call` step of phase `execute`), `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`, and the rest. Loaded by the host process, never into a fence: `store-toml` (type `storage`), `host-grants` (type `host`: mounts and ssh keys). On the host: `bench`. |
 | `deploy/` | `install.sh`, the one-command installer and updater, and the systemd unit template it fills in for `thetis serve`. |
 | `bench/` | Benchmark reports, one per suite. Written by `thetis bench run --write`. See `packages/bench/README.md`. |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |

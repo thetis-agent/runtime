@@ -7,7 +7,8 @@
 # slirp4netns, git, xz), puts Node 24 under ~/.local, clones runtime + packages into <prefix>/runtime,
 # builds, writes .env and thetis.config.json with the data directory at <prefix>/data, creates the
 # first admin, installs and starts the systemd unit with this host's real paths, and proves the door
-# answers. Run it again to update: it pulls, rebuilds and restarts.
+# answers. Run it again to update: it pulls, rebuilds, reloads the running daemon's configuration and
+# workspaces, and asks the daemon for a new process only when the daemon itself changed.
 #
 # It runs as the person who will operate Thetis, never as root. sudo is asked for exactly three things:
 # the OS packages, the prefix under /opt, and the systemd unit. Everything else is theirs.
@@ -286,7 +287,7 @@ ask PREFIX "Install prefix" "$PREFIX"; ROOT="$PREFIX/runtime"; HOME_DIR="$PREFIX
 if [ "$SERVICE" = 1 ] && [ -n "$existing_wd" ] && [ "$existing_wd" != "$ROOT" ]; then
   die "$UNIT already runs from $existing_wd, not $ROOT. Re-run with --prefix $(dirname "$existing_wd") to update that installation, or --uninstall it first."
 fi
-if [ -d "$ROOT/.git" ]; then UPDATE=1; note "an installation is at $ROOT: this run updates it"; else UPDATE=0; fi
+if [ -d "$ROOT/.git" ]; then UPDATE=1; STEPS=9; note "an installation is at $ROOT: this run updates it"; else UPDATE=0; fi
 if [ "$UPDATE" = 0 ]; then
   ask ADMIN "First admin's user id" "$ADMIN"
   [[ "$ADMIN" =~ ^[a-z][a-z0-9-]{0,31}$ ]] || die "a user id is lowercase letters, digits and dashes, starting with a letter: $ADMIN"
@@ -426,18 +427,46 @@ EOF
 }
 run "Launcher: $LAUNCHER" launcher
 
+# Is a daemon answering on the control socket? `thetis status` without one would start a kernel of its own
+# and describe that, so the socket is asked directly.
+daemon_running() {
+  [ -S "$HOME_DIR/thetis.sock" ] || return 1
+  node -e 'const s = require("node:net").connect(process.argv[1]); s.once("connect", () => { s.end(); process.exit(0); }).once("error", () => process.exit(1));' "$HOME_DIR/thetis.sock"
+}
+
+# One field of `thetis status --json`, by dotted path: `daemon.stale`, `daemon.startedAt`. Empty when the
+# daemon does not answer or the field is missing; never a crash, since the callers poll it through a restart.
+status_field() { # <path>
+  (cd "$ROOT" && node bin/thetis.js status --json 2>/dev/null) | node -e '
+    let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      try { const v = process.argv[1].split(".").reduce((o, k) => (o == null ? undefined : o[k]), JSON.parse(s)); process.stdout.write(v == null ? "" : String(v)); }
+      catch { process.exit(1); }
+    });' "$1" 2>/dev/null || true
+}
+
+# An update tells the running daemon what changed, and no more than that: the configuration and .env are
+# re-read, and every workspace closes and reopens on the code on disk. Neither needs a new process.
+reload_daemon() {
+  cd "$ROOT"
+  node bin/thetis.js config reload
+  node bin/thetis.js reload --all
+}
+if [ "$UPDATE" = 1 ]; then
+  if daemon_running; then run "Reload: configuration, .env and every workspace" reload_daemon
+  else skip "no daemon is running on $HOME_DIR/thetis.sock: nothing to reload"; fi
+fi
+
 # The unit, from the template in the checkout with this host's four paths written in. Never the template
 # as it is: its paths are placeholders, and a unit that looks installed and is not fails on the next restart.
-unit() {
-  local tmp; tmp=$(mktemp)
+render_unit() { # <file>
   sed -e "s|^User=.*|User=$(id -un)|" -e "s|^Group=.*|Group=$(id -gn)|" \
       -e "s|^WorkingDirectory=.*|WorkingDirectory=$ROOT|" \
       -e "s|^ExecStart=.*|ExecStart=$NODE $ROOT/bin/thetis.js serve|" \
-      "$ROOT/deploy/thetis-runtime.service" >"$tmp"
-  $SUDO install -m 644 "$tmp" "$UNIT_PATH"; rm -f "$tmp"
-  $SUDO systemctl daemon-reload
-  $SUDO systemctl enable "$UNIT" >/dev/null 2>&1
-  if systemctl is-active --quiet "$UNIT"; then $SUDO systemctl restart "$UNIT"; else $SUDO systemctl start "$UNIT"; fi
+      "$ROOT/deploy/thetis-runtime.service" >"$1"
+}
+
+# Waits for the door, then prints the status. If the unit stops or stays silent, the last journal lines.
+await_door() {
   local i=0
   until curl -fsS -o /dev/null "http://$DOOR_HOST:$DOOR_PORT/login" 2>/dev/null; do
     i=$((i + 1)); [ "$i" -gt 90 ] && { echo "the door did not answer within 90s"; $SUDO journalctl -u "$UNIT" -n 40 --no-pager; return 1; }
@@ -447,10 +476,77 @@ unit() {
   echo "door answered after ${i}s"
   cd "$ROOT" && node bin/thetis.js status
 }
+
+# A fresh install: the unit goes in, is enabled, and is started.
+unit_install() {
+  local tmp; tmp=$(mktemp); render_unit "$tmp"
+  $SUDO install -m 644 "$tmp" "$UNIT_PATH"; rm -f "$tmp"
+  $SUDO systemctl daemon-reload
+  $SUDO systemctl enable "$UNIT" >/dev/null 2>&1
+  if systemctl is-active --quiet "$UNIT"; then $SUDO systemctl restart "$UNIT"; else $SUDO systemctl start "$UNIT"; fi
+  await_door
+}
+
+# A new daemon process, asked of the daemon itself: `thetis restart` waits for every turn everywhere to end,
+# counts down where everyone can see it, and exits so that systemd starts it again. `systemctl restart`, which
+# cuts every turn, only when the latch refuses (not supervised, up for under a minute, or a unit whose
+# Restart= is not always).
+restart_daemon() {
+  local before after i=0
+  before=$(status_field daemon.startedAt)
+  if (cd "$ROOT" && node bin/thetis.js restart --yes --reason "install.sh: daemon code updated"); then
+    while [ "$i" -lt 90 ]; do
+      i=$((i + 1)); sleep 1
+      after=$(status_field daemon.startedAt)
+      if [ -n "$after" ] && [ "$after" != "$before" ]; then echo "the daemon restarted itself after ${i}s (started $after)"; return 0; fi
+    done
+    echo "the restart is still armed after 90s: the daemon is waiting for every turn to end and goes by its own deadline; it is not forced here"
+    return 0
+  fi
+  echo "the daemon refused to restart itself (see above); restarting $UNIT"
+  $SUDO systemctl restart "$UNIT"
+}
+
+# An update: the unit is rendered again and installed only when it differs from the deployed one, and a new
+# daemon process happens only when that unit changed or the daemon reports its own code stale. An update that
+# changed only packages restarts nothing; the reload step above already put it into service.
+unit_update() {
+  local tmp changed=0 stale
+  tmp=$(mktemp); render_unit "$tmp"
+  if [ -f "$UNIT_PATH" ] && cmp -s "$tmp" "$UNIT_PATH"; then
+    echo "unit unchanged: $UNIT_PATH"
+  else
+    changed=1
+    $SUDO install -m 644 "$tmp" "$UNIT_PATH"
+    $SUDO systemctl daemon-reload
+    echo "unit changed: installed $UNIT_PATH"
+  fi
+  rm -f "$tmp"
+  $SUDO systemctl enable "$UNIT" >/dev/null 2>&1
+  if ! systemctl is-active --quiet "$UNIT"; then
+    echo "$UNIT was not running: starting it"
+    $SUDO systemctl start "$UNIT"
+    await_door; return
+  fi
+  stale=$(status_field daemon.stale)
+  case "$stale" in
+    true) echo "the daemon is running older code than what is on disk" ;;
+    false) echo "the daemon is on the code on disk" ;;
+    *) echo "could not read thetis status --json; only a changed unit restarts the daemon" ;;
+  esac
+  if [ "$changed" = 1 ] || [ "$stale" = true ]; then restart_daemon
+  else echo "no restart: nothing the daemon holds has changed"; fi
+  await_door
+}
+
 if [ "$SERVICE" = 1 ]; then
   [ "$SUDO" = sudo ] && sudo -v </dev/tty
-  run "Service: $UNIT, enabled and started" unit
-elif [ -f "$UNIT_PATH" ]; then skip "service left alone (--no-service); restart it yourself: sudo systemctl restart $UNIT"
+  if [ "$UPDATE" = 1 ]; then run "Service: $UNIT, restarted only if the daemon changed" unit_update
+  else run "Service: $UNIT, enabled and started" unit_install; fi
+elif [ "$UPDATE" = 1 ] && daemon_running; then
+  if [ "$(status_field daemon.stale)" = true ]; then skip "service left alone (--no-service); the daemon runs older code than what is on disk: thetis restart --reason \"daemon code updated\""
+  else skip "service left alone (--no-service); the daemon is on the code on disk, nothing to restart"; fi
+elif [ -f "$UNIT_PATH" ]; then skip "service left alone (--no-service); start it yourself: sudo systemctl start $UNIT"
 else skip "service not installed (--no-service)"; fi
 
 # ---------------------------------------------------------------------------------------------------
