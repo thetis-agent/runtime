@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-22T08:10:08.242Z",
-  "digest": "sha256:dacededd0e4067074925dd48677c8e2193df65e7859d23c0fd29d738c6dd2ec5",
+  "generatedAt": "2026-09-22T09:29:07.040Z",
+  "digest": "sha256:019fb1aad5b44e00d9043800201d2e10ffa8f6758b0ea9ad5bf825113c725d53",
   "inputs": {
     "probe": "A",
     "suite": {
@@ -32,7 +32,7 @@
       {
         "id": "thetis-skills-hybrid",
         "packages": [
-          "@thetis/skills-hybrid@0.2.0"
+          "@thetis/skills-hybrid@0.2.1"
         ]
       },
       {
@@ -88,7 +88,7 @@
         "packages": [
           "@thetis/exa@0.1.0",
           "@thetis/skills-all@0.1.0",
-          "@thetis/skills-hybrid@0.2.0",
+          "@thetis/skills-hybrid@0.2.1",
           "@thetis/skills-l1@0.1.0",
           "@thetis/terminal@0.1.0",
           "@thetis/tool-exec@0.1.0",
@@ -170,10 +170,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 7.285714285714286,
-        "lower": 6.571428571428571,
-        "upper": 8.285714285714286,
-        "mde": 0.8571428571428577,
+        "mean": 7.428571428571429,
+        "lower": 6.857142857142857,
+        "upper": 7.857142857142857,
+        "mde": 0.5,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -193,17 +193,17 @@
     },
     "all": {
       "bytes_system": {
-        "mean": 2459,
-        "lower": 2459,
-        "upper": 2459,
-        "mde": 0,
+        "mean": 2456.8571428571427,
+        "lower": 2454.714285714286,
+        "upper": 2458.5714285714284,
+        "mde": 1.9285714285713311,
         "n": 7
       },
       "bytes_tools": {
-        "mean": 825,
-        "lower": 825,
-        "upper": 825,
-        "mde": 0,
+        "mean": 4243.142857142857,
+        "lower": 1631.142857142857,
+        "upper": 7439.571428571428,
+        "mde": 2904.214285714286,
         "n": 7
       },
       "bytes_messages": {
@@ -214,17 +214,17 @@
         "n": 7
       },
       "bytes_turn1": {
-        "mean": 3387.714285714286,
-        "lower": 3362.8571428571427,
-        "upper": 3406,
-        "mde": 21.57142857142867,
+        "mean": 6803.714285714285,
+        "lower": 4165.571428571428,
+        "upper": 10019,
+        "mde": 2926.714285714286,
         "n": 7
       },
       "bytes_last": {
-        "mean": 3536.4285714285716,
-        "lower": 3489.8571428571427,
-        "upper": 3573.285714285714,
-        "mde": 41.71428571428578,
+        "mean": 6952.428571428572,
+        "lower": 4305.857142857143,
+        "upper": 10188.142857142857,
+        "mde": 2941.142857142857,
         "n": 7
       },
       "prefix_stable": {
@@ -242,10 +242,10 @@
         "n": 7
       },
       "tools_n": {
-        "mean": 1,
-        "lower": 1,
-        "upper": 1,
-        "mde": 0,
+        "mean": 5.857142857142857,
+        "lower": 1.8571428571428572,
+        "upper": 11,
+        "mde": 4.571428571428571,
         "n": 7
       },
       "steps_n": {
@@ -256,10 +256,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 78.71428571428571,
-        "lower": 77,
-        "upper": 80.14285714285714,
-        "mde": 1.5714285714285694,
+        "mean": 391.42857142857144,
+        "lower": 348.14285714285717,
+        "upper": 448.2857142857143,
+        "mde": 50.071428571428555,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -342,10 +342,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 9.571428571428571,
-        "lower": 8.714285714285714,
-        "upper": 10.285714285714286,
-        "mde": 0.7857142857142865,
+        "mean": 9.714285714285714,
+        "lower": 9,
+        "upper": 10.428571428571429,
+        "mde": 0.7142857142857144,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -428,10 +428,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 10.714285714285714,
-        "lower": 9.857142857142858,
-        "upper": 11.571428571428571,
-        "mde": 0.8571428571428568,
+        "mean": 9.285714285714286,
+        "lower": 8.285714285714286,
+        "upper": 10.142857142857142,
+        "mde": 0.9285714285714279,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -514,10 +514,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 11.142857142857142,
-        "lower": 10.142857142857142,
-        "upper": 12.285714285714286,
-        "mde": 1.071428571428572,
+        "mean": 11.714285714285714,
+        "lower": 10.857142857142858,
+        "upper": 12.428571428571429,
+        "mde": 0.7857142857142856,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -600,10 +600,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 10.714285714285714,
-        "lower": 10.142857142857142,
-        "upper": 11.285714285714286,
-        "mde": 0.5714285714285721,
+        "mean": 10.428571428571429,
+        "lower": 9.714285714285714,
+        "upper": 11.142857142857142,
+        "mde": 0.7142857142857144,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -686,10 +686,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 7.714285714285714,
-        "lower": 7.285714285714286,
-        "upper": 8,
-        "mde": 0.3571428571428572,
+        "mean": 6.142857142857143,
+        "lower": 5.285714285714286,
+        "upper": 6.714285714285714,
+        "mde": 0.7142857142857144,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -772,9 +772,9 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 7.428571428571429,
-        "lower": 6.571428571428571,
-        "upper": 8,
+        "mean": 8.142857142857142,
+        "lower": 7.428571428571429,
+        "upper": 8.857142857142858,
         "mde": 0.7142857142857144,
         "n": 7
       },
@@ -859,9 +859,9 @@
       },
       "assemble_ms": {
         "mean": 14.714285714285714,
-        "lower": 13.714285714285714,
-        "upper": 15.714285714285714,
-        "mde": 1,
+        "lower": 14.142857142857142,
+        "upper": 15.571428571428571,
+        "mde": 0.7142857142857144,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -944,10 +944,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 15.142857142857142,
-        "lower": 14.285714285714286,
-        "upper": 16.285714285714285,
-        "mde": 0.9999999999999991,
+        "mean": 14.714285714285714,
+        "lower": 14.428571428571429,
+        "upper": 15,
+        "mde": 0.2857142857142856,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -1030,10 +1030,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 13.285714285714286,
-        "lower": 12.571428571428571,
-        "upper": 14,
-        "mde": 0.7142857142857144,
+        "mean": 14.428571428571429,
+        "lower": 13.142857142857142,
+        "upper": 16,
+        "mde": 1.4285714285714288,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -1116,10 +1116,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 8.142857142857142,
-        "lower": 7.285714285714286,
-        "upper": 8.857142857142858,
-        "mde": 0.785714285714286,
+        "mean": 7.142857142857143,
+        "lower": 6.285714285714286,
+        "upper": 8,
+        "mde": 0.8571428571428572,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -1202,10 +1202,10 @@
         "n": 7
       },
       "assemble_ms": {
-        "mean": 8.428571428571429,
-        "lower": 8.142857142857142,
-        "upper": 8.714285714285714,
-        "mde": 0.2857142857142856,
+        "mean": 7.142857142857143,
+        "lower": 6.428571428571429,
+        "upper": 7.857142857142857,
+        "mde": 0.714285714285714,
         "n": 7
       },
       "non_ascii_ratio": {
@@ -1229,10 +1229,10 @@
     "all": {
       "bytes_system": {
         "interval": {
-          "mean": 1432,
-          "lower": 1432,
-          "upper": 1432,
-          "mde": 0,
+          "mean": 1429.857142857143,
+          "lower": 1427.7142857142858,
+          "upper": 1431.5714285714287,
+          "mde": 1.9285714285714448,
           "n": 7
         },
         "wins": 7,
@@ -1242,10 +1242,10 @@
       },
       "bytes_tools": {
         "interval": {
-          "mean": 823,
-          "lower": 823,
-          "upper": 823,
-          "mde": 0,
+          "mean": 4241.142857142857,
+          "lower": 1629.142857142857,
+          "upper": 7437.571428571428,
+          "mde": 2904.214285714286,
           "n": 7
         },
         "wins": 7,
@@ -1268,10 +1268,10 @@
       },
       "bytes_turn1": {
         "interval": {
-          "mean": 2255,
-          "lower": 2255,
-          "upper": 2255,
-          "mde": 0,
+          "mean": 5671,
+          "lower": 3060.714285714286,
+          "upper": 8696.142857142857,
+          "mde": 2817.7142857142853,
           "n": 7
         },
         "wins": 7,
@@ -1281,10 +1281,10 @@
       },
       "bytes_last": {
         "interval": {
-          "mean": 2255,
-          "lower": 2255,
-          "upper": 2255,
-          "mde": 0,
+          "mean": 5671,
+          "lower": 3060.714285714286,
+          "upper": 8865.285714285714,
+          "mde": 2902.2857142857138,
           "n": 7
         },
         "wins": 7,
@@ -1320,10 +1320,10 @@
       },
       "tools_n": {
         "interval": {
-          "mean": 1,
-          "lower": 1,
-          "upper": 1,
-          "mde": 0,
+          "mean": 5.857142857142857,
+          "lower": 1.8571428571428572,
+          "upper": 11,
+          "mde": 4.571428571428571,
           "n": 7
         },
         "wins": 7,
@@ -1346,10 +1346,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 71.42857142857143,
-          "lower": 68.85714285714286,
-          "upper": 73.42857142857143,
-          "mde": 2.2857142857142847,
+          "mean": 384,
+          "lower": 340.14285714285717,
+          "upper": 439.2857142857143,
+          "mde": 49.571428571428555,
           "n": 7
         },
         "wins": 7,
@@ -1505,15 +1505,15 @@
       "assemble_ms": {
         "interval": {
           "mean": 2.2857142857142856,
-          "lower": 0.7142857142857143,
-          "upper": 3.5714285714285716,
-          "mde": 1.4285714285714286,
+          "lower": 1.2857142857142858,
+          "upper": 3.2857142857142856,
+          "mde": 0.9999999999999999,
           "n": 7
         },
         "wins": 6,
-        "ties": 0,
-        "losses": 1,
-        "p": 0.04697651174412794
+        "ties": 1,
+        "losses": 0,
+        "p": 0.03498250874562719
       },
       "non_ascii_ratio": {
         "interval": {
@@ -1662,16 +1662,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 3.4285714285714284,
-          "lower": 2,
-          "upper": 4.714285714285714,
-          "mde": 1.3571428571428572,
+          "mean": 1.8571428571428572,
+          "lower": 0.7142857142857143,
+          "upper": 3,
+          "mde": 1.1428571428571428,
           "n": 7
         },
         "wins": 6,
-        "ties": 1,
-        "losses": 0,
-        "p": 0.03948025987006497
+        "ties": 0,
+        "losses": 1,
+        "p": 0.07396301849075462
       },
       "non_ascii_ratio": {
         "interval": {
@@ -1820,10 +1820,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 3.857142857142857,
-          "lower": 2.5714285714285716,
-          "upper": 5.285714285714286,
-          "mde": 1.357142857142857,
+          "mean": 4.285714285714286,
+          "lower": 3.5714285714285716,
+          "upper": 5,
+          "mde": 0.7142857142857142,
           "n": 7
         },
         "wins": 7,
@@ -1978,10 +1978,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 3.4285714285714284,
-          "lower": 2.4285714285714284,
-          "upper": 4.285714285714286,
-          "mde": 0.9285714285714286,
+          "mean": 3,
+          "lower": 2.142857142857143,
+          "upper": 3.7142857142857144,
+          "mde": 0.7857142857142858,
           "n": 7
         },
         "wins": 7,
@@ -2136,16 +2136,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.42857142857142855,
-          "lower": -0.7142857142857143,
-          "upper": 1,
-          "mde": 0.8571428571428572,
+          "mean": -1.2857142857142858,
+          "lower": -2.2857142857142856,
+          "upper": -0.42857142857142855,
+          "mde": 0.9285714285714285,
           "n": 7
         },
-        "wins": 6,
-        "ties": 0,
-        "losses": 1,
-        "p": 0.6786606696651675
+        "wins": 0,
+        "ties": 2,
+        "losses": 5,
+        "p": 0.06446776611694154
       },
       "non_ascii_ratio": {
         "interval": {
@@ -2294,16 +2294,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.14285714285714285,
-          "lower": -1,
-          "upper": 1.1428571428571428,
-          "mde": 1.0714285714285714,
+          "mean": 0.7142857142857143,
+          "lower": 0,
+          "upper": 1.4285714285714286,
+          "mde": 0.7142857142857143,
           "n": 7
         },
         "wins": 4,
-        "ties": 1,
-        "losses": 2,
-        "p": 1
+        "ties": 2,
+        "losses": 1,
+        "p": 0.25787106446776614
       },
       "non_ascii_ratio": {
         "interval": {
@@ -2452,10 +2452,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 7.428571428571429,
-          "lower": 6,
-          "upper": 8.714285714285714,
-          "mde": 1.3571428571428568,
+          "mean": 7.285714285714286,
+          "lower": 6.571428571428571,
+          "upper": 8,
+          "mde": 0.7142857142857144,
           "n": 7
         },
         "wins": 7,
@@ -2610,10 +2610,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 7.857142857142857,
-          "lower": 6.857142857142857,
-          "upper": 9,
-          "mde": 1.0714285714285716,
+          "mean": 7.285714285714286,
+          "lower": 7,
+          "upper": 7.857142857142857,
+          "mde": 0.4285714285714284,
           "n": 7
         },
         "wins": 7,
@@ -2768,10 +2768,10 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 6,
-          "lower": 5,
-          "upper": 7,
-          "mde": 1,
+          "mean": 7,
+          "lower": 5.714285714285714,
+          "upper": 8.285714285714286,
+          "mde": 1.285714285714286,
           "n": 7
         },
         "wins": 7,
@@ -2926,16 +2926,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 0.8571428571428571,
-          "lower": -0.14285714285714285,
-          "upper": 1.7142857142857142,
-          "mde": 0.9285714285714285,
+          "mean": -0.2857142857142857,
+          "lower": -1.2857142857142858,
+          "upper": 0.7142857142857143,
+          "mde": 1,
           "n": 7
         },
-        "wins": 4,
+        "wins": 3,
         "ties": 1,
-        "losses": 2,
-        "p": 0.25737131434282856
+        "losses": 3,
+        "p": 0.8320839580209896
       },
       "non_ascii_ratio": {
         "interval": {
@@ -3084,16 +3084,16 @@
       },
       "assemble_ms": {
         "interval": {
-          "mean": 1.1428571428571428,
-          "lower": 0,
-          "upper": 1.8571428571428572,
-          "mde": 0.9285714285714286,
+          "mean": -0.2857142857142857,
+          "lower": -1.2857142857142858,
+          "upper": 0.8571428571428571,
+          "mde": 1.0714285714285714,
           "n": 7
         },
-        "wins": 6,
-        "ties": 0,
-        "losses": 1,
-        "p": 0.16591704147926037
+        "wins": 2,
+        "ties": 2,
+        "losses": 3,
+        "p": 0.7996001999000499
       },
       "non_ascii_ratio": {
         "interval": {
@@ -3140,18 +3140,18 @@
   },
   "latency": {
     "none": 1,
-    "all": 10.8,
+    "all": 52.69,
     "thetis-exa": 1.31,
-    "thetis-skills-all": 1.47,
-    "thetis-skills-hybrid": 1.53,
-    "thetis-skills-l1": 1.47,
-    "thetis-terminal": 1.06,
-    "thetis-tool-exec": 1.02,
-    "thetis-tool-groups": 2.02,
-    "thetis-tool-groups-fusion": 2.08,
-    "thetis-tool-groups-lexical": 1.82,
-    "thetis-tools-files": 1.12,
-    "thetis-tools-plan": 1.16
+    "thetis-skills-all": 1.25,
+    "thetis-skills-hybrid": 1.58,
+    "thetis-skills-l1": 1.4,
+    "thetis-terminal": 0.83,
+    "thetis-tool-exec": 1.1,
+    "thetis-tool-groups": 1.98,
+    "thetis-tool-groups-fusion": 1.98,
+    "thetis-tool-groups-lexical": 1.94,
+    "thetis-tools-files": 0.96,
+    "thetis-tools-plan": 0.96
   },
   "conformance": {
     "none": {
@@ -3247,7 +3247,6 @@
     }
   },
   "notes": [
-    "Every task received the same tools, because nothing installed here decides what to attach per query. So recall is one by construction and means nothing; precision and the wasted bytes are the real figures, and they are the headroom a tool-attention package would have.",
     "Suite assembly-cost@1 names nothing a task needed, so recall, overshoot and completeness are not computed — only footprint.",
     "Only 2 control tasks. An arm that bloats the prompt is best caught on tasks no capability should help with; this suite has few.",
     "7 tasks is below the 50 at which a percentage is worth quoting. Read the win/tie/loss counts, not the means."
