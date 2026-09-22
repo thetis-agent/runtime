@@ -8,7 +8,22 @@ Each package has a `README.md` describing what it does and what enforces it. The
 `packages/skills-thetis/skills/thetis/` are the documentation an agent reads to use Thetis and to change
 it: start at `thetis/using`, and at `thetis/developing` for the host-side build, test and guard rules.
 
-## Quick start
+## Install
+
+One command puts a whole installation on a Linux machine with systemd: Node 24 under `~/.local`, the
+fence's OS packages (bubblewrap, slirp4netns), both repositories under `/opt/zero/runtime`, the data
+directory at `/opt/zero/data`, the first admin, and `thetis-runtime.service` with this host's real
+paths, started and checked:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/thetis-agent/runtime/main/deploy/install.sh | bash
+```
+
+It asks for the prefix, the admin, the listen address and the OpenRouter key; `bash -s -- -y` takes
+the defaults and the environment instead (`OPENROUTER_API_KEY`, `THETIS_ADMIN_PASSWORD`). Run it again
+to update. `--help` lists every option; `deploy/install.sh` is the script.
+
+## Quick start (a development checkout)
 
 ```sh
 git submodule update --init   # after a fresh clone: packages/ is a submodule
@@ -36,7 +51,7 @@ tests it with `exec`, calls `install_package`, and the step and tool are live on
 |---|---|
 | `bin/thetis.js` | Command-line entry point. |
 | `packages/` | Git submodule with all packages. Service plane: `contracts`, `lib`, `sandbox`, `kernel`, `host`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core`, `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`. On the host: `gateway-cli`, `door`, `bench`. |
-| `deploy/` | The systemd unit for `thetis serve`. |
+| `deploy/` | `install.sh`, the one-command installer and updater, and the systemd unit template it fills in for `thetis serve`. |
 | `bench/` | Benchmark reports, one per suite. Written by `thetis bench run --write`. See `packages/bench/README.md`. |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |
 

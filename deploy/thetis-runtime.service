@@ -1,9 +1,11 @@
 # Thetis runtime: the kernel daemon, its control socket, the door on the configured port, and every installed
 # service (the login target in the system userspace, one web gateway per person). Delegate=yes hands the unit's
 # cgroup to the kernel so each fence gets its memory, pid and cpu limits.
-# Install:  sudo cp deploy/thetis-runtime.service /etc/systemd/system/ && sudo systemctl daemon-reload
+# This is a template: User=, Group=, WorkingDirectory= and ExecStart= are placeholders. deploy/install.sh writes
+# the installed unit with this host's real paths; do not copy this file over a deployed one. By hand, adapt
+# those four lines, then: sudo install -m 644 <unit> /etc/systemd/system/ && sudo systemctl daemon-reload
 #           sudo systemctl enable --now thetis-runtime.service
-# The CLI in this checkout talks to the running daemon through .thetis/thetis.sock.
+# The CLI talks to the running daemon through $THETIS_HOME/thetis.sock.
 [Unit]
 Description=Thetis runtime (kernel daemon and services)
 After=network-online.target

@@ -1,4 +1,7 @@
 #!/bin/sh
+# HISTORICAL: this ran once on 2026-09-14 and is kept for the record. Line 7 copies the unit template with
+# its placeholder paths over the deployed unit, which breaks a current installation on its next restart;
+# deploy/install.sh is what installs or updates a unit now.
 # One-time migration of a running deployment to the door: the unit gains Delegate=yes, the login target
 # moves into the system userspace, and each person gets their own web gateway. Run from the runtime
 # directory as the operator. The config must already name the door and the login target (09-configuration.md).
