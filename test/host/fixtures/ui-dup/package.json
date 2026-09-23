@@ -1,0 +1,12 @@
+{
+  "name": "@alice/ui-dup",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "A test fixture: claims the dock id ui-good already holds.",
+  "type": "module",
+  "main": "index.js",
+  "thetis": {
+    "type": "tool",
+    "ui": { "dir": "ui", "entry": "index.js", "dock": [{ "id": "good", "label": "Also good" }], "panel": [{ "id": "people", "label": "Other people" }] }
+  }
+}

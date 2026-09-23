@@ -4,7 +4,12 @@ A multi-user recursive language model service with a continual harness. The mode
 work by writing code that runs in its own fenced userspace. That code can rewrite the harness
 the model runs inside: prompt, tools, memory, subagents.
 
-Each package has a `README.md` describing what it does and what enforces it. The skills in
+The kernel runtime is a plain TypeScript library in [`src/`](src/), exported as `@thetis/runtime`.
+Its entry point is [`src/index.ts`](src/index.ts); importing it starts no process or server.
+The separate `packages/` repository contains extensions and host applications, including the CLI.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the module boundaries and the SOLID, DRY, IoC and DI rules.
+
+Each core module and extension has a `README.md` describing what it does and what enforces it. The skills in
 `packages/skills-thetis/skills/thetis/` are the documentation an agent reads to use Thetis and to change
 it: start at `thetis/using`, and at `thetis/developing` for the host-side build, test and guard rules.
 
@@ -109,18 +114,20 @@ updated, the build redone, `.env` and the users kept. Then the running daemon is
 no more than that: `thetis config reload` re-reads the configuration and `.env`, `thetis reload --all`
 puts the package code on disk into every workspace, and a new daemon process is asked for only when the
 rendered unit differs from the installed one or `thetis status --json` reports the daemon itself stale.
-That restart is the daemon's own, `thetis restart --yes --reason "install.sh: daemon code updated"`: it
+When daemon code changed, workspace reload is deferred to the new process so the old daemon cannot
+reopen fences using an obsolete guest entry path. That restart is the daemon's own,
+`thetis restart --yes --reason "install.sh: daemon code updated"`: it
 waits for every turn to end, counts down where everyone can see it, and exits so systemd starts it again;
 `systemctl restart` is the fallback only when the latch refuses. An update that changes only packages
 restarts nothing, and `thetis status` then says every process is on the code on disk. `--uninstall`
 disables and removes the unit and the launcher and leaves `<prefix>/runtime` and `<prefix>/data` in
 place; `rm -rf` those to remove everything.
 
-The rule behind that: the daemon (`kernel`, `host`, `sandbox`, `door`, `lib`, `contracts`, `gateway-cli`)
+The rule behind that: the runtime modules in `src/` and the `gateway-cli` host adapter
 carries no user-facing behaviour. It runs steps and moves data, and the only reason for a new process is a
 bug of its own. Everything else is a package, and a package change is live on its next call, on
 `thetis reload`, or on `thetis config reload`. A feature that seems to need the daemon is a feature in
-the wrong package; `packages/kernel/README.md` lists the frozen seams.
+the wrong package; `src/kernel/README.md` lists the frozen seams.
 
 ## Quick start (a development checkout)
 
@@ -145,12 +152,41 @@ prompt step that injects the current time. Install it."* It writes `home/package
 tests it with the shell, calls `install_package`, and the step and tool are live on the next turn. Nothing
 is restarted for that, and nothing ever needs to be: see "Updating and removing".
 
+## Runtime library
+
+`npm run build:runtime` builds only the runtime; it needs no extension source or third-party runtime
+dependency. `npm run build` also builds the extension workspaces and tests.
+
+```ts
+import { createKernel, defaultConfig, T } from "@thetis/runtime";
+import { memoryStore } from "@thetis/runtime/lib/store";
+
+const config = defaultConfig(home, projectRoot);
+config.systemPackages = {}; // The embedding application chooses its extensions.
+const kernel = await createKernel(config, (container) => {
+  container.bind(T.store, () => memoryStore());
+  container.bind(T.fence, () => myFence); // Implements the exported Fence interface.
+});
+// Use kernel.users and kernel.sessions; the caller owns the lifetime.
+await kernel.shutdown();
+```
+
+The supplied configuration defaults keep the standard installation working. An embedding application
+can choose its own package list and storage driver, or inject storage and fence implementations directly.
+The runtime does not import a provider, model loop, tool, gateway, or storage-driver package.
+
 ## Layout
 
 | Path | Content |
 |---|---|
+| `src/index.ts` | Public runtime library API: `createKernel`, configuration, typed IoC tokens and adapter interfaces. |
+| `src/kernel/` | Authorization, package ownership, session coordination and pipeline dispatch. |
+| `src/contracts/`, `src/lib/` | Shared contracts and supporting mechanisms. |
+| `src/host/` | Composition root: constructs services and injects storage, fences and host extensions. |
+| `src/sandbox/`, `src/userspace-agent/`, `src/door/` | Process isolation, the guest executor and HTTP routing. |
+| `test/` | Runtime unit, architecture and integration tests; fixtures live here with their tests. |
 | `bin/thetis.js` | Command-line entry point. |
-| `packages/` | Git submodule with all packages. The daemon: `contracts`, `lib`, `sandbox`, `kernel`, `host`, `door`, `gateway-cli`. Inside the fence: `userspace-agent`, `provider-openrouter`, `prompt-cache`, `marketplace`, `harness-core` (the model-call loop, as the `call` step of phase `execute`), `tool-exec`, `tools-files`, `tools-plan`, `exa`, `gateway-web`, `gateway-login`, and the rest. Loaded by the host process, never into a fence: `store-toml` (type `storage`), `host-grants` (type `host`: mounts and ssh keys). On the host: `bench`. |
+| `packages/` | Git submodule containing extensions: the harness, providers, tools, gateways, skills, storage drivers and host extensions. Also contains the CLI adapter and benchmark application. Core implementation is owned by this runtime repository. |
 | `deploy/` | `install.sh`, the one-command installer and updater, and the systemd unit template it fills in for `thetis serve`. |
 | `bench/` | Benchmark reports, one per suite. Written by `thetis bench run --write`. See `packages/bench/README.md`. |
 | `.thetis/` | Data directory (config, users, registry, userspaces). Not committed. |

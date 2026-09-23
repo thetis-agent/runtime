@@ -1,0 +1,20 @@
+{
+  "name": "@thetis/config-probe",
+  "version": "0.0.1",
+  "description": "A tool package for tests: reports the configuration it received and keeps documents through env.storage().",
+  "type": "module",
+  "main": "index.js",
+  "thetis": {
+    "type": "tool",
+    "config": {
+      "token": { "type": "string", "secret": true, "required": true, "help": "A secret the tests set at a person's layer." },
+      "greeting": { "type": "string", "default": "hi", "help": "A plain key with a default." },
+      "mode": { "type": "string", "scope": "system", "help": "Set by an admin for everyone." }
+    },
+    "tools": [
+      { "name": "probe_config", "description": "Reports the configuration this tool received.", "parameters": { "type": "object", "properties": {} }, "export": "probeConfig" },
+      { "name": "store_put", "description": "Keeps a value under a key in this package's storage.", "parameters": { "type": "object", "properties": { "key": { "type": "string" }, "value": { "type": "string" } } }, "export": "storePut" },
+      { "name": "store_get", "description": "Reads the value kept under a key.", "parameters": { "type": "object", "properties": { "key": { "type": "string" } } }, "export": "storeGet" }
+    ]
+  }
+}

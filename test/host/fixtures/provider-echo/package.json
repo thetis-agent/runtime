@@ -1,0 +1,11 @@
+{
+  "name": "@thetis/provider-echo",
+  "version": "0.0.1",
+  "description": "A deterministic provider for tests: echoes the last message and asks for tools on cue.",
+  "type": "module",
+  "main": "index.js",
+  "thetis": {
+    "type": "provider",
+    "export": "createProvider"
+  }
+}

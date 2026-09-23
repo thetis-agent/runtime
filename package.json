@@ -1,5 +1,5 @@
 {
-  "name": "thetis",
+  "name": "@thetis/runtime",
   "version": "0.1.0",
   "license": "MIT",
   "private": true,
@@ -12,13 +12,49 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo",
-    "test": "npm run build && node --test \"packages/*/dist/test/**/*.test.js\" \"packages/*/test/**/*.test.js\"",
+    "clean": "rm -rf dist packages/*/dist packages/*/tsconfig.tsbuildinfo",
+    "test": "npm run build && node --test \"test/**/*.test.mjs\" \"dist/test/**/*.test.js\" \"packages/*/dist/test/**/*.test.js\" \"packages/*/test/**/*.test.js\"",
     "thetis": "node bin/thetis.js",
-    "bench": "node packages/bench/bin/bench.js"
+    "bench": "node packages/bench/bin/bench.js",
+    "build:runtime": "tsc -b tsconfig.runtime.json"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "typescript": "^5.9.2"
-  }
+  },
+  "description": "Thetis kernel runtime: a TypeScript library with explicit module boundaries and injectable host adapters.",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/src/contracts/index.d.ts",
+      "default": "./dist/src/contracts/index.js"
+    },
+    "./kernel": {
+      "types": "./dist/src/kernel/index.d.ts",
+      "default": "./dist/src/kernel/index.js"
+    },
+    "./sandbox": {
+      "types": "./dist/src/sandbox/index.d.ts",
+      "default": "./dist/src/sandbox/index.js"
+    },
+    "./door": {
+      "types": "./dist/src/door/index.d.ts",
+      "default": "./dist/src/door/index.js"
+    },
+    "./lib/*": {
+      "types": "./dist/src/lib/*.d.ts",
+      "default": "./dist/src/lib/*.js"
+    }
+  },
+  "files": [
+    "dist/src",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ]
 }

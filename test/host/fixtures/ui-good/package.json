@@ -1,0 +1,30 @@
+{
+  "name": "@alice/ui-good",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "A test fixture: a package that contributes UI to the web gateway.",
+  "type": "module",
+  "main": "index.js",
+  "thetis": {
+    "type": "tool",
+    "ui": {
+      "dir": "ui",
+      "entry": "index.js",
+      "style": "index.css",
+      "dock": [{ "id": "good", "label": "Good", "hint": "The fixture's dock panel", "icon": "M5 5h10v10H5z" }],
+      "panel": [{ "id": "people", "label": "People", "note": "Admins only.", "role": "admin" }],
+      "chips": [{ "id": "good" }],
+      "commands": [
+        { "verb": "echo", "export": "uiEcho", "label": "Say hi" },
+        { "verb": "slow", "export": "uiSlow" },
+        { "verb": "boom", "export": "uiBoom" },
+        { "verb": "admin-only", "export": "uiAdmin", "role": "admin" },
+        { "verb": "nofn", "export": "NOT_A_FUNCTION" },
+        { "verb": "ticks", "export": "uiTicks", "stream": true },
+        { "verb": "forever", "export": "uiForever", "stream": true },
+        { "verb": "erupt", "export": "uiErupt", "stream": true },
+        { "verb": "admin-ticks", "export": "uiAdminTicks", "stream": true, "role": "admin" }
+      ]
+    }
+  }
+}

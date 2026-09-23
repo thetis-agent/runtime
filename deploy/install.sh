@@ -452,7 +452,14 @@ reload_daemon() {
   node bin/thetis.js reload --all
 }
 if [ "$UPDATE" = 1 ]; then
-  if daemon_running; then run "Reload: configuration, .env and every workspace" reload_daemon
+  if daemon_running; then
+    # A running daemon may still hold the previous layout's guest entry path. Let the new daemon
+    # load its configuration and open its own fences instead of asking the old one to reopen them.
+    if [ "$(status_field daemon.stale)" = true ]; then
+      skip "daemon code changed: the new daemon will load the configuration and workspaces"
+    else
+      run "Reload: configuration, .env and every workspace" reload_daemon
+    fi
   else skip "no daemon is running on $HOME_DIR/thetis.sock: nothing to reload"; fi
 fi
 

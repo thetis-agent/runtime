@@ -1,0 +1,14 @@
+{
+  "name": "@thetis/config-svc",
+  "version": "0.0.1",
+  "description": "A service for tests: logs the configuration it started with, and when it stops.",
+  "type": "module",
+  "main": "index.js",
+  "thetis": {
+    "type": "service",
+    "service": { "export": "start" },
+    "config": {
+      "level": { "type": "string", "default": "quiet" }
+    }
+  }
+}

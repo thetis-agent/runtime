@@ -2,25 +2,13 @@
   "files": [],
   "references": [
     {
-      "path": "packages/contracts"
+      "path": "tsconfig.runtime.json"
     },
     {
-      "path": "packages/lib"
-    },
-    {
-      "path": "packages/sandbox"
-    },
-    {
-      "path": "packages/kernel"
-    },
-    {
-      "path": "packages/host"
+      "path": "tsconfig.test.json"
     },
     {
       "path": "packages/store-toml"
-    },
-    {
-      "path": "packages/userspace-agent"
     },
     {
       "path": "packages/prompt-cache"
@@ -36,9 +24,6 @@
     },
     {
       "path": "packages/marketplace"
-    },
-    {
-      "path": "packages/door"
     },
     {
       "path": "packages/gateway-login"

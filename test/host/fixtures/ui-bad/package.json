@@ -1,0 +1,12 @@
+{
+  "name": "@alice/ui-bad",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "A test fixture: a UI declaration whose entry lies outside its directory.",
+  "type": "module",
+  "main": "index.js",
+  "thetis": {
+    "type": "tool",
+    "ui": { "dir": "ui", "entry": "../index.js", "dock": [{ "id": "bad" }] }
+  }
+}
