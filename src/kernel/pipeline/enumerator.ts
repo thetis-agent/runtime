@@ -1,5 +1,7 @@
 import type { Fences, PackageInfo, SessionInfo, StepRef, Userspace } from "../../contracts/index.js";
 import { CodedError } from "../../lib/error.js";
+import { StepPlanSchema } from "../../contracts/schemas/pipeline.js";
+import { parseSchema } from "../../lib/validation.js";
 import type { KernelConfig } from "../config.js";
 import { declaresStep } from "../packages/manifest.js";
 
@@ -35,8 +37,7 @@ export class Enumerator {
   }
 
   validate(raw: unknown, packages: PackageInfo[]): StepRef[] {
-    if (!Array.isArray(raw)) throw new CodedError("enumerator must return an array of steps", "enumerator");
-    return raw.map((r: StepRef) => {
+    return parseSchema(StepPlanSchema, raw, "enumerator must return an array of steps", "enumerator").map((r) => {
       const pkg = packages.find((p) => p.name === r.package);
       if (!pkg || !declaresStep(pkg, r)) throw new CodedError(`enumerator scheduled undeclared step ${r.package}#${r.export}`, "enumerator");
       return { package: r.package, export: r.export, id: r.id ?? `${r.package}#${r.export}`, phase: r.phase };

@@ -8,9 +8,11 @@ import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type {
   EnumeratorContext, ExecOptions, KernelClient, PackageInfo, PackageQuery, PackageStepContext,
-  Provider, ProviderCall, ProviderEvent, ServiceEnv, ServiceHandle, SessionInfo, StepContext, StepEnv, StepResult, ToolEnv, TurnEvent, WatchedTurnEvent,
+  Provider, ProviderCall, ProviderEvent, ServiceEnv, ServiceHandle, SessionInfo, StepContext, StepEnv, ToolEnv, TurnEvent, WatchedTurnEvent,
 } from "../contracts/index.js";
 import { CodedError } from "../lib/error.js";
+import { StepResultSchema } from "../contracts/schemas/pipeline.js";
+import { parseSchema } from "../lib/validation.js";
 import { encodeFrame, PendingCalls, readFrames, type Frame, type OpenCall } from "../lib/rpc-frames.js";
 import { buildEnvFor, noStorage } from "./env.js";
 
@@ -175,8 +177,9 @@ const ops: { [K in Op]: Handler<K> } = {
   step: async (p, emit, signal) => {
     const fn = await loadExport(p.package, p.export);
     const ctx: PackageStepContext = { ...p.ctx, packages: packageQuery(p.ctx.packages), env: envFor(p.package), emit: (event: TurnEvent) => emit(event), signal };
-    const result = (await fn(ctx)) as StepResult | undefined;
-    if (!result) return null;
+    const raw = await fn(ctx);
+    if (raw == null) return null;
+    const result = parseSchema(StepResultSchema, raw, `step ${p.package}#${p.export} returned an invalid result`, "step");
     return { conversation: result.conversation, call: result.call, harness: result.harness };
   },
   enumerate: async (p) => {
@@ -314,7 +317,7 @@ async function dispatch(msg: Frame): Promise<void> {
     send({ id, result: result === undefined ? null : result });
   } catch (err) {
     // The stack goes back whole: package code failed, and its author needs the trace.
-    send({ id, error: err instanceof Error ? (err.stack ?? err.message) : String(err) });
+    send({ id, error: err instanceof Error ? (err.stack ?? err.message) : String(err), code: err instanceof CodedError ? err.code : undefined });
   } finally {
     clearInterval(beat);
     clearTimeout(clock);

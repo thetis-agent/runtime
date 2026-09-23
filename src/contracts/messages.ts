@@ -1,52 +1,24 @@
-import type { ContentPart, ContentEvent, ExtensionEvent, JsonValue } from "./content.js";
+import type { z } from "zod";
+import type { RoleSchema, ToolCallSchema, MessageSchema, ToolSpecSchema, ProviderCallSchema, ProviderEventSchema, ModelDescriptorSchema, ModelChoicesSchema } from "./schemas/messages.js";
+import type { ContentPart } from "./content.js";
 // The conversation and the provider request: what a model sees and what it answers.
 
-export type Role = "system" | "user" | "assistant" | "tool";
+export type Role = z.infer<typeof RoleSchema>;
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  args: Record<string, unknown>;
-}
+export type ToolCall = z.infer<typeof ToolCallSchema>;
 
-export interface Message {
-  role: Role;
-  id?: string;
-  content: ContentPart[];
-  extensions?: Record<string, JsonValue>;
-  toolCalls?: ToolCall[];
-  toolCallId?: string;
-  name?: string;
-}
+export type Message = z.infer<typeof MessageSchema>;
 
 /** Legacy text is accepted at API boundaries and normalized immediately. */
-export type MessageInput = Omit<Message, "content"> & { content: string | ContentPart[] };
+export type MessageInput = Pick<Message, "role" | "id" | "extensions" | "toolCalls" | "toolCallId" | "name"> & { content: string | ContentPart[] };
 export type TurnInput = string | MessageInput | MessageInput[];
 
 export type JsonSchema = Record<string, unknown>;
 
-export interface ToolSpec {
-  name: string;
-  description: string;
-  parameters: JsonSchema;
-  package: string;
-  export: string;
-}
+export type ToolSpec = z.infer<typeof ToolSpecSchema>;
 
 /** The parameterized provider request. Built by steps, sent by the harness's call step through `kernel.providers.call`. */
-export interface ProviderCall {
-  model: string;
-  system?: string;
-  messages: Message[];
-  tools: ToolSpec[];
-  params: Record<string, unknown>;
-  /**
-   * Hints, keyed by concern (for example `cache`, `withheld`). Never sent to the API and never read by the
-   * kernel, which carries the call as data: a provider reads the keys it understands, and the harness's call
-   * step reads `withheld`, the names of tools a scoping step took out of `tools` and still honours by name.
-   */
-  hints?: Record<string, unknown>;
-}
+export type ProviderCall = z.infer<typeof ProviderCallSchema>;
 
 /**
  * What a provider streams. `reasoning` is a reasoning model's thinking, and it is a kind of its own rather
@@ -54,25 +26,9 @@ export interface ProviderCall {
  * would put a wall of deliberation above every sentence the model meant to say. A provider that has no such
  * thing simply never yields it.
  */
-export type ProviderEvent =
-  | ContentEvent
-  | ExtensionEvent
-  /** Optional inspection capture: the serialized request body, without transport headers. */
-  | { type: "request"; body: Record<string, unknown>; at: string }
-  | { type: "text"; delta: string }
-  | { type: "reasoning"; delta: string }
-  | { type: "tool_call"; call: ToolCall }
-  | { type: "usage"; usage: Record<string, number> }
-  | { type: "error"; message: string };
+export type ProviderEvent = z.infer<typeof ProviderEventSchema>;
 
-export interface ModelDescriptor {
-  id: string;
-  name?: string;
-  provider?: string;
-}
+export type ModelDescriptor = z.infer<typeof ModelDescriptorSchema>;
 
 /** The models a userspace can call, and the configured default. */
-export interface ModelChoices {
-  model: string;
-  models: ModelDescriptor[];
-}
+export type ModelChoices = z.infer<typeof ModelChoicesSchema>;

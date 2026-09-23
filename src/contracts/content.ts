@@ -1,40 +1,24 @@
+import type { z } from "zod";
+import type { JsonValueSchema } from "./schemas/json.js";
+import type { ContentPartSchema, TextPartSchema, AssetPartSchema, ToolResultSchema, ContentEventSchema, ExtensionEventSchema } from "./schemas/content.js";
+
 /** JSON carried losslessly across processes. Binary data belongs in the asset store. */
-export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+export type JsonValue = z.infer<typeof JsonValueSchema>;
 
 /** An open content envelope. Packages own the schema of their namespaced types. */
-export interface ContentPart {
-  id?: string;
-  type: string;
-  data: JsonValue;
-}
+export type ContentPart = z.infer<typeof ContentPartSchema>;
 
-export interface TextPart extends ContentPart {
-  type: "text";
-  data: { text: string };
-}
+export type TextPart = z.infer<typeof TextPartSchema>;
 
-export interface AssetPart extends ContentPart {
-  type: "asset";
-  data: { id: string; mediaType: string; name?: string };
-}
+export type AssetPart = z.infer<typeof AssetPartSchema>;
 
 /** Explicit rich tool output, distinct from legacy objects rendered as JSON text. */
-export interface ToolResult {
-  type: "tool-result";
-  content: ContentPart[];
-}
+export type ToolResult = z.infer<typeof ToolResultSchema>;
 
 /** Legacy strings and objects remain accepted; rich results use the explicit ToolResult envelope. */
 export type ToolOutput = ToolResult | string | object;
 
 /** End carries the complete part; arbitrary deltas need not be understood to retain the final result. */
-export type ContentEvent =
-  | { type: "content.start"; messageId: string; part: ContentPart & { id: string } }
-  | { type: "content.delta"; messageId: string; partId: string; delta: JsonValue }
-  | { type: "content.end"; messageId: string; part: ContentPart & { id: string } };
+export type ContentEvent = z.infer<typeof ContentEventSchema>;
 
-export interface ExtensionEvent {
-  type: "extension";
-  name: string;
-  data: JsonValue;
-}
+export type ExtensionEvent = z.infer<typeof ExtensionEventSchema>;

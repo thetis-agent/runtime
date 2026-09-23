@@ -69,7 +69,8 @@ export interface KernelClient {
     list(): Promise<PackageInfo[]>;
   };
   operator: {
-    call<T = unknown>(method: string, args?: Record<string, unknown>, onEvent?: (event: unknown) => void): Promise<T>;
+    /** Extension methods own their result shapes; callers validate the unknown reply with their schema. */
+    call(method: string, args?: Record<string, unknown>, onEvent?: (event: unknown) => void): Promise<unknown>;
   };
   sessions: {
     create(parent?: string): Promise<SessionSummaryRef>;

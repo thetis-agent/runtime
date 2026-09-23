@@ -1,34 +1,23 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Manifest, PackageInfo, StepRef, ThetisField } from "../../contracts/index.js";
+import { z } from "zod";
+import type { Manifest, PackageInfo, StepRef } from "../../contracts/index.js";
+import { ManifestSchema } from "../../contracts/schemas/packages.js";
 import { validateDecls } from "../../lib/config.js";
-import { assert } from "../../lib/error.js";
+import { parseSchema } from "../../lib/validation.js";
 
-const SCOPED_NAME = /^@[a-z0-9-]+\/[a-z0-9._-]+$/;
+const ManifestConfigSchema = z.looseObject({ name: z.string(), thetis: z.looseObject({ config: z.unknown().optional() }) });
 
 export function readManifest(dir: string): Manifest {
-  const raw = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8")) as Manifest;
+  const raw: unknown = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8"));
   return validateManifest(raw);
 }
 
 /** Structural validation of the package.json shape the kernel relies on. */
-export function validateManifest(m: Manifest): Manifest {
-  assert(typeof m.name === "string" && SCOPED_NAME.test(m.name), `package name must be scoped (@scope/name): ${m.name}`);
-  assert(typeof m.version === "string", `${m.name}: version is required`);
-  const t = m.thetis as ThetisField | undefined;
-  assert(t && typeof t === "object" && typeof t.type === "string", `${m.name}: package.json needs a "thetis" field with a "type"`);
-  for (const s of t.steps ?? []) {
-    assert(s && typeof s.id === "string" && typeof s.phase === "string" && typeof s.export === "string", `${m.name}: each step needs id, phase, export`);
-  }
-  if (t.service !== undefined) assert(t.service && typeof t.service.export === "string", `${m.name}: service needs an export`);
-  const f = t.forkedFrom;
-  if (f !== undefined) assert(f && SCOPED_NAME.test(f.name) && typeof f.version === "string", `${m.name}: forkedFrom needs a scoped name and a version`);
-  for (const tool of t.tools ?? []) {
-    assert(tool && typeof tool.name === "string" && typeof tool.export === "string", `${m.name}: each tool needs name and export`);
-    assert(typeof tool.description === "string", `${m.name}: tool ${tool.name} needs a description`);
-  }
-  if (t.config !== undefined) validateDecls(m.name, t.config);
-  return m;
+export function validateManifest(raw: unknown): Manifest {
+  const config = ManifestConfigSchema.safeParse(raw);
+  if (config.success && config.data.thetis.config !== undefined) validateDecls(config.data.name, config.data.thetis.config);
+  return parseSchema(ManifestSchema, raw, "package.json");
 }
 
 export function scopeOf(name: string): string {

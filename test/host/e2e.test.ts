@@ -947,3 +947,34 @@ test("a malformed structured stream fails the turn without crashing its fence or
   assert.match(result.errors[0], /unopened part/);
   assert.equal(await kernel.sessions.askText("alice", session.id, "hello"), "echo: hello (t1)");
 });
+
+test("malformed step return values fail across a real fence before becoming empty results", async () => {
+  const session = kernel.sessions.create("alice");
+  const us = kernel.userspaces.pathFor("alice");
+  const dir = join(us.home, "packages", "malformed-step");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "package.json"), JSON.stringify({
+    name: "@alice/malformed-step", version: "1.0.0", type: "module", main: "index.js",
+    thetis: { type: "loader", steps: [{ id: "malformed", phase: "prompt", export: "run" }] },
+  }));
+  writeFileSync(join(dir, "index.js"), `export const run = (ctx) => ({ false: false, true: true, number: 3, string: "oops", array: [], null: null })[ctx.turn.input[0].content[0].data.text];`);
+  await kernel.packages.install(us, kernel.users.authorize("alice"), "packages/malformed-step");
+  try {
+    for (const input of ["null", "void"]) {
+      const result = await collect(kernel.sessions.send("alice", session.id, input));
+      assert.deepEqual(result.errors, [], `${input} is a valid no-op`);
+    }
+    for (const input of ["false", "true", "number", "string", "array"]) {
+      const result = await collect(kernel.sessions.send("alice", session.id, input));
+      const failures = result.all.filter((event) => event.type === "error");
+      assert.equal(failures.length, 1, `${input} must fail as a step result`);
+      assert.equal(failures[0].code, "step");
+      assert.match(failures[0].message, /invalid result/);
+      assert.equal(result.all.at(-1)?.type, "turn.end");
+      assert.equal(kernel.sessions.inspect("alice", session.id).status, "idle");
+    }
+  } finally {
+    await kernel.packages.uninstall(us, "@alice/malformed-step");
+  }
+  assert.equal(await kernel.sessions.askText("alice", session.id, "hello"), "echo: hello (t1)", "the same fence remains usable");
+});

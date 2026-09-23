@@ -1,5 +1,7 @@
 // The fence: the boundary around one userspace. The kernel depends on these interfaces; the sandbox package implements them.
 import type { Userspace } from "./identity.js";
+import type { z } from "zod";
+import type { ExecResultSchema } from "./schemas/fence.js";
 
 export type EventSink = (event: unknown) => void;
 
@@ -35,8 +37,4 @@ export interface Fences {
   loadedVersions?(): Record<string, Record<string, string>>;
 }
 
-export interface ExecResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
+export type ExecResult = z.infer<typeof ExecResultSchema>;

@@ -49,6 +49,10 @@
     "./lib/*": {
       "types": "./dist/src/lib/*.d.ts",
       "default": "./dist/src/lib/*.js"
+    },
+    "./schemas": {
+      "types": "./dist/src/contracts/schemas/index.d.ts",
+      "import": "./dist/src/contracts/schemas/index.js"
     }
   },
   "files": [
@@ -56,5 +60,8 @@
     "bin",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "zod": "^4.6.5"
+  }
 }

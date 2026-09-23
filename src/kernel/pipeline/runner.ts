@@ -1,5 +1,7 @@
-import { contentText, normalizeMessage, normalizeMessages } from "../../lib/content.js";
-import type { Fences, Message, SessionRecord, StepContext, StepRef, StepResult, TurnEvent, TurnOptions, Userspace } from "../../contracts/index.js";
+import { StepResultSchema, TurnEventSchema } from "../../contracts/schemas/pipeline.js";
+import { parseSchema } from "../../lib/validation.js";
+import { contentText, normalizeMessage } from "../../lib/content.js";
+import type { Fences, Message, SessionRecord, StepContext, StepRef, TurnEvent, TurnOptions, Userspace } from "../../contracts/index.js";
 import { CodedError, errorMessage } from "../../lib/error.js";
 import { newId, now } from "../../lib/ids.js";
 import type { Journal } from "../../lib/journal.js";
@@ -100,28 +102,15 @@ export class PipelineRunner {
    */
   private async runStep(us: Userspace, step: StepRef, ctx: StepContext, emit: Emit, signal?: AbortSignal): Promise<unknown> {
     const config = await this.settings.effective(us, step.package);
-    return this.fences.request(us, "step", { package: step.package, export: step.export, phase: step.phase, ctx: { ...ctx, config } }, (e) => emit(e as TurnEvent), signal);
+    return this.fences.request(us, "step", { package: step.package, export: step.export, phase: step.phase, ctx: { ...ctx, config } }, (e) => emit(parseSchema(TurnEventSchema, e, `step ${step.id ?? step.export} event`, "step")), signal);
   }
 
   /** Validates a step's mutations before they touch the variables. Invalid results are rejected whole. */
   private apply(ctx: StepContext, raw: unknown, stepId: string): void {
     if (raw == null) return;
-    if (typeof raw !== "object") throw new CodedError(`step ${stepId} returned a non-object result`, "step");
-    const r = { ...(raw as StepResult) };
-    let conversation: Message[] | undefined;
-    try {
-      if (r.conversation !== undefined) conversation = normalizeMessages(r.conversation);
-      if (r.call) r.call = { ...r.call, messages: normalizeMessages(r.call.messages) };
-    } catch {
-      throw new CodedError(`step ${stepId} returned an invalid conversation or call`, "step");
-    }
-    if (r.call !== undefined) {
-      const valid = r.call !== null && typeof r.call === "object" && typeof r.call.model === "string" && Array.isArray(r.call.messages);
-      if (!valid) throw new CodedError(`step ${stepId} returned an invalid call`, "step");
-    }
-    if (r.harness !== undefined && (r.harness === null || typeof r.harness !== "object" || Array.isArray(r.harness))) throw new CodedError(`step ${stepId} returned an invalid harness`, "step");
-    if (conversation !== undefined) ctx.conversation = conversation;
-    if (r.call !== undefined) ctx.call = { ...r.call, tools: Array.isArray(r.call.tools) ? r.call.tools : [], params: r.call.params ?? {} };
+    const r = parseSchema(StepResultSchema, raw, `step ${stepId} returned an invalid result`, "step");
+    if (r.conversation !== undefined) ctx.conversation = r.conversation;
+    if (r.call !== undefined) ctx.call = r.call;
     if (r.harness !== undefined) ctx.harness = r.harness;
   }
 }

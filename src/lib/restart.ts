@@ -12,6 +12,17 @@
 // what the kernel says about itself. Each says what happened, why, and what to do instead, and each ends by
 // making clear that nothing happened — the sentence that stops a model inventing a second attempt.
 
+import { z } from "zod";
+import { parseSchema } from "./validation.js";
+
+const RestartConfigSchema = z.object({
+  allowRestart: z.boolean(),
+  minUptimeSecs: z.number().nonnegative(),
+  quietWaitMs: z.number().nonnegative(),
+  announceMs: z.number().nonnegative(),
+  pollMs: z.number().int().positive(),
+});
+
 export interface RestartConfig {
   /** The legacy `control.allow_restart`: an installation may withhold this entirely. */
   allowRestart: boolean;
@@ -125,7 +136,7 @@ export class RestartLatch {
   private get config(): RestartConfig {
     const c: Record<string, unknown> = { ...DEFAULTS };
     for (const [k, v] of Object.entries(this.given)) if (v !== undefined) c[k] = v;
-    return c as unknown as RestartConfig;
+    return parseSchema(RestartConfigSchema, c, "restart configuration");
   }
 
   arm(reason: string, by: string): ArmResult {

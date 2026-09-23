@@ -12,22 +12,32 @@
 // still there, through `alive(id)` below.
 import { createInterface } from "node:readline";
 import type { Readable } from "node:stream";
+import { z } from "zod";
 import type { EventSink } from "../contracts/index.js";
 import { CodedError, errorCode, errorMessage } from "./error.js";
+import { parseSchema } from "./validation.js";
 
 /** `signal` aborts when the caller is gone; a handler that streams until then watches it. Servers that have no such moment pass none. */
 export type RpcHandler = (method: string, args: unknown, emit?: EventSink, signal?: AbortSignal) => Promise<unknown>;
 
-export type Frame = Record<string, unknown>;
+export const FrameSchema = z.record(z.string(), z.unknown());
+export type Frame = z.infer<typeof FrameSchema>;
+export const FrameIdSchema = z.object({ id: z.string().min(1) });
+export const RpcRequestSchema = z.looseObject({
+  id: z.string().min(1), method: z.string().min(1), args: z.unknown().optional(), token: z.string().optional(),
+});
+export const AgentRpcSchema = RpcRequestSchema.omit({ id: true, token: true }).extend({ rpc: z.string().min(1) });
+export const RpcCancelSchema = z.looseObject({ rpcCancel: z.string().min(1) });
+export const HeartbeatSchema = z.looseObject({ id: z.string().min(1), alive: z.literal(true) });
 
 /** A reply as it arrives: one of `event`, `result`, or `error` is present. */
-export interface ReplyFrame {
-  id: string;
-  event?: unknown;
-  result?: unknown;
-  error?: unknown;
-  code?: unknown;
-}
+export const ReplyFrameSchema = z.looseObject({
+  id: z.string().min(1), event: z.unknown().optional(), result: z.unknown().optional(),
+  error: z.string().optional(), code: z.string().optional(), alive: z.never().optional(),
+}).refine((frame) => ["event", "result", "error"].filter((key) => Object.hasOwn(frame, key)).length === 1, {
+  error: "a reply must contain exactly one of event, result, or error",
+});
+export type ReplyFrame = z.infer<typeof ReplyFrameSchema>;
 
 export type Outcome = { result: unknown } | { error: string; code?: string };
 
@@ -72,26 +82,40 @@ export class PendingCalls {
   }
 
   /** Routes one reply to its call. Returns false when no call has that id. */
-  receive(frame: ReplyFrame, defaultCode = "rpc"): boolean {
-    const id = String(frame.id);
+  receive(raw: unknown, defaultCode = "rpc"): boolean {
+    const route = FrameIdSchema.safeParse(raw);
+    if (!route.success) return false;
+    const id = route.data.id;
     const p = this.calls.get(id);
     if (!p) return false;
+    let frame: ReplyFrame;
+    try {
+      frame = parseSchema(ReplyFrameSchema, raw, "RPC reply");
+    } catch (error) {
+      return this.reject(id, error);
+    }
     p.call.onLive?.();
     if ("event" in frame) {
       try {
         p.call.onEvent?.(frame.event);
       } catch (error) {
-        this.settle(id, undefined, error);
-        // A transport closing while cancellation is sent must not escape the frame reader either.
-        try { p.call.cancel?.(); } catch { /* The failed call is already settled. */ }
+        this.reject(id, error);
       }
       return true;
     }
     if (frame.error !== undefined) {
-      const code = typeof frame.code === "string" ? frame.code : defaultCode;
-      return this.settle(id, undefined, new CodedError(String(frame.error), code));
+      return this.settle(id, undefined, new CodedError(frame.error, frame.code ?? defaultCode));
     }
     return this.settle(id, frame.result);
+  }
+
+  /** A malformed envelope or rejected event settles only its own call and stops its remote work. */
+  reject(id: string, error: unknown): boolean {
+    const pending = this.calls.get(id);
+    if (!pending) return false;
+    this.settle(id, undefined, error);
+    try { pending.call.cancel?.(); } catch { /* A closing transport cannot undo settlement. */ }
+    return true;
   }
 
   /** A heartbeat for one call: it carries nothing, so it does nothing but say that the other end is there.
@@ -142,7 +166,8 @@ export function readFrames(input: Readable, onFrame: (msg: Frame) => void, onStr
       onStray?.(line);
       return;
     }
-    if (msg && typeof msg === "object" && !Array.isArray(msg)) onFrame(msg as Frame);
+    const parsed = FrameSchema.safeParse(msg);
+    if (parsed.success) onFrame(parsed.data);
     else onStray?.(line);
   });
 }

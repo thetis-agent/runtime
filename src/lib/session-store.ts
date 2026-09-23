@@ -1,4 +1,4 @@
-import { contentText, normalizeMessages } from "./content.js";
+import { contentText } from "./content.js";
 // The session records of a userspace, with a summary of each kept beside them in `index.json`, so a
 // list of sessions is one small file and not every record: a record grows with its conversation, and a
 // person with sixty of them was reading many megabytes to draw a sidebar. The index is derived, never
@@ -6,15 +6,24 @@ import { contentText, normalizeMessages } from "./content.js";
 // its entry, so the two cannot drift for long. Who may list or save is the kernel's question.
 import { existsSync, readdirSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
-import type { SessionRecord, SessionSummaryRef } from "../contracts/index.js";
+import { z } from "zod";
+import type { SessionRecord } from "../contracts/index.js";
+import { SessionRecordSchema, SessionSummarySchema } from "../contracts/schemas/identity.js";
 import { JsonDirStore } from "./json-store.js";
 import { readJson, writeJson } from "./json.js";
+import { parseSchema } from "./validation.js";
+import { assert } from "./error.js";
 
 /** An index entry: everything in a summary except `running`, which is the kernel's to say. */
-export type SessionSummary = Omit<SessionSummaryRef, "running">;
+export type SessionSummary = z.infer<typeof SessionSummarySchema>;
 
 const INDEX = "index.json";
 const CLIP = 200;
+const SessionIndexSchema = z.record(z.string(), SessionSummarySchema).superRefine((index, context) => {
+  for (const [id, summary] of Object.entries(index)) {
+    if (id !== summary.id) context.addIssue({ code: "custom", path: [id, "id"], message: "summary id must match its index key" });
+  }
+});
 
 /** One line of text, at most `max` characters. */
 export function clipText(text: string, max = CLIP): string {
@@ -50,12 +59,15 @@ export class SessionStore {
 
   load(dir: string, id: string): SessionRecord | undefined {
     const record = this.records.load(dir, id);
-    return record && { ...record, conversation: normalizeMessages(record.conversation) };
+    if (record === undefined) return undefined;
+    const parsed = parseSchema(SessionRecordSchema, record, `session ${id}`);
+    assert(parsed.id === id, "session id must match its file", "invalid");
+    return parsed;
   }
 
   /** Writes the record and its index entry. */
   save(dir: string, rec: SessionRecord): void {
-    rec = { ...rec, conversation: normalizeMessages(rec.conversation) };
+    rec = parseSchema(SessionRecordSchema, rec, "session record");
     this.records.save(dir, rec);
     const index = this.index(dir);
     index[rec.id] = summarize(rec);
@@ -81,9 +93,12 @@ export class SessionStore {
     let index = this.indexes.get(dir);
     if (index) return index;
     const file = resolve(dir, INDEX);
-    if (existsSync(file)) index = readJson<Record<string, SessionSummary>>(file, {});
+    if (existsSync(file)) index = parseSchema(SessionIndexSchema, readJson<unknown>(file, {}), "session index");
     else {
-      index = Object.fromEntries(this.records.list(dir).map((rec) => [rec.id, summarize(rec)]));
+      index = Object.fromEntries(this.records.list(dir).map((raw) => {
+        const rec = parseSchema(SessionRecordSchema, raw, "stored session");
+        return [rec.id, summarize(rec)];
+      }));
       if (existsSync(dir) && readdirSync(dir).length) writeJson(file, index);
     }
     this.indexes.set(dir, index);

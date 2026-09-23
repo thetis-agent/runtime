@@ -2,7 +2,8 @@
 import type { ChildProcess } from "node:child_process";
 import type { EventSink, FenceHandle, KernelRpc, Userspace } from "../contracts/index.js";
 import { CodedError, errorMessage } from "../lib/error.js";
-import { callHandler, encodeFrame, PendingCalls, readFrames, type Frame, type OpenCall } from "../lib/rpc-frames.js";
+import { AgentRpcSchema, callHandler, encodeFrame, HeartbeatSchema, PendingCalls, readFrames, RpcCancelSchema, type Frame, type OpenCall } from "../lib/rpc-frames.js";
+import { parseSchema } from "../lib/validation.js";
 
 /** What this package's handles carry beyond the fence contract: when the agent was spawned, and a promise
  *  that resolves when it is gone. A `Fence` that returns a plainer handle simply offers neither. */
@@ -207,21 +208,29 @@ export class ProcessHandle implements FenceHandle {
   }
 
   private onFrame(msg: Frame): void {
-    if (typeof msg.rpc === "string") {
-      void this.serveRpc(msg.rpc, String(msg.method), msg.args);
+    if ("rpc" in msg) {
+      try {
+        const request = parseSchema(AgentRpcSchema, msg, "agent RPC request");
+        void this.serveRpc(request.rpc, request.method, request.args);
+      } catch (error) {
+        if (typeof msg.rpc === "string") this.send({ rpcResult: msg.rpc, error: errorMessage(error), code: "invalid" });
+      }
       return;
     }
-    if (typeof msg.rpcCancel === "string") {
-      this.served.get(msg.rpcCancel)?.abort();
+    if ("rpcCancel" in msg) {
+      const cancel = RpcCancelSchema.safeParse(msg);
+      if (cancel.success) this.served.get(cancel.data.rpcCancel)?.abort();
       return;
     }
     // A heartbeat carries nothing and settles nothing; it only resets the liveness timer of the call it names.
     if (msg.alive !== undefined) {
-      this.pending.alive(String(msg.id));
+      const heartbeat = HeartbeatSchema.safeParse(msg);
+      if (heartbeat.success) this.pending.alive(heartbeat.data.id);
+      else this.pending.receive(msg, "package");
       return;
     }
     // Package code raised the error: the agent reports it without a code.
-    this.pending.receive({ id: String(msg.id), ...msg }, "package");
+    this.pending.receive(msg, "package");
   }
 
   /** Each call is served with its own signal: `{ rpcCancel }` aborts that one, and the agent's exit aborts them all. */

@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import type { ConfigDecl, ConfigKeyState, ConfigLayer, ConfigReport, ConfigType, Store, StoreDriver, ThetisField } from "../contracts/index.js";
-import { assert } from "./error.js";
+import { z } from "zod";
+import type { ConfigDecl, ConfigKeyState, ConfigLayer, ConfigReport, Store, StoreDriver, ThetisField } from "../contracts/index.js";
+import { ConfigDeclSchema, ConfigKeySchema, ConfigValueSchemas } from "../contracts/schemas/config.js";
+import { assert, CodedError } from "./error.js";
 import { assertJsonValue } from "./store.js";
+import { parseSchema } from "./validation.js";
 
 export type ConfigDecls = Record<string, ConfigDecl>;
 
@@ -18,8 +21,7 @@ export interface ConfigDoc {
   doc: Record<string, unknown>;
 }
 
-const TYPES: ConfigType[] = ["string", "number", "boolean", "object", "array"];
-const DECL_FIELDS = new Set(["type", "secret", "required", "default", "scope", "help"]);
+const DeclEntriesSchema = z.record(z.string(), z.unknown(), { error: "must be an object of key declarations" });
 const SECRET_NAME = /key|secret|token|password/i;
 const REF = /\$\{([A-Z0-9_]+)\}/g;
 const PURE_REF = /^\$\{[A-Z0-9_]+\}$/;
@@ -27,33 +29,27 @@ const PURE_REF = /^\$\{[A-Z0-9_]+\}$/;
 /** The shape check of a `thetis.config` field. Every complaint names the package and the key, since it is read at package load. */
 export function validateDecls(owner: string, raw: unknown): ConfigDecls {
   const where = `${owner}: thetis.config`;
-  assert(isPlainObject(raw), `${where} must be an object of key declarations`, "invalid");
+  const entries = parseSchema(DeclEntriesSchema, raw, where);
   const decls: ConfigDecls = {};
-  for (const [key, decl] of Object.entries(raw)) {
+  for (const [key, rawDecl] of Object.entries(entries)) {
     const at = `${where}.${key}`;
-    assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(key), `${at}: a key is a bare identifier`, "invalid");
-    assert(isPlainObject(decl), `${at} must be an object`, "invalid");
-    for (const field of Object.keys(decl)) assert(DECL_FIELDS.has(field), `${at}: unknown field ${field}`, "invalid");
-    assert(TYPES.includes(decl.type as ConfigType), `${at}: type must be one of ${TYPES.join(", ")}`, "invalid");
-    for (const flag of ["secret", "required"] as const) {
-      assert(decl[flag] === undefined || typeof decl[flag] === "boolean", `${at}: ${flag} must be true or false`, "invalid");
+    parseSchema(ConfigKeySchema, key, at);
+    const parsed = ConfigDeclSchema.safeParse(rawDecl);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      const message = issue.code === "unrecognized_keys" ? `unknown field ${issue.keys.join(", ")}` : issue.message;
+      throw new CodedError(`${at}: ${message}`, "invalid");
     }
-    assert(decl.scope === undefined || decl.scope === "system" || decl.scope === "user", `${at}: scope must be system or user`, "invalid");
-    assert(decl.help === undefined || typeof decl.help === "string", `${at}: help must be a string`, "invalid");
-    const out: ConfigDecl = { type: decl.type as ConfigType };
-    if (decl.secret !== undefined) out.secret = decl.secret as boolean;
-    if (decl.required !== undefined) out.required = decl.required as boolean;
-    if (decl.scope !== undefined) out.scope = decl.scope as "system" | "user";
-    if (decl.help !== undefined) out.help = decl.help as string;
+    const decl = parsed.data;
     if (decl.default !== undefined) {
       try {
-        checkValue({ [key]: out }, key, decl.default);
+        checkValue({ [key]: decl }, key, decl.default);
       } catch (err) {
-        throw Object.assign(new Error(`${at}: default ${(err as Error).message}`), { code: "invalid" });
+        throw new CodedError(`${at}: default ${err instanceof Error ? err.message : String(err)}`, "invalid");
       }
-      out.default = structuredClone(decl.default);
+      decl.default = structuredClone(decl.default);
     }
-    decls[key] = out;
+    decls[key] = decl;
   }
   return decls;
 }
@@ -103,22 +99,7 @@ export function checkValue(decls: ConfigDecls, key: string, value: unknown): voi
   assertJsonValue(value, key);
   const decl = decls[key];
   if (!decl) return;
-  assert(matchesType(decl.type, value), `${key} is declared ${decl.type}; ${describeType(value)} was given`, "invalid");
-}
-
-function matchesType(type: ConfigType, value: unknown): boolean {
-  switch (type) {
-    case "string":
-      return typeof value === "string";
-    case "number":
-      return typeof value === "number";
-    case "boolean":
-      return typeof value === "boolean";
-    case "array":
-      return Array.isArray(value);
-    case "object":
-      return isPlainObject(value);
-  }
+  assert(ConfigValueSchemas[decl.type].safeParse(value).success, `${key} is declared ${decl.type}; ${describeType(value)} was given`, "invalid");
 }
 
 function describeType(value: unknown): string {

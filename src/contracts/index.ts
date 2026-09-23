@@ -1,5 +1,5 @@
-// The vocabulary of Thetis. Types and a few string constants; no code. Every package imports from here,
-// so nothing here may depend on a package.
+// Types and protocol constants. The serializable types derive from contracts/schemas, exposed separately
+// as @thetis/runtime/schemas. Neither entry point depends on an extension or a higher runtime layer.
 export * from "./messages.js";
 export * from "./pipeline.js";
 export * from "./packages.js";

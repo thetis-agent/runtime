@@ -1,7 +1,9 @@
 import { existsSync, rmSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type ExecResult, type Fences, type Manifest, type PackageInfo, type PackageRecord, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
+import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type Fences, type Manifest, type PackageInfo, type PackageRecord, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
 import { assert, CodedError, errorMessage } from "../../lib/error.js";
+import { ExecResultSchema } from "../../contracts/schemas/fence.js";
+import { parseSchema } from "../../lib/validation.js";
 import { buildCommand, cloneCommand, cloneDirFor, cloneSlugOf, copyPackageAs, forkOf, hasPackageJson, headOf, isGitSource, isInside, keepOnly, linkDir, packagesIn, removeLink, samePackage, splitSource } from "../../lib/pkg-fs.js";
 import type { KernelConfig } from "../config.js";
 import { readManifest, scopeOf, toInfo } from "./manifest.js";
@@ -391,7 +393,7 @@ export class PackageManager {
   }
 
   private async exec(us: Userspace, cmd: string, cwd: string): Promise<void> {
-    const r = (await this.fences.request(us, "exec", { cmd, cwd, timeoutMs: BUILD_TIMEOUT_MS })) as ExecResult;
+    const r = parseSchema(ExecResultSchema, await this.fences.request(us, "exec", { cmd, cwd, timeoutMs: BUILD_TIMEOUT_MS }), "package build exec reply", "build");
     if (r.code !== 0) throw new CodedError(`command failed (${r.code}): ${cmd}\n${r.stderr || r.stdout}`.slice(0, 4000), "build");
   }
 

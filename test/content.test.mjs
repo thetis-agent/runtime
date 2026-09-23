@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { normalizeContent, normalizeMessages, normalizeTurnInput, textContent, contentText, toolContent } from '../dist/src/lib/content.js';
+import { isAssetPart } from '../dist/src/lib/content.js';
+import { ContentPartSchema, JsonValueSchema } from '../dist/src/contracts/schemas/index.js';
 
 test('legacy text normalizes while unfamiliar parts retain their complete JSON payload', () => {
   const part = { id: 'mesh', type: '@test/mesh.v1', data: { vertices: [1, 2], optional: null } };
@@ -18,6 +20,29 @@ test('malformed and nonportable content is refused without dropping fields', () 
   const cycle = {}; cycle.self = cycle;
   assert.throws(() => normalizeContent([{ type: 'x', data: cycle }]));
   assert.throws(() => normalizeContent([{ id: 'same', type: 'x', data: 1 }, { id: 'same', type: 'y', data: 2 }]));
+});
+
+test('opaque JSON retains own prototype-named keys and rejects symbol-bearing message envelopes', () => {
+  const data = JSON.parse('{"__proto__":{"retained":true},"constructor":{"custom":1}}');
+  const part = { type: '@test/future', data };
+  assert.deepEqual(normalizeContent([part]), [part]);
+  assert.deepEqual(normalizeMessages([{ role: 'user', content: [part] }])[0].content, [part]);
+  assert.throws(() => normalizeMessages([{ role: 'user', content: [], [Symbol('hidden')]: 42 }]));
+  assert.equal(ContentPartSchema.safeParse(JSON.parse('{"type":"custom","data":null,"__proto__":42}')).success, false);
+});
+
+test('JSON validation checks the cloned snapshot when getters change values', () => {
+  for (const changed of [new Date(0), () => 42]) {
+    let reads = 0;
+    const value = { get value() { return ++reads === 1 ? 'checked' : changed; } };
+    assert.equal(JsonValueSchema.safeParse(value).success, false);
+  }
+});
+
+test('specific content guards validate optional fields before narrowing', () => {
+  const part = normalizeContent([{ type: 'asset', data: { id: 'a', mediaType: 'image/png', name: 42 } }])[0];
+  assert.equal(isAssetPart(part), false);
+  assert.equal(isAssetPart({ type: 'asset', data: { id: 'a', mediaType: 'image/png', name: 'photo' } }), true);
 });
 
 test('structured tool results are explicit and legacy objects remain text', () => {

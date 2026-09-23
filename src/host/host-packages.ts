@@ -2,11 +2,12 @@
 // and the promoted packages, never installed into a fence. The kernel holds `HostExtensions` only and
 // dispatches `host.<name>.<export>` to `call` after checking who is calling; what the package does with the
 // host is its own, over the `HostEnv` the composition root built.
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { HOST_TYPE, type HostEnv, type HostMethod, type Manifest } from "../contracts/index.js";
+import { HOST_TYPE, type HostEnv, type HostMethod } from "../contracts/index.js";
 import type { HostExtensions, KernelConfig } from "../kernel/index.js";
+import { readManifest } from "../kernel/packages/manifest.js";
 import { CodedError } from "../lib/error.js";
 import { findPackage } from "./store.js";
 
@@ -27,7 +28,7 @@ export class HostPackages implements HostExtensions {
    */
   async call(name: string, method: string, args: Record<string, unknown>): Promise<unknown> {
     const dir = this.locate(name);
-    const manifest = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8")) as Manifest;
+    const manifest = readManifest(dir);
     const main = resolve(dir, manifest.main ?? "index.js");
     const { mtimeMs } = statSync(main);
     const mod = (await import(`${pathToFileURL(main).href}?v=${mtimeMs}`)) as Record<string, unknown>;

@@ -1,10 +1,11 @@
 // The storage driver is a package loaded here, on the host: the kernel holds only the `StoreDriver` interface,
 // the way it holds `Fences` and never sees the sandbox. Which driver is `storage.driver` in the configuration.
-import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { STORAGE_TYPE, type Manifest, type Mount, type PackageRecord, type StoreDriver, type StoreFactory, type UserRecord } from "../contracts/index.js";
 import type { Credential, KernelConfig, TokenRecord } from "../kernel/index.js";
+import { readManifest } from "../kernel/packages/manifest.js";
 import { assert, CodedError, errorMessage } from "../lib/error.js";
 import type { SshGrant } from "../contracts/index.js";
 import { StoreMirror } from "../lib/store.js";
@@ -28,7 +29,7 @@ export async function loadStoreDriver(config: KernelConfig, log: (line: string) 
   const name = config.storage.driver;
   const dir = findPackage((m) => m.name === name, [config.systemPackagesDir, config.promotedPackagesDir]);
   assert(dir, `storage driver ${name} is not among the packages in ${config.systemPackagesDir} or ${config.promotedPackagesDir}`, "storage");
-  const manifest = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8")) as Manifest;
+  const manifest = readManifest(dir);
   assert(manifest.thetis?.type === STORAGE_TYPE, `${name} is not a storage driver: its thetis.type is ${String(manifest.thetis?.type)}`, "storage");
   const mod = (await import(pathToFileURL(resolve(dir, manifest.main ?? "index.js")).href)) as Record<string, unknown>;
   const factory = mod[manifest.thetis.export ?? "createStore"];
@@ -58,7 +59,7 @@ export function findPackage(match: (manifest: Manifest) => boolean, bases: strin
       const file = resolve(base, entry, "package.json");
       if (!existsSync(file)) continue;
       try {
-        if (match(JSON.parse(readFileSync(file, "utf8")) as Manifest)) return realpathSync(resolve(base, entry));
+        if (match(readManifest(resolve(base, entry)))) return realpathSync(resolve(base, entry));
       } catch {
         continue;
       }

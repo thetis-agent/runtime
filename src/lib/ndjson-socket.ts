@@ -1,7 +1,9 @@
 // A request/reply server and client over a Unix socket, speaking the frames of `rpc-frames`.
 import { chmodSync, existsSync, unlinkSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
-import { callHandler, encodeFrame, PendingCalls, readFrames, type ReplyFrame, type RpcHandler } from "./rpc-frames.js";
+import { callHandler, encodeFrame, FrameIdSchema, PendingCalls, readFrames, RpcRequestSchema, type RpcHandler } from "./rpc-frames.js";
+import { parseSchema } from "./validation.js";
+import { errorMessage } from "./error.js";
 
 /** Serves one handler to every client of a Unix socket. Access is by file permission: the socket is mode 0600. */
 export class RpcSocketServer {
@@ -53,7 +55,9 @@ export class RpcSocketServer {
     socket.once("close", () => this.sockets.delete(socket));
     const write = (msg: unknown) => socket.writable && socket.write(encodeFrame(msg));
     readFrames(socket, (msg) => {
-      const id = String(msg.id);
+      const route = FrameIdSchema.safeParse(msg);
+      if (!route.success) return;
+      const id = route.data.id;
       // Carried on every frame rather than exchanged once on connect, so that a command line and a daemon
       // of different vintages still work: an older daemon ignores the extra field, and an older caller is
       // refused with a sentence that says what to do rather than a dropped connection.
@@ -62,7 +66,12 @@ export class RpcSocketServer {
         write({ id, error: "this caller did not present the control token; run the command line from the same host as the daemon, and as the user it runs as", code: "unauthorized" });
         return;
       }
-      void callHandler(this.handler, String(msg.method), msg.args, (event) => write({ id, event })).then((outcome) => write({ id, ...outcome }));
+      try {
+        const request = parseSchema(RpcRequestSchema, msg, "RPC request");
+        void callHandler(this.handler, request.method, request.args, (event) => write({ id, event })).then((outcome) => write({ id, ...outcome }));
+      } catch (error) {
+        write({ id, error: errorMessage(error), code: "invalid" });
+      }
     });
     socket.on("error", (err) => this.log(`[socket] ${err.message}`));
   }
@@ -81,7 +90,7 @@ export function connectRpcSocket(path: string, token?: string): Promise<RpcSocke
     const pending = new PendingCalls("c");
     socket.once("error", () => done(undefined));
     socket.once("connect", () => {
-      readFrames(socket, (msg) => void pending.receive(msg as unknown as ReplyFrame));
+      readFrames(socket, (msg) => void pending.receive(msg));
       socket.on("close", () => pending.failAll(new Error("the server closed the connection")));
       done({
         call: (method, args, emit) => {

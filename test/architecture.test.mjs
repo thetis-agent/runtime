@@ -49,7 +49,7 @@ test("the runtime owns its implementation and public entry point", () => {
   }
   const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
   assert.equal(manifest.name, "@thetis/runtime");
-  assert.deepEqual(manifest.dependencies ?? {}, {}, "the runtime has no dependency on an extension or framework");
+  assert.deepEqual(Object.keys(manifest.dependencies ?? {}), ["zod"], "the runtime depends only on its schema validator");
 });
 
 test("internal layers depend downward and never import extension packages", () => {
@@ -57,7 +57,7 @@ test("internal layers depend downward and never import extension packages", () =
     const layer = relative(source, file).split("/")[0];
     const allowed = layer === "index.ts" ? ["host", "contracts", "lib"] : [layer, ...layers[layer]];
     for (const specifier of importsOf(file)) {
-      if (specifier.startsWith("node:")) continue;
+      if (specifier.startsWith("node:") || specifier === "zod") continue;
       assert.ok(specifier.startsWith("."), `${relative(root, file)} imports external module ${specifier}`);
       const target = relative(source, resolve(dirname(file), specifier));
       assert.ok(!target.startsWith(".."), `${relative(root, file)} reaches outside runtime/src`);
@@ -85,15 +85,17 @@ test("extensions use public runtime exports instead of reaching into its source"
   }
 });
 
-test("the compiled public API imports without a packages checkout or node_modules", async () => {
+test("the compiled public API imports with only its declared dependency and no packages checkout", async () => {
   const directory = mkdtempSync(join(tmpdir(), "thetis-library-"));
   try {
     cpSync(join(root, "dist/src"), join(directory, "dist/src"), { recursive: true });
     cpSync(join(root, "package.json"), join(directory, "package.json"));
+    cpSync(join(root, "node_modules/zod"), join(directory, "node_modules/zod"), { recursive: true });
     writeFileSync(join(directory, "consumer.mjs"), `
       import assert from "node:assert/strict";
       import { createKernel, defaultConfig, Container, T } from "@thetis/runtime";
       import { SYSTEM_USER } from "@thetis/runtime/contracts";
+      import { StepPlanSchema } from "@thetis/runtime/schemas";
       import { memoryStore } from "@thetis/runtime/lib/store";
       import { createControlHandler } from "@thetis/runtime/kernel";
       import { ProcessFence } from "@thetis/runtime/sandbox";
@@ -103,6 +105,7 @@ test("the compiled public API imports without a packages checkout or node_module
       }
       assert.equal(typeof T.fences.key, "symbol");
       assert.equal(typeof SYSTEM_USER, "string");
+      assert.deepEqual(StepPlanSchema.parse([{ package: "@test/step", export: "run" }]), [{ package: "@test/step", export: "run" }]);
     `);
     await import(pathToFileURL(join(directory, "consumer.mjs")).href);
   } finally {

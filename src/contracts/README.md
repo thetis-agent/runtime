@@ -1,10 +1,10 @@
 # Runtime module: contracts
 
-The types and constants every part of Thetis agrees on: messages, the pipeline, packages, identity, the fence, host packages, and what package code sees inside it. The package holds no code: types, and a few string constants. Nothing here carries policy; a regular expression or a default that a package needs lives in that package. It is imported everywhere: by the service plane in the host process, by the userspace agent inside each fence, and by every package that implements a step, a tool, a service, or a provider.
+The vocabulary every part of Thetis agrees on: messages, the pipeline, packages, identity, the fence, host packages, and what package code sees inside it. Serializable DTOs derive from Zod schemas under `schemas/`; executable adapter ports remain interfaces. Schema validation establishes data shape. Authorization, lifecycle rules, and extension-specific payload rules remain with their owners.
 
 ## What it provides
 
-The shared runtime contracts. Extensions import their types through `@thetis/runtime/contracts`.
+Extensions import types through `@thetis/runtime/contracts` and validators through `@thetis/runtime/schemas`. Keeping those entry points separate preserves the constants-only runtime exports of `contracts`.
 
 The contracts module imports no other runtime layer. Its types describe the shared vocabulary and adapter interfaces. Extensions import them through `@thetis/runtime/contracts`. `test/architecture.test.mjs` enforces the layer boundaries.
 
@@ -62,7 +62,7 @@ The fence side is the pair `Fence` and `FenceHandle`, and the pool `Fences`. The
 
 ## Tests
 
-The package has no tests of its own. `test/architecture.test.mjs` checks its import boundaries, and `test/kernel/seams.test.ts` checks the four runtime constants. Run every test with `npm test` from the runtime root.
+Boundary regression tests exercise the schemas through consumers, including malformed enumerator plans, step results, provider events, RPC arguments and replies, configuration, and persisted sessions. `test/architecture.test.mjs` checks import boundaries and isolated public imports; `test/kernel/seams.test.ts` checks the four runtime constants. Run every test with `npm test` from the runtime root. See [validation](../../../docs/validation.md).
 
 Providers may emit `{ type: "request", body, at }` for inspection: `body` is the serialized request JSON without transport headers. Harnesses can persist it and emit `{ type: "context.updated" }` after saving; consumers fetch full context on demand. These are data events carried by the existing provider and turn streams, with no new kernel methods.
 

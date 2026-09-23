@@ -1,24 +1,16 @@
+import type { z } from "zod";
+import type { UserRoleSchema, UserStatusSchema, UserRecordSchema, AuthUserSchema, SessionInfoSchema, SessionRecordSchema, SessionSummaryRefSchema } from "./schemas/identity.js";
 // Who: users and their roles, the userspace each one owns, and the sessions inside it.
-import type { HarnessState } from "./pipeline.js";
-import type { Message } from "./messages.js";
 
 export const SYSTEM_USER = "_system";
 
-export type UserRole = "system" | "admin" | "user";
-export type UserStatus = "active" | "suspended";
+export type UserRole = z.infer<typeof UserRoleSchema>;
+export type UserStatus = z.infer<typeof UserStatusSchema>;
 
-export interface UserRecord {
-  id: string;
-  role: UserRole;
-  status: UserStatus;
-  createdAt: string;
-}
+export type UserRecord = z.infer<typeof UserRecordSchema>;
 
 /** The part of a user record a gateway learns from a login token. */
-export interface AuthUser {
-  id: string;
-  role: UserRole;
-}
+export type AuthUser = z.infer<typeof AuthUserSchema>;
 
 /** A host path an admin has granted into one person's fence, bound at the same path. */
 export interface Mount {
@@ -51,37 +43,9 @@ export interface Userspace {
   ssh?: SshGrant[];
 }
 
-export interface SessionInfo {
-  id: string;
-  user: string;
-  parent?: string;
-}
+export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 
-export interface SessionRecord {
-  id: string;
-  user: string;
-  parent?: string;
-  createdAt: string;
-  updatedAt: string;
-  turns: number;
-  conversation: Message[];
-  harness: HarnessState;
-  /** The turn in progress, written when it starts and removed when it ends; a record still carrying one was interrupted. */
-  turn?: { id: string; startedAt: string; input?: string; messages?: Message[] };
-}
+export type SessionRecord = z.infer<typeof SessionRecordSchema>;
 
 /** What a list of sessions says about each without opening its record. `first` and `last` are clipped to 200 characters. */
-export interface SessionSummaryRef {
-  id: string;
-  user: string;
-  parent?: string;
-  createdAt: string;
-  updatedAt: string;
-  turns: number;
-  /** The first user message, or "". */
-  first: string;
-  /** The last message that said something: a user message, or an assistant message with content; or "". */
-  last: string;
-  /** A turn is in progress right now. */
-  running: boolean;
-}
+export type SessionSummaryRef = z.infer<typeof SessionSummaryRefSchema>;

@@ -1,67 +1,14 @@
 import { relative, resolve } from "node:path";
-import type { StepRef } from "../contracts/index.js";
+import { KernelConfigPatchSchema, KernelConfigSchema, type KernelConfig } from "../contracts/schemas/kernel-config.js";
+import { parseSchema } from "../lib/validation.js";
+export type { FenceConfig, KernelConfig } from "../contracts/schemas/kernel-config.js";
 import type { ConfigTier } from "../lib/config-tiers.js";
 import { readJson, writeJson } from "../lib/json.js";
 
-export interface FenceConfig {
-  sandbox: "auto" | "bwrap" | "none";
-  network: "auto" | "egress" | "none" | "host";
-  /** Per-fence resource limits. `memoryMb: "auto"` is no memory ceiling at all, and is the default. */
-  limits: { memoryMb: number | "auto"; pids: number; cpuPercent: number };
-  /** Host paths every fence may read besides the OS. */
-  readOnly: string[];
-  /** Host paths masked inside every fence. */
-  hidden: string[];
-  /**
-   * Whether every fence is given the host's Docker socket. `auto` binds one when the kernel can use it,
-   * `on` binds it whether or not the probe passes, `off` never does. Socket access is host root: see
-   * `src/sandbox/docker.ts`, which says what socket access gives away.
-   */
-  docker: "auto" | "on" | "off";
-  /** The host Docker socket to bind, when it is not in one of the usual places. */
-  dockerSocket?: string;
-}
-
-export interface KernelConfig {
-  /** Service-plane data directory: users, registry, userspaces. */
-  home: string;
-  /** The checkout the derived paths below are resolved against. Derived, never written to the file, and the
-   * second thing `config.reload` needs in order to read the file again the way it was first read. */
-  projectRoot: string;
-  /** Where the shipped @thetis/* packages live. */
-  systemPackagesDir: string;
-  /** Where promoted packages live: user packages made the default for everyone. Derived: `<home>/packages`. */
-  promotedPackagesDir: string;
-  /** Writable by the system userspace, read-only in every other fence. Derived: `<home>/shared`. */
-  sharedDir: string;
-  /** Path of the userspace agent entry the fence boots. */
-  agentPath: string;
-  model: string;
-  /** The phases the enumerator walks, in order. `call` shapes the request; `execute` is where a harness's step sends it. */
-  phases: string[];
-  enumerator?: StepRef;
-  /** System packages installed into userspaces: "*" applies to every userspace, a user id to that one. */
-  systemPackages: Record<string, string[]>;
-  /**
-   * The file layer of per-package configuration. `${VAR}` references stay as written; the config service
-   * resolves them at read time. Empty by default: a package's own defaults are in its manifest, never here.
-   */
-  packages: Record<string, Record<string, unknown>>;
-  /** The storage driver: a package of type `storage`, loaded by the host, never installed into a fence. */
-  storage: { driver: string };
-  /** The `.env` file whose variables `${VAR}` references resolve against. Derived: `<projectRoot>/.env`. */
-  envFile: string;
-  fence: FenceConfig;
-  /** The door: the one host port, which routes to the login target and to each person's gateway socket. */
-  door: { host: string; port: number };
-  /** The restart Thetis may ask for: whether this installation allows one at all, and the two clocks that make it safe. */
-  control: { allowRestart: boolean; minUptimeSecs: number; quietWaitMs: number };
-  requestTimeoutMs: number;
-}
-
 /** The file layer as it is on disk now: exactly what `thetis.config.json` says. `config.reload` reads it again. */
 export function packagesLayer(home: string): Record<string, Record<string, unknown>> {
-  return readJson<Partial<KernelConfig>>(configPath(home), {}).packages ?? {};
+  const raw = parseSchema(KernelConfigPatchSchema, readJson<unknown>(configPath(home), {}), "kernel configuration");
+  return raw.packages ?? {};
 }
 
 export function defaultConfig(home: string, projectRoot: string): KernelConfig {
@@ -137,9 +84,9 @@ export function configPath(home: string): string {
  */
 export function loadConfig(home: string, projectRoot: string, env: NodeJS.ProcessEnv = process.env): KernelConfig {
   const defaults = defaultConfig(home, projectRoot);
-  const stored = readJson<Partial<KernelConfig>>(configPath(home), {});
+  const stored = parseSchema(KernelConfigPatchSchema, readJson<unknown>(configPath(home), {}), "kernel configuration");
   const { packages, ...rest } = stored;
-  const merged: KernelConfig = {
+  const merged = {
     ...defaults,
     ...rest,
     home,
@@ -160,7 +107,8 @@ export function loadConfig(home: string, projectRoot: string, env: NodeJS.Proces
     door: { ...defaults.door, ...(stored.door ?? {}) },
     control: { ...defaults.control, ...(stored.control ?? {}) },
   };
-  return { ...interpolate(merged, env), packages: packages ?? {} };
+  const resolved = parseSchema(KernelConfigSchema, interpolate(merged, env), "kernel configuration");
+  return { ...resolved, packages: packages ?? {} };
 }
 
 /** Writes the config without derived paths, so the file stays valid when the checkout moves. */
@@ -174,15 +122,15 @@ export function saveConfig(config: KernelConfig): void {
   });
 }
 
-function interpolate<T>(value: T, env: NodeJS.ProcessEnv): T {
+function interpolate(value: unknown, env: NodeJS.ProcessEnv): unknown {
   if (typeof value === "string") {
-    return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => env[name] ?? "") as T;
+    return value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name: string) => env[name] ?? "");
   }
-  if (Array.isArray(value)) return value.map((v) => interpolate(v, env)) as T;
+  if (Array.isArray(value)) return value.map((v) => interpolate(v, env));
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) out[k] = interpolate(v, env);
-    return out as T;
+    return out;
   }
   return value;
 }

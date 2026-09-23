@@ -154,6 +154,10 @@ for (const [name, result] of Object.entries({
   "invalid harness": { conversation: [], harness: [] },
   "null call": { conversation: [], call: null },
   "null harness": { conversation: [], harness: null },
+  "array result": [],
+  "invalid tool arguments": { conversation: [{ role: "assistant", content: [], toolCalls: [{ id: "t", name: "read", args: [] }] }] },
+  "invalid tools": { conversation: [], call: { model: "test", messages: [], tools: [{ name: 42 }], params: {} } },
+  "invalid params": { conversation: [], call: { model: "test", messages: [], tools: [], params: [] } },
 })) {
   test(`regression: a step with ${name} preserves the conversation and harness`, async () => {
     const home = tmp();
@@ -174,6 +178,22 @@ for (const [name, result] of Object.entries({
     }
   });
 }
+
+test("a malformed step event is rejected before reaching subscribers or usage accounting", async () => {
+  const home = tmp();
+  try {
+    const { r, us, session } = runner(home, [pkgs[1]], async (_payload, emit) => {
+      emit({ type: "usage", usage: { tokens: "many" } });
+    });
+    const events: TurnEvent[] = [];
+    await r.runTurn(us, session, [], event => events.push(event));
+    assert.ok(events.some(event => event.type === "error" && event.code === "step"));
+    assert.equal(events.some(event => event.type === "usage"), false);
+    assert.deepEqual(new Journal(home).tail(1)[0].data?.reported, {});
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
 
 test("auth: passwords, tokens, expiry, and revocation", async () => {
   const driver = memoryStore();

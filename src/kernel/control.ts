@@ -1,6 +1,10 @@
+import { z } from "zod";
+import { ControlArgumentsSchema, ControlCallerSchema } from "../contracts/schemas/rpc.js";
+import { UserRoleSchema, UserStatusSchema } from "../contracts/schemas/identity.js";
+import { parseSchema } from "../lib/validation.js";
 import { normalizeTurnInput } from "../lib/content.js";
 import { resolve } from "node:path";
-import { SYSTEM_USER, type KernelRpc, type PackageInfo, type UserRecord, type UserRole, type UserStatus } from "../contracts/index.js";
+import { SYSTEM_USER, type KernelRpc, type PackageInfo, type UserRecord } from "../contracts/index.js";
 import { assert, CodedError } from "../lib/error.js";
 import { newestMtime } from "../lib/freshness.js";
 import { isSupervised } from "../lib/restart.js";
@@ -10,8 +14,6 @@ import { forkOf } from "../lib/pkg-fs.js";
 import { CONFIG_TIERS, loadConfig } from "./config.js";
 import type { KernelServices } from "./kernel.js";
 
-type Args = Record<string, string | undefined>;
-
 /**
  * Operator scope: everything the command line does, against one running kernel. The same handler serves
  * an in-process kernel, the control socket, and an admin's fence through `operator.*`, so every path
@@ -19,18 +21,34 @@ type Args = Record<string, string | undefined>;
  */
 export function createControlHandler(k: KernelServices): KernelRpc {
   return async (method, raw, emit) => {
-    const a = (raw ?? {}) as Args;
-    const user = () => String(a.user ?? SYSTEM_USER);
+    const caller = parseSchema(ControlCallerSchema, raw ?? {}, `${method} arguments`, "rpc");
+    const user = () => caller.user ?? SYSTEM_USER;
     const us = () => k.sessions.userspaceFor(k.users.authorize(user()));
     /** Who performs the operation: the named actor (an admin over the operator channel, the operator from the CLI), else the target user. */
-    const actor = () => k.users.authorize(String(a.actor ?? user()));
+    const actor = () => k.users.authorize(caller.actor ?? user());
     /** Every operator act leaves one row, with who did it and to whom. */
     const journal = (kind: string, target: string, data?: Record<string, unknown>) => {
-      k.journal.append({ kind, actor: String(a.actor ?? "operator"), target, data });
+      k.journal.append({ kind, actor: caller.actor ?? "operator", target, data });
     };
+    if (method.startsWith("host.")) {
+      // `host.<name>.<export>`: a host package's method, run by the host process. The kernel checks who
+      // is calling and writes the row; what the method does and with what is the package's, so the
+      // arguments are never journalled here (a key's material travels this way). Only an admin, for the
+      // same reason as `restart.request`: `rpc.ts` admits the system userspace, which has no business
+      // granting anything.
+      const [name, exp, ...rest] = method.slice("host.".length).split(".");
+      if (name && exp && !rest.length) {
+        if (caller.actor) assert(actor().role === "admin", "only an admin may call a host package", "unauthorized");
+        journal("host.call", user(), { name, method: exp });
+        return k.hosts.call(name, exp, { ...caller, ...(caller.actor ? { actor: caller.actor } : {}) });
+      }
+      throw new CodedError(`unknown control method: ${method}`, "rpc");
+    }
+    const a = parseSchema(ControlArgumentsSchema, caller, `${method} arguments`, "rpc");
+    const text = (key: string) => parseSchema(z.string(), a[key], `${method}.${key}`, "rpc");
     /** The configuration layer named: a person's own, or the system layer when none or the system user is named. */
     const layer = () => (a.user && k.users.authorize(a.user).id !== SYSTEM_USER ? a.user : undefined);
-    const configTarget = () => ({ name: String(a.name), user: layer() });
+    const configTarget = () => ({ name: text("name"), user: layer() });
     switch (method) {
       case "ping":
         return "pong";
@@ -40,52 +58,56 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         // The id is half of a socket path -- `<home>/userspaces/<id>/run/term.sock` -- and this is the one
         // moment both halves are known and a shorter one can still be chosen. Every way a person is admitted
         // comes through here: the command line, an admin's `operator.*`, the browser.
-        assertUserIdFitsSockets(k.config.home, String(a.id));
-        const rec = k.users.create(String(a.id), a.role as UserRole | undefined);
+        assertUserIdFitsSockets(k.config.home, text("id"));
+        const rec = k.users.create(text("id"), a.role);
         journal("user.create", rec.id, { role: rec.role });
         await k.services.ensure(rec.id);
         return rec;
       }
       case "users.remove":
-        await k.removeUser(String(a.id));
-        journal("user.remove", String(a.id));
+        await k.removeUser(text("id"));
+        journal("user.remove", text("id"));
         return null;
-      case "users.setStatus":
-        journal("user.status", String(a.id), { status: a.status });
-        return k.users.setStatus(String(a.id), a.status as UserStatus);
-      case "users.setRole":
-        journal("user.role", String(a.id), { role: a.role });
-        return k.users.setRole(String(a.id), a.role as UserRole);
+      case "users.setStatus": {
+        const status = parseSchema(UserStatusSchema, a.status, "users.setStatus.status", "rpc");
+        journal("user.status", text("id"), { status });
+        return k.users.setStatus(text("id"), status);
+      }
+      case "users.setRole": {
+        const role = parseSchema(UserRoleSchema, a.role, "users.setRole.role", "rpc");
+        journal("user.role", text("id"), { role });
+        return k.users.setRole(text("id"), role);
+      }
       case "users.passwd":
-        await k.auth.setPassword(String(a.id), String(a.password));
-        journal("user.password", String(a.id));
+        await k.auth.setPassword(text("id"), text("password"));
+        journal("user.password", text("id"));
         return null;
       case "packages.list":
         return k.packages.listFor(us());
       case "packages.install": {
-        const info = await k.packages.install(us(), actor(), String(a.source));
-        journal("package.install", user(), { name: info.name, version: info.version, source: String(a.source) });
+        const info = await k.packages.install(us(), actor(), text("source"));
+        journal("package.install", user(), { name: info.name, version: info.version, source: text("source") });
         return info;
       }
       case "packages.uninstall":
-        await k.packages.uninstall(us(), String(a.name));
-        journal("package.uninstall", user(), { name: String(a.name) });
+        await k.packages.uninstall(us(), text("name"));
+        journal("package.uninstall", user(), { name: text("name") });
         return null;
       case "packages.unfork": {
-        const info = await k.packages.unfork(us(), String(a.name), Boolean(a.deleteFiles));
-        journal("package.unfork", user(), { name: String(a.name), origin: info.name, files: Boolean(a.deleteFiles) });
+        const info = await k.packages.unfork(us(), text("name"), a.deleteFiles ?? false);
+        journal("package.unfork", user(), { name: text("name"), origin: info.name, files: a.deleteFiles ?? false });
         return info;
       }
       case "packages.promote": {
         const owner = us();
-        const promoted = await k.packages.promote(owner, String(a.name));
-        await k.packages.uninstall(owner, String(a.name));
+        const promoted = await k.packages.promote(owner, text("name"));
+        await k.packages.uninstall(owner, text("name"));
         const sweep = await installEverywhere(k, promoted);
-        journal("package.promote", user(), { name: String(a.name), promoted, ...sweep });
+        journal("package.promote", user(), { name: text("name"), promoted, ...sweep });
         return { name: promoted, ...sweep };
       }
       case "packages.installEveryone":
-        return installEveryone(k, actor(), String(a.source), journal);
+        return installEveryone(k, actor(), text("source"), journal);
       case "fence.reload": {
         // `_system` is a legal target, unlike a grant: the providers and the sign-in page live in it,
         // and are otherwise out of reach without a new daemon. `authorize` refuses the unknown and the suspended.
@@ -107,7 +129,7 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         assert(reason, "a restart needs a reason: it is shown to everyone waiting and recorded", "invalid");
         // The latch wrote every sentence, refusals included; passing them through is what keeps the host, the
         // page and the model reading the same words about the same latch.
-        const armed = k.restart.arm(reason, String(a.actor ?? "operator"));
+        const armed = k.restart.arm(reason, caller.actor ?? "operator");
         journal(`restart.${armed.state}`, "daemon", { reason, ...(armed.why ? { why: armed.why } : {}) });
         return armed;
       }
@@ -133,9 +155,9 @@ export function createControlHandler(k: KernelServices): KernelRpc {
       case "config.show":
         return k.settings.show(configTarget());
       case "config.set":
-        return k.settings.set(configTarget(), String(a.key), (raw as { value?: unknown }).value, String(a.actor ?? "operator"));
+        return k.settings.set(configTarget(), text("key"), a.value, caller.actor ?? "operator");
       case "config.unset":
-        return k.settings.unset(configTarget(), String(a.key), String(a.actor ?? "operator"));
+        return k.settings.unset(configTarget(), text("key"), caller.actor ?? "operator");
       case "config.reload": {
         // The whole file is read again, not only `packages[*]`. What that reaches depends on how each key
         // is consumed: `CONFIG_TIERS` says which, `applyInPlace` writes the new values into the object the
@@ -163,31 +185,19 @@ export function createControlHandler(k: KernelServices): KernelRpc {
       case "sessions.list":
         return k.sessions.list(user());
       case "sessions.inspect":
-        return k.sessions.inspect(user(), String(a.session));
+        return k.sessions.inspect(user(), text("session"));
       case "sessions.cancel":
-        return k.sessions.cancel(user(), String(a.session));
+        return k.sessions.cancel(user(), text("session"));
       case "sessions.delete":
-        await k.sessions.delete(user(), String(a.session));
-        journal("session.delete", user(), { session: String(a.session) });
+        await k.sessions.delete(user(), text("session"));
+        journal("session.delete", user(), { session: text("session") });
         return null;
       case "sessions.send": {
-        for await (const event of k.sessions.send(user(), String(a.session), normalizeTurnInput((raw as { input?: unknown })?.input), { model: a.model || undefined })) emit?.(event);
+        for await (const event of k.sessions.send(user(), text("session"), normalizeTurnInput(a.input), { model: a.model || undefined })) emit?.(event);
         return null;
       }
-      default: {
-        // `host.<name>.<export>`: a host package's method, run by the host process. The kernel checks who
-        // is calling and writes the row; what the method does and with what is the package's, so the
-        // arguments are never journalled here (a key's material travels this way). Only an admin, for the
-        // same reason as `restart.request`: `rpc.ts` admits the system userspace, which has no business
-        // granting anything.
-        const [name, exp, ...rest] = method.startsWith("host.") ? method.slice("host.".length).split(".") : [];
-        if (name && exp && !rest.length) {
-          if (a.actor) assert(actor().role === "admin", "only an admin may call a host package", "unauthorized");
-          journal("host.call", user(), { name, method: exp });
-          return k.hosts.call(name, exp, { ...(raw as Record<string, unknown> | undefined), ...(a.actor ? { actor: a.actor } : {}) });
-        }
+      default:
         throw new CodedError(`unknown control method: ${method}`, "rpc");
-      }
     }
   };
 }

@@ -1,23 +1,14 @@
+import type { z } from "zod";
+import type { AssetMetadataSchema, AssetRefSchema, AssetUploadSchema, AssetDownloadSchema } from "./schemas/assets.js";
 /** Binary storage is separate from conversation JSON and from the document store. */
-export interface AssetMetadata {
-  mediaType: string;
-  name?: string;
-}
+export type AssetMetadata = z.infer<typeof AssetMetadataSchema>;
 
-export interface AssetRef extends AssetMetadata {
-  id: string;
-  size: number;
-}
+export type AssetRef = z.infer<typeof AssetRefSchema>;
 
 /** Base64 is a transport encoding only; messages keep an asset reference. */
-export interface AssetUpload extends AssetMetadata {
-  data: string;
-}
+export type AssetUpload = z.infer<typeof AssetUploadSchema>;
 
-export interface AssetDownload {
-  asset: AssetRef;
-  data: string;
-}
+export type AssetDownload = z.infer<typeof AssetDownloadSchema>;
 
 export interface AssetClient {
   put(upload: AssetUpload): Promise<AssetRef>;

@@ -1,10 +1,12 @@
-import { normalizeMessages, normalizeTurnInput } from "../lib/content.js";
-import { SYSTEM_USER, type AssetUpload, type KernelRpc, type ModelChoices, type ProviderCall, type Userspace } from "../contracts/index.js";
+import { z } from "zod";
+import { RpcArgumentsSchema } from "../contracts/schemas/rpc.js";
+import { AssetUploadSchema, ProviderCallInputSchema } from "../contracts/schemas/index.js";
+import { parseSchema } from "../lib/validation.js";
+import { normalizeTurnInput } from "../lib/content.js";
+import { SYSTEM_USER, type KernelRpc, type ModelChoices, type Userspace } from "../contracts/index.js";
 import { assert, CodedError } from "../lib/error.js";
 import { assertStoreDoc, storeId } from "../lib/store.js";
 import type { KernelServices } from "./kernel.js";
-
-type Args = Record<string, string | undefined>;
 
 const OPERATOR = "operator.";
 
@@ -21,8 +23,7 @@ export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions"
 export function createRpcHandler(us: Userspace, k: RpcServices, operator?: KernelRpc, models?: (us: Userspace) => Promise<ModelChoices>): KernelRpc {
   const system = us.id === SYSTEM_USER;
   return async (method, raw, emit, signal) => {
-    const args = (raw ?? {}) as Args;
-    const input = () => normalizeTurnInput((raw as { input?: unknown })?.input);
+    const payload = parseSchema(z.record(z.string(), z.unknown()), raw ?? {}, `${method} arguments`, "rpc");
     const actor = k.users.authorize(us.id);
     if (method.startsWith(OPERATOR)) {
       const op = method.slice(OPERATOR.length);
@@ -30,47 +31,51 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
       // One exception to the role: a person may reload their own workspace, because the code it is holding is
       // theirs to put right. Their own id, named: the control table reads no `user` as the system userspace,
       // which is nobody's own. It checks the target again, so this opens nothing wider.
-      const own = op === "fence.reload" && args.user === us.id;
+      const own = op === "fence.reload" && payload.user === us.id;
       assert(own || actor.role !== "user", "only an admin may use operator methods", "unauthorized");
-      return operator(op, { ...args, actor: us.id }, emit);
+      return operator(op, { ...payload, actor: us.id }, emit);
     }
+    const args = parseSchema(RpcArgumentsSchema, payload, `${method} arguments`, "rpc");
+    const text = (key: string) => parseSchema(z.string(), args[key], `${method}.${key}`, "rpc");
+    const input = () => normalizeTurnInput(args.input);
     // The fence names its package and a sub-namespace; the prefix is the kernel's, so nothing a fence sends can leave its own tree.
-    const space = () => k.store.open(storeId("userspaces", us.id, String(args.package ?? ""), args.namespace ?? "default"));
+    const space = () => k.store.open(storeId("userspaces", us.id, text("package"), args.namespace ?? "default"));
     /** A fence configures only what is installed in it; the system fence's own layer is the system layer. */
     const target = () => {
-      const name = String(args.name);
+      const name = text("name");
       assert(k.packages.installed(us).some((p) => p.name === name), `${name} is not installed in ${us.id}`, "not-found");
       return { name, ...(system ? {} : { user: us.id }) };
     };
     switch (method) {
       case "packages.install":
-        return k.packages.install(us, actor, String(args.source));
+        return k.packages.install(us, actor, text("source"));
       case "packages.uninstall":
-        return k.packages.uninstall(us, String(args.name));
+        await k.packages.uninstall(us, text("name"));
+        return null;
       // A fence un-forks only its own userspace, which is what it is: the person clicking "go back to the
       // shipped package" in their own marketplace page. The gateway serving that click is very often the
       // package being replaced, so the answer to this call is routinely lost; see `PackageManager.unfork`.
       case "packages.unfork":
-        return k.packages.unfork(us, String(args.name), Boolean(args.deleteFiles));
+        return k.packages.unfork(us, text("name"), args.deleteFiles ?? false);
       case "packages.delete":
-        return k.packages.delete(us, String(args.name));
+        return k.packages.delete(us, text("name"));
       case "packages.list":
         return k.packages.listFor(us);
       case "sessions.create":
         return k.sessions.create(us.id, { parent: args.parent });
       case "assets.put":
-        return k.assets.put(us.id, (raw as { upload: AssetUpload }).upload, args.grant);
+        return k.assets.put(us.id, parseSchema(AssetUploadSchema, args.upload, "assets.put upload", "rpc"), args.grant);
       case "assets.read":
-        return k.assets.read(us.id, String(args.id), args.grant);
+        return k.assets.read(us.id, text("id"), args.grant);
       case "sessions.complete":
-        return k.sessions.complete(us.id, String(args.session), input());
+        return k.sessions.complete(us.id, text("session"), input());
       case "sessions.askText":
-        return k.sessions.askText(us.id, String(args.session), input());
+        return k.sessions.askText(us.id, text("session"), input());
       case "sessions.ask":
-        return k.sessions.ask(us.id, String(args.session), input());
+        return k.sessions.ask(us.id, text("session"), input());
       case "sessions.send": {
         // A fence that drops the call cancels the turn it started, so nothing streams into the void.
-        const session = String(args.session);
+        const session = text("session");
         const cancel = () => void k.sessions.cancel(us.id, session);
         signal?.addEventListener("abort", cancel, { once: true });
         try {
@@ -85,35 +90,33 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
         return models(us);
       case "providers.call": {
         // Routed to the provider's own fence with its own configuration: the caller never sees the key.
-        const call = (raw as { call?: ProviderCall }).call;
-        assert(call && typeof call === "object" && typeof call.model === "string", "providers.call needs a call with a model", "rpc");
-        const provider = await k.providers.resolve(us, call.model);
-        const request = { ...call, messages: normalizeMessages(call.messages) };
+        const request = parseSchema(ProviderCallInputSchema, args.call, "providers.call needs a call with a model", "rpc");
+        const provider = await k.providers.resolve(us, request.model);
         await k.assets.during(us.id, provider.userspace.id, request.messages, (grant) =>
           k.providers.call(provider, request, (e) => emit?.(e), signal, grant));
         return null;
       }
       case "sessions.cancel":
-        return k.sessions.cancel(us.id, String(args.session));
+        return k.sessions.cancel(us.id, text("session"));
       case "sessions.delete":
-        await k.sessions.delete(us.id, String(args.session));
+        await k.sessions.delete(us.id, text("session"));
         return null;
       case "sessions.list":
         return k.sessions.list(us.id);
       case "sessions.inspect":
-        return k.sessions.inspect(us.id, String(args.session));
+        return k.sessions.inspect(us.id, text("session"));
       case "sessions.watch":
         return k.sessions.watch(us.id, (m) => emit?.(m), signal);
       case "store.get":
-        return (await space().get(String(args.key))) ?? null;
+        return (await space().get(text("key"))) ?? null;
       case "store.set": {
-        const doc = (raw as { doc?: unknown }).doc;
+        const doc = args.doc;
         assertStoreDoc(doc);
-        await space().set(String(args.key), doc);
+        await space().set(text("key"), doc);
         return null;
       }
       case "store.delete":
-        await space().delete(String(args.key));
+        await space().delete(text("key"));
         return null;
       case "store.list":
         return space().list(args.prefix);
@@ -123,23 +126,23 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
       case "config.show":
         return k.settings.show(target());
       case "config.set":
-        return k.settings.set(target(), String(args.key), (raw as { value?: unknown }).value, us.id, true);
+        return k.settings.set(target(), text("key"), args.value, us.id, true);
       case "config.unset":
-        return k.settings.unset(target(), String(args.key), us.id);
+        return k.settings.unset(target(), text("key"), us.id);
       case "config.effective":
         return k.settings.effective(us, target().name);
       case "auth.login": {
         assert(system, "only the system userspace may log people in", "unauthorized");
-        const r = await k.auth.login(String(args.id), String(args.password));
+        const r = await k.auth.login(text("id"), text("password"));
         return r ? { token: r.token, user: { id: r.user.id, role: r.user.role } } : null;
       }
       case "auth.authenticate": {
-        const user = k.auth.authenticate(String(args.token));
+        const user = k.auth.authenticate(text("token"));
         return user && (system || user.id === us.id) ? { id: user.id, role: user.role } : null;
       }
       case "auth.logout": {
-        const user = k.auth.authenticate(String(args.token));
-        if (user && (system || user.id === us.id)) k.auth.logout(String(args.token));
+        const user = k.auth.authenticate(text("token"));
+        if (user && (system || user.id === us.id)) k.auth.logout(text("token"));
         return null;
       }
       default:

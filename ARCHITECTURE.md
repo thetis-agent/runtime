@@ -1,7 +1,7 @@
 # Runtime architecture
 
 `src/index.ts` is the public entry point of `@thetis/runtime`, a TypeScript library targeting Node.js.
-It has no third-party runtime dependencies. Importing it does not start a daemon, open a socket, or load
+Zod is its only third-party runtime dependency. Importing it does not start a daemon, open a socket, or load
 an extension. The embedding application calls `createKernel(config, configure?)` and owns shutdown.
 
 The runtime repository owns all core source and its tests. `packages/` is a separate repository for
@@ -12,7 +12,7 @@ not separately versioned npm packages. They use relative ESM imports ending in `
 
 | Module | Responsibility | Allowed internal dependencies |
 |---|---|---|
-| `contracts` | Shared types and adapter interfaces | None |
+| `contracts` | Shared data schemas, inferred types and adapter interfaces | None |
 | `lib` | Reusable mechanisms such as records, queues and RPC framing | `contracts` |
 | `kernel` | Authorization, ownership, sessions and pipeline coordination | `contracts`, `lib` |
 | `sandbox` | Default OS process isolation and fence pool | `contracts`, `lib` |
@@ -33,6 +33,9 @@ adapters. The default configuration retains the shipped installation's package c
   to the kernel. Replacement adapters must honor cancellation, isolation and lifecycle contracts.
 - Define interfaces around what callers need. Share each contract once; do not duplicate an interface
   in both the consumer and its adapter. Prefer the `contracts` layer for shared vocabulary.
+- Parse unknown boundary data with Zod before using it as a DTO. Infer the DTO from its schema;
+  authorization and state transitions remain service responsibilities. Extension schemas stay with
+  their owners. See [validation](docs/validation.md) for the boundary and compatibility rules.
 - Inject collaborators through constructors. Domain services must not resolve an IoC container or
   import a global service instance. `src/host/kernel.ts` is the composition root.
 - Use descriptive names, small cohesive functions and one level of abstraction per function. Extract
@@ -60,6 +63,7 @@ extensions. It runs a session without any installed extension or default process
 |---|---|
 | `@thetis/runtime` | Kernel creation, configuration, IoC tokens, adapter types and control-socket helpers |
 | `@thetis/runtime/contracts` | Extension SDK types and protocol constants |
+| `@thetis/runtime/schemas` | Shared Zod schemas for runtime data contracts |
 | `@thetis/runtime/lib/<module>` | Shared mechanisms used by extensions |
 | `@thetis/runtime/kernel` | Kernel services and operator handlers for host applications |
 | `@thetis/runtime/sandbox` | Default fence implementations for host applications |

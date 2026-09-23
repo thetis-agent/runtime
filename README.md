@@ -8,6 +8,8 @@ The kernel runtime is a plain TypeScript library in [`src/`](src/), exported as 
 Its entry point is [`src/index.ts`](src/index.ts); importing it starts no process or server.
 The separate `packages/` repository contains extensions and host applications, including the CLI.
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module boundaries and the SOLID, DRY, IoC and DI rules.
+Shared DTOs derive from Zod schemas exported through `@thetis/runtime/schemas`.
+See [validation](docs/validation.md) for parsing unknown data, extension ownership, and compatibility.
 
 Each core module and extension has a `README.md` describing what it does and what enforces it. The skills in
 `packages/skills-thetis/skills/thetis/` are the documentation an agent reads to use Thetis and to change

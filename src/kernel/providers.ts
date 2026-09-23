@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { ModelDescriptorSchema, ProviderEventSchema } from "../contracts/schemas/messages.js";
+import { parseSchema } from "../lib/validation.js";
 import { SYSTEM_USER, type Fences, type ModelDescriptor, type PackageInfo, type ProviderCall, type ProviderEvent, type Userspace } from "../contracts/index.js";
 import { CodedError } from "../lib/error.js";
 import type { UserspaceLayout } from "../lib/userspace-layout.js";
@@ -57,7 +60,7 @@ export class ProviderRegistry {
   }
 
   async call(p: ResolvedProvider, call: ProviderCall, onEvent: (e: ProviderEvent) => void, signal?: AbortSignal, assetGrant?: string): Promise<void> {
-    await this.fences.request(p.userspace, "provider.call", await this.payload(p, { call, assetGrant }), (e) => onEvent(e as ProviderEvent), signal);
+    await this.fences.request(p.userspace, "provider.call", await this.payload(p, { call, assetGrant }), (e) => onEvent(parseSchema(ProviderEventSchema, e, `provider ${p.pkg.name} event`, "provider")), signal);
   }
 
   /**
@@ -74,7 +77,7 @@ export class ProviderRegistry {
     const cached = this.models.get(key);
     if (cached && Date.now() - cached.at < MODELS_TTL_MS) return cached.list;
     const raw = await this.fences.request(p.userspace, "provider.models", await this.payload(p, {}));
-    const entry = { at: Date.now(), list: Array.isArray(raw) ? (raw as ModelDescriptor[]) : [] };
+    const entry = { at: Date.now(), list: parseSchema(z.array(ModelDescriptorSchema), raw, `provider ${p.pkg.name} models`, "provider") };
     this.models.set(key, entry);
     return entry.list;
   }
