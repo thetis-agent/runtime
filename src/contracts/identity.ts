@@ -67,7 +67,7 @@ export interface SessionRecord {
   conversation: Message[];
   harness: HarnessState;
   /** The turn in progress, written when it starts and removed when it ends; a record still carrying one was interrupted. */
-  turn?: { id: string; startedAt: string; input?: string };
+  turn?: { id: string; startedAt: string; input?: string; messages?: Message[] };
 }
 
 /** What a list of sessions says about each without opening its record. `first` and `last` are clipped to 200 characters. */

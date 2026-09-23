@@ -1,4 +1,5 @@
-import type { Message, SessionRecord, SessionSummaryRef, TurnEvent, TurnOptions, UserRecord, Userspace, WatchedTurnEvent } from "../../contracts/index.js";
+import { contentText, normalizeMessage, normalizeTurnInput } from "../../lib/content.js";
+import type { Message, TurnInput, SessionRecord, SessionSummaryRef, TurnEvent, TurnOptions, UserRecord, Userspace, WatchedTurnEvent } from "../../contracts/index.js";
 import { AsyncQueue } from "../../lib/async.js";
 import { assert } from "../../lib/error.js";
 import { newId, now } from "../../lib/ids.js";
@@ -14,7 +15,7 @@ export const SESSION_ID = /^s_[a-f0-9]+$/;
 
 export type SessionRef = SessionSummaryRef;
 
-export type TurnInput = string | Message[];
+export type { TurnInput } from "../../contracts/index.js";
 
 /** The session API: the only surface gateways and subagent-spawning steps use. Every call is authorized against a user. */
 export class SessionApi {
@@ -60,9 +61,9 @@ export class SessionApi {
     const key = `${userId}/${sessionId}`;
     assert(!this.running.has(key), `session ${sessionId} already has a turn in progress`, "busy");
     const control = new AbortController();
-    const messages: Message[] = typeof input === "string" ? [{ role: "user", content: input }] : input;
+    const messages = normalizeTurnInput(input);
     const queue = new AsyncQueue<TurnEvent>();
-    const emit = this.taps.emitter(userId, { session: sessionId, parent: session.parent, input: typeof input === "string" ? input : undefined }, (e) => queue.push(e));
+    const emit = this.taps.emitter(userId, { session: sessionId, parent: session.parent, input: messages.map((m) => contentText(m.content)).join("\n"), messages }, (e) => queue.push(e));
     const done = this.runner
       .runTurn(us, session, messages, emit, control.signal, opts)
       .then(() => queue.close(), (err: unknown) => queue.close(err))
@@ -103,14 +104,23 @@ export class SessionApi {
     return [...this.running.keys()];
   }
 
-  /** Runs a turn to completion and returns the assistant's final text. Convenient for subagents and one-shot calls. */
-  async ask(userId: string, sessionId: string, input: TurnInput): Promise<string> {
-    let last = "";
+  /** Runs a turn to completion and returns the final assistant message without losing parts. */
+  async complete(userId: string, sessionId: string, input: TurnInput): Promise<Message> {
+    let last: Message = { role: "assistant", content: [] };
     for await (const e of this.send(userId, sessionId, input)) {
-      if (e.type === "message" && e.message.role === "assistant") last = e.message.content;
+      if (e.type === "message" && e.message.role === "assistant") last = normalizeMessage(e.message);
       if (e.type === "error") throw new Error(e.message);
     }
     return last;
+  }
+
+  async askText(userId: string, sessionId: string, input: TurnInput): Promise<string> {
+    return contentText((await this.complete(userId, sessionId, input)).content);
+  }
+
+  /** @deprecated Use askText for a text projection or complete for structured output. */
+  ask(userId: string, sessionId: string, input: TurnInput): Promise<string> {
+    return this.askText(userId, sessionId, input);
   }
 
   inspect(userId: string, sessionId: string): SessionRecord & { status: "idle" | "running" } {

@@ -1,3 +1,4 @@
+import type { ContentPart, ContentEvent, ExtensionEvent } from "./content.js";
 // One turn: the steps the enumerator schedules, what each step sees, what it may change, and the events a turn emits.
 import type { Message, ProviderCall, ToolCall } from "./messages.js";
 import type { PackageInfo } from "./packages.js";
@@ -54,6 +55,8 @@ export interface TurnOptions {
  * has no thinking to redraw, and a gateway that does not know the kind can ignore it.
  */
 export type TurnEvent =
+  | ContentEvent
+  | ExtensionEvent
   /** A package has saved a new context snapshot; fetch its body only when inspecting it. */
   | { type: "context.updated" }
   | { type: "turn.start"; turn: string; session: string }
@@ -62,7 +65,7 @@ export type TurnEvent =
   | { type: "text"; delta: string }
   | { type: "reasoning"; delta: string }
   | { type: "tool.call"; call: ToolCall }
-  | { type: "tool.result"; id: string; name: string; result: string }
+  | { type: "tool.result"; id: string; name: string; result: string; content?: ContentPart[] }
   | { type: "message"; message: Message; usage?: Record<string, number> }
   | { type: "usage"; usage: Record<string, number> }
   /**
@@ -93,8 +96,10 @@ export interface WatchedTurnEvent {
   session: string;
   /** The parent session, when the session is a subagent. */
   parent?: string;
-  /** On `turn.start` only: the text the turn was sent, when it was sent as text. */
+  /** On `turn.start` only: a text projection of the turn input. */
   input?: string;
+  /** On turn.start only: the complete canonical input. */
+  messages?: Message[];
   /** On `turn.start` only: when the turn started. */
   startedAt?: string;
   event: TurnEvent;

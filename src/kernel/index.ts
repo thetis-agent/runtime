@@ -16,3 +16,4 @@ export { SessionApi, SESSION_ID, type SessionRef, type TurnInput } from "./sessi
 export { Enumerator } from "./pipeline/enumerator.js";
 export { PipelineRunner } from "./pipeline/runner.js";
 export type { HostExtensions, KernelServices } from "./kernel.js";
+export { AssetAccess } from "./assets.js";

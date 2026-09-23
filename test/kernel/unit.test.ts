@@ -1,3 +1,6 @@
+import { AssetAccess } from "../../src/kernel/assets.js";
+import { FileAssetStore } from "../../src/lib/assets.js";
+import { textContent, contentText } from "@thetis/runtime/lib/content";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -129,13 +132,13 @@ test("runner: a step's events are the turn's, with its package's configuration, 
       return { conversation: [{ role: "user", content: "go" }, { role: "assistant", content: "hel" }] };
     });
     const events: TurnEvent[] = [];
-    await r.runTurn(us, session, [{ role: "user", content: "go" }], (e) => events.push(e), control.signal);
+    await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], (e) => events.push(e), control.signal);
     assert.deepEqual(sent, [{ package: "@a/hist", export: "trim", config: { for: "@a/hist" } }, { package: "@a/harness", export: "call", config: { for: "@a/harness" } }]);
     assert.deepEqual(events.map((e) => e.type), ["turn.start", "step.start", "step.end", "step.start", "text", "usage", "error", "error", "usage", "step.end", "error", "turn.end"]);
     const errors = events.filter((e): e is Extract<TurnEvent, { type: "error" }> => e.type === "error").map((e) => e.code);
     assert.deepEqual(errors, ["provider", undefined, "cancelled"], "the step's own errors are relayed as they are, and the cancel is one event after the last step");
     const saved = store.load(us.sessions, "s_1");
-    assert.deepEqual(saved?.conversation.map((m) => m.content), ["go", "hel"], "what the step returned before the cancel is kept");
+    assert.deepEqual(saved?.conversation.map((m) => contentText(m.content)), ["go", "hel"], "what the step returned before the cancel is kept");
     assert.equal(saved?.turn, undefined);
     const [end] = new Journal(home).tail(1, { kind: "turn.end" });
     const data = end.data as { reported: unknown; error: { code?: string } };
@@ -156,9 +159,9 @@ for (const [name, result] of Object.entries({
     const home = tmp();
     try {
       const { r, us, session, store } = runner(home, [pkgs[1]], async () => result);
-      session.conversation = [{ role: "user", content: "previous request" }, { role: "assistant", content: "previous response" }];
+      session.conversation = [{ role: "user", content: textContent("previous request") }, { role: "assistant", content: textContent("previous response") }];
       session.harness = { remembered: true };
-      const input: Message[] = [{ role: "user", content: "new request" }];
+      const input: Message[] = [{ role: "user", content: textContent("new request") }];
       const expected = [...session.conversation, ...input];
       const events: TurnEvent[] = [];
       await r.runTurn(us, session, input, (event) => events.push(event));
@@ -821,7 +824,7 @@ test("sessions.watch: every turn of the user reaches the watcher with its sessio
     const runner = {
       runTurn: async (_us: Userspace, session: SessionRecord, input: Message[], emit: (e: TurnEvent) => void) => {
         emit({ type: "turn.start", turn: "t1", session: session.id });
-        emit({ type: "message", message: { role: "assistant", content: `re: ${input[0].content}` } });
+        emit({ type: "message", message: { role: "assistant", content: textContent(`re: ${contentText(input[0].content)}`) } });
         emit({ type: "turn.end", turn: "t1", session: session.id });
         return session;
       },
@@ -847,7 +850,8 @@ test("sessions.watch: every turn of the user reaches the watcher with its sessio
     await api.ask("bob", root.id, [{ role: "user", content: "as messages" }]);
     assert.equal(seen.length, 6);
     assert.equal(seen[3].parent, undefined, "a root session has no parent");
-    assert.equal(seen[3].input, undefined, "input is reported only when the turn was sent as text");
+    assert.equal(seen[3].input, "as messages", "input is the text projection of structured messages");
+    assert.deepEqual(seen[3].messages, [{ role: "user", content: textContent("as messages") }]);
     const eve = api.create("eve");
     await api.ask("eve", eve.id, "hers");
     assert.equal(seen.length, 6, "another user's turns are not bob's to see");
@@ -909,13 +913,13 @@ test("sessions.delete waits for the cancelled turn before removing the record; o
     // Over rpc: the fence's signal cancels the turn the send started.
     const calls: { model: string; signal?: AbortSignal }[] = [];
     const providers = {
-      resolve: async (_us: Userspace, model: string) => ({ model }),
+      resolve: async (_us: Userspace, model: string) => ({ model, userspace: layout.pathFor("bob") }),
       call: async (p: { model: string }, _call: unknown, onEvent: (e: unknown) => void, signal?: AbortSignal) => {
         calls.push({ model: p.model, signal });
         onEvent({ type: "text", delta: `from ${p.model}` });
       },
     } as unknown as ProviderRegistry;
-    const rpc = createRpcHandler(layout.pathFor("bob"), { users, sessions: api, providers } as unknown as RpcServices);
+    const rpc = createRpcHandler(layout.pathFor("bob"), { users, sessions: api, providers, assets: new AssetAccess(new FileAssetStore(join(home, "assets"))) } as unknown as RpcServices);
     const again = api.create("bob");
     const over: TurnEvent[] = [];
     const life = new AbortController();

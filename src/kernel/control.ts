@@ -1,3 +1,4 @@
+import { normalizeTurnInput } from "../lib/content.js";
 import { resolve } from "node:path";
 import { SYSTEM_USER, type KernelRpc, type PackageInfo, type UserRecord, type UserRole, type UserStatus } from "../contracts/index.js";
 import { assert, CodedError } from "../lib/error.js";
@@ -170,7 +171,7 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         journal("session.delete", user(), { session: String(a.session) });
         return null;
       case "sessions.send": {
-        for await (const event of k.sessions.send(user(), String(a.session), String(a.input), { model: a.model || undefined })) emit?.(event);
+        for await (const event of k.sessions.send(user(), String(a.session), normalizeTurnInput((raw as { input?: unknown })?.input), { model: a.model || undefined })) emit?.(event);
         return null;
       }
       default: {

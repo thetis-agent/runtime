@@ -16,14 +16,14 @@ The daemon is identity, package authority, the fence, the pipe, the record, the 
 | The port | The door for browsers and the control socket for the command line. |
 | The latch | The daemon's own quiet-wait restart, `thetis restart`, under systemd, without sudo. |
 
-It runs steps and relays their events. It never makes a model call, never runs a tool, never interprets a `ProviderCall`, and never knows a package by name: the model-call loop is the `call` step of `@thetis/harness-core` in the `execute` phase, a tool runs inside that step, a provider request goes through the fence-to-kernel method `providers.call` and is routed by `call.model` to the provider's fence, and every per-package default is declared in that package's manifest. `defaultConfig().packages` is `{}`.
+It runs steps and relays their events. It never makes a model call, never runs a tool, validates content envelopes and asset ownership without interpreting modality payloads, and never knows a package by name: the model-call loop is the `call` step of `@thetis/harness-core` in the `execute` phase, a tool runs inside that step, a provider request goes through the fence-to-kernel method `providers.call` and is routed by `call.model` to the provider's fence, and every per-package default is declared in that package's manifest. `defaultConfig().packages` is `{}`.
 
-Every seam has a fixed shape and opaque contents, and is extended only by optional fields the daemon passes through. The frozen seams:
+Seams have stable envelopes and opaque package payloads. Contract revisions are deliberate: runtime 0.2 introduces ordered content, explicit structured completion and scoped asset access. Further content kinds extend the payload without changing these seams:
 
 | Seam | The list |
 |---|---|
 | Fence operations, kernel to agent | `ping`, `exec`, `step`, `enumerate`, `service.start`, `service.stop`, `shutdown`, `provider.models`, `provider.call`. |
-| Fence-to-kernel methods | The cases of `createRpcHandler` in `rpc.ts`: `packages.*`, `sessions.*` (`delete` included), `models`, `providers.call`, `store.*` under the fence's own namespace, `config.*` at the fence's own layer, `auth.*`. |
+| Fence-to-kernel methods | The cases of `createRpcHandler` in `rpc.ts`: `packages.*`, `sessions.*` (`complete`, `askText` and `delete` included), `assets.put`, `assets.read`, `models`, `providers.call`, `store.*` under the fence's own namespace, `config.*` at the fence's own layer, `auth.*`. |
 | Control methods | The cases of `createControlHandler` in `control.ts`: `users.*`, `packages.*`, `config.*`, `sessions.*`, `fence.reload`, `restart.*`, `status`, `journal.tail`, `models`, `ping`, and the `default` branch, which dispatches `host.<package>.<export>` to a host package. |
 | The door's routes | `/`, `/login*`, `/logout`, `/<user>/*`. |
 | The shapes | `StepContext`, `StepResult`, `ProviderCall`, `ToolSpec`, `TurnEvent`. |
@@ -37,16 +37,17 @@ How a new need is met:
 - An admin feature that needs the host itself (its filesystem, its key store, the grant records) is a package of type `host`, such as `@thetis/host-grants`, which the host loads by `thetis.host.name` from the checkout or the promoted packages and re-imports whenever its entry changes; it answers `host.<name>.<export>` over the operator channel, and an edit to it is live on its next call.
 - A new daemon process is for the daemon's own bugs only, and the daemon does it itself: `thetis restart`.
 
-A feature that seems to need the daemon is a feature in the wrong package.
+Modality handling belongs in packages. Changes to ownership or cross-fence authority require an explicit runtime contract revision.
 
 ## What it provides
 
-An internal runtime module, not an installable extension. The kernel must stay under the line count its guard sets, stated only in `test/loc.test.ts`, and the guard ratchets down: the kernel may shrink and not grow.
+An internal runtime module, not an installable extension. The kernel must stay under the line count its guard sets, stated in `test/kernel/loc.test.ts`. The 0.2 revision raises that budget to 1,420 for scoped asset authority and structured completion; content conversion and binary file mechanics remain in packages and `lib`.
 
 The kernel imports the internal `contracts` and `lib` modules through relative paths. It depends on the `Fences` interface; the host binds a sandbox implementation. It never imports the host or sandbox. `test/architecture.test.mjs` enforces these boundaries.
 
 | Class or export | Responsibility |
 |---|---|
+| `AssetAccess` | Per-owner binary access and provider grants scoped to one invocation; depends on the injected `AssetStore` interface. |
 | `UserStore` | User records in the store namespace `users`, and `authorize`. |
 | `AuthService` | Passwords (scrypt) and login tokens in the private store namespaces `auth/credentials` and `auth/tokens`. `forget(id)` drops both for one id: `setPassword` uses it, and the host calls it when a user is removed, because an id that comes back must come back with nothing. A suspension revokes nothing -- `authorize` refuses the tokens while it lasts, and lifting it gives the person back what they had. |
 | `ConfigService`, `Settings` | Per-package configuration: the four layers along the fork chain, who may set what, secrets, the journal rows, and which fences a change reaches. `Settings` is the one method a dispatch site needs, `effective`. |

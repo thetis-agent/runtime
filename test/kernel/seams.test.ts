@@ -25,12 +25,13 @@ test("the fence answers exactly these operations", () => {
 
 test("a fence may ask the kernel exactly these methods", () => {
   assert.deepEqual(cases("kernel/rpc.ts"), [
+    "assets.put", "assets.read",
     "auth.authenticate", "auth.login", "auth.logout",
     "config.effective", "config.set", "config.show", "config.unset",
     "models",
     "packages.delete", "packages.install", "packages.list", "packages.unfork", "packages.uninstall",
     "providers.call",
-    "sessions.ask", "sessions.cancel", "sessions.create", "sessions.delete", "sessions.inspect", "sessions.list", "sessions.send", "sessions.watch",
+    "sessions.ask", "sessions.askText", "sessions.cancel", "sessions.complete", "sessions.create", "sessions.delete", "sessions.inspect", "sessions.list", "sessions.send", "sessions.watch",
     "store.clear", "store.delete", "store.get", "store.list", "store.set",
   ]);
 });

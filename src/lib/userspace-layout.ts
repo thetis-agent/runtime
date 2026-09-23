@@ -11,6 +11,7 @@ export class UserspaceLayout {
     private readonly home: string,
     private readonly mountsFor: (userId: string) => Mount[] = () => [],
     private readonly sshFor: (userId: string) => SshGrant[] = () => [],
+    private readonly prepare: (userspace: Userspace) => void = () => {},
   ) {}
 
   pathFor(userId: string): Userspace {
@@ -39,6 +40,7 @@ export class UserspaceLayout {
     for (const dir of [us.home, resolve(us.store, "node_modules"), resolve(us.store, "src"), us.sessions, us.run]) {
       mkdirSync(dir, { recursive: true });
     }
+    this.prepare(us);
     return us;
   }
 

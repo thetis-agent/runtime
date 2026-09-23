@@ -34,6 +34,8 @@ export type Outcome = { result: unknown } | { error: string; code?: string };
 /** What a caller attaches to a call it opens. `cleanup` runs once, when the call settles for any reason. */
 export interface OpenCall {
   onEvent?: EventSink;
+  /** Stops remote work when a consumer rejects an event (for example a malformed content stream). */
+  cancel?(): void;
   cleanup?: () => void;
   /**
    * Runs whenever anything at all arrives for this call: an event, the result, the error, or a bare
@@ -76,7 +78,13 @@ export class PendingCalls {
     if (!p) return false;
     p.call.onLive?.();
     if ("event" in frame) {
-      p.call.onEvent?.(frame.event);
+      try {
+        p.call.onEvent?.(frame.event);
+      } catch (error) {
+        this.settle(id, undefined, error);
+        // A transport closing while cancellation is sent must not escape the frame reader either.
+        try { p.call.cancel?.(); } catch { /* The failed call is already settled. */ }
+      }
       return true;
     }
     if (frame.error !== undefined) {

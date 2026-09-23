@@ -1,3 +1,4 @@
+import type { AssetAccess } from "./assets.js";
 import type { Fences, StoreDriver } from "../contracts/index.js";
 import type { Journal } from "../lib/journal.js";
 import type { MountStore } from "../lib/mounts.js";
@@ -41,6 +42,7 @@ export interface KernelServices {
   settings: ConfigService;
   /** The service plane's document store. The kernel holds the driver's interface only; the host loaded it. */
   store: StoreDriver;
+  assets: AssetAccess;
   /** The host packages. The kernel holds the interface only; the host loads each one by name. */
   hosts: HostExtensions;
   fences: Fences;

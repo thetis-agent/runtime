@@ -1,3 +1,4 @@
+import { contentText, normalizeMessage, normalizeMessages } from "../../lib/content.js";
 import type { Fences, Message, SessionRecord, StepContext, StepRef, StepResult, TurnEvent, TurnOptions, Userspace } from "../../contracts/index.js";
 import { CodedError, errorMessage } from "../../lib/error.js";
 import { newId, now } from "../../lib/ids.js";
@@ -9,8 +10,6 @@ import type { Settings } from "../settings.js";
 import type { Enumerator } from "./enumerator.js";
 
 export type Emit = (event: TurnEvent) => void;
-
-const ROLES = new Set(["system", "user", "assistant", "tool"]);
 
 export function checkCancelled(signal?: AbortSignal): void {
   if (signal?.aborted) throw new CodedError("turn cancelled", "cancelled");
@@ -46,7 +45,7 @@ export class PipelineRunner {
     const emit: Emit = (event) => {
       if (event.type === "usage") for (const [k, v] of Object.entries(event.usage)) reported[k] = (reported[k] ?? 0) + v;
       if (event.type === "error" && !failure) failure = { message: event.message, code: event.code };
-      emitOut(event);
+      emitOut(event.type === "message" ? { ...event, message: normalizeMessage(event.message) } : event);
     };
     const info = { id: session.id, user: session.user, parent: session.parent };
     const packages = this.packages.installed(us);
@@ -62,7 +61,7 @@ export class PipelineRunner {
     emit({ type: "turn.start", turn: turn.id, session: session.id });
     this.journal.append({ kind: "turn.start", actor: session.user, target: session.id, data: { turn: turn.id } });
     // Written now, with the input, so a turn cut short still leaves what was asked; `turn` marks it in progress.
-    session.turn = { id: turn.id, startedAt: now(), input: input.filter((m) => m.role === "user").map((m) => m.content).join("\n") };
+    session.turn = { id: turn.id, startedAt: now(), input: input.filter((m) => m.role === "user").map((m) => contentText(m.content)).join("\n"), messages: input };
     session.conversation = ctx.conversation;
     this.store.save(us.sessions, session);
     try {
@@ -108,20 +107,21 @@ export class PipelineRunner {
   private apply(ctx: StepContext, raw: unknown, stepId: string): void {
     if (raw == null) return;
     if (typeof raw !== "object") throw new CodedError(`step ${stepId} returned a non-object result`, "step");
-    const r = raw as StepResult;
-    if (r.conversation !== undefined && (!Array.isArray(r.conversation) || !r.conversation.every(isMessage))) throw new CodedError(`step ${stepId} returned an invalid conversation`, "step");
+    const r = { ...(raw as StepResult) };
+    let conversation: Message[] | undefined;
+    try {
+      if (r.conversation !== undefined) conversation = normalizeMessages(r.conversation);
+      if (r.call) r.call = { ...r.call, messages: normalizeMessages(r.call.messages) };
+    } catch {
+      throw new CodedError(`step ${stepId} returned an invalid conversation or call`, "step");
+    }
     if (r.call !== undefined) {
       const valid = r.call !== null && typeof r.call === "object" && typeof r.call.model === "string" && Array.isArray(r.call.messages);
       if (!valid) throw new CodedError(`step ${stepId} returned an invalid call`, "step");
     }
     if (r.harness !== undefined && (r.harness === null || typeof r.harness !== "object" || Array.isArray(r.harness))) throw new CodedError(`step ${stepId} returned an invalid harness`, "step");
-    if (r.conversation !== undefined) ctx.conversation = r.conversation;
+    if (conversation !== undefined) ctx.conversation = conversation;
     if (r.call !== undefined) ctx.call = { ...r.call, tools: Array.isArray(r.call.tools) ? r.call.tools : [], params: r.call.params ?? {} };
     if (r.harness !== undefined) ctx.harness = r.harness;
   }
-}
-
-function isMessage(m: unknown): m is Message {
-  const x = m as Message;
-  return !!x && typeof x === "object" && ROLES.has(x.role) && typeof x.content === "string";
 }

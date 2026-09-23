@@ -1,3 +1,4 @@
+import { contentText } from "@thetis/runtime/lib/content";
 // End-to-end through the real process fence and userspace agent, with a deterministic
 // provider fixture instead of the network. Exercises: seeding, prompt/tool steps, the tool
 // loop, self-extension by installing a user package, RPC from inside the fence, and isolation.
@@ -120,7 +121,7 @@ test("context capture is readable during the first turn through the real fence",
     assert.equal(record.harness["@thetis/harness-core"], undefined, "the session's after-step has not run yet");
     const file = join(kernel.userspaces.pathFor("alice").home, "harness-core/context", `${s.id}.json`);
     const snapshot = JSON.parse(readFileSync(file, "utf8"));
-    assert.match(snapshot.lastCall.request.messages.at(-1).content, /slow: first second third/);
+    assert.match(contentText(snapshot.lastCall.request.messages.at(-1).content), /slow: first second third/);
     assert.equal(snapshot.usage[0].status, "running");
     observed = true;
   }
@@ -231,7 +232,7 @@ test("a turn that fails after a tool ran keeps the tool call and its result in t
   const rec = kernel.sessions.inspect("alice", s.id);
   const roles = rec.conversation.map((m) => m.role);
   assert.deepEqual(roles, ["user", "assistant", "tool"], "the call and its result survive the failure");
-  assert.match(rec.conversation[2].content, /FAIL_NEXT/);
+  assert.match(contentText(rec.conversation[2].content), /FAIL_NEXT/);
   // The step returned rather than threw, so the turn went on to `after`: the record of the call is this turn's.
   const own = rec.harness["@thetis/harness-core"] as { lastCall?: { messages: number } } | undefined;
   assert.equal(own?.lastCall?.messages, 3, "recordCall saw the request, the reply and the tool result");
@@ -267,7 +268,7 @@ test("cancel: a running turn stops mid-stream, keeps the partial text, and the s
   const rec = kernel.sessions.inspect("alice", s.id);
   assert.equal(rec.status, "idle");
   assert.deepEqual(rec.conversation.map((m) => m.role), ["user", "assistant"]);
-  assert.equal(rec.conversation[1].content, r.text);
+  assert.equal(contentText(rec.conversation[1].content), r.text);
   const again = await collect(kernel.sessions.send("alice", s.id, "hello"));
   assert.deepEqual(again.errors, []);
 });
@@ -288,7 +289,7 @@ test("cancel: the turn ends at once, and the command it started keeps running in
   const kept = kernel.sessions.inspect("alice", s.id).conversation.slice(-3);
   assert.deepEqual(kept.map((m) => m.role), ["user", "assistant", "tool"]);
   assert.equal(kept[1].toolCalls?.[0]?.name, "shell");
-  assert.equal(kept[2].content, "error: the turn was stopped before this tool ran");
+  assert.equal(contentText(kept[2].content), "error: the turn was stopped before this tool ran");
   // `shell` is not `exec`. Cancelling a turn abandons the wait; it does not reach into the pty and kill
   // what the shell is running, and the session is shared with the person, so killing it would be a
   // surprise rather than a cleanup. The proof that the process survived is the next call meeting it.
@@ -896,4 +897,53 @@ test("migrate: a data directory with the four legacy files refuses to start, imp
   } finally {
     rmSync(legacy, { recursive: true, force: true });
   }
+});
+
+test("structured input, scoped assets and opaque output cross real fences, replay and persistence", async () => {
+  const { kernelClient } = await import("../../src/lib/kernel-client.js");
+  const client = kernelClient(createRpcHandler(kernel.userspaces.pathFor("alice"), kernel));
+  const bobs = kernelClient(createRpcHandler(kernel.userspaces.pathFor("bob"), kernel));
+  const photo = await client.assets.put({ mediaType: "image/png", data: "AP8q", name: "sample.png" });
+  await assert.rejects(bobs.assets.read(photo.id), { code: "not-found" });
+  const opaque = { id: "mesh", type: "@example/mesh.v17", data: { vertices: [1, 2, 3], material: null } };
+  const attachment = { id: "image", type: "asset", data: { id: photo.id, mediaType: photo.mediaType, name: photo.name! } };
+  const input = { id: "request", role: "user" as const, content: [{ type: "text", data: { text: "rich?" } }, attachment, opaque], extensions: { "@example/meta": { future: null } } };
+  const session = await client.sessions.create();
+  const life = new AbortController();
+  const replay: import("../../src/contracts/index.js").WatchedTurnEvent[] = [];
+  let watch: Promise<void> | undefined;
+  const result = await collect(kernel.sessions.send("alice", session.id, input));
+  assert.deepEqual(result.errors, []);
+  const message = result.all.find((event) => event.type === "message");
+  assert.ok(message?.type === "message");
+  assert.deepEqual(message.message, { role: "assistant", id: "rich-response", content: [attachment, opaque] });
+  const record = await client.sessions.inspect(session.id);
+  assert.deepEqual(record.conversation[0].content.slice(0, 3), input.content);
+  assert.deepEqual(record.conversation[0].extensions, input.extensions);
+  assert.deepEqual(record.conversation[1], message.message);
+  const disk = JSON.parse(readFileSync(join(kernel.userspaces.pathFor("alice").sessions, `${session.id}.json`), "utf8"));
+  assert.deepEqual(disk.conversation, record.conversation);
+  const made = result.all.find((event) => event.type === "extension" && event.name === "@test/asset-created");
+  assert.ok(made?.type === "extension");
+  const generated = made.data as { id: string };
+  assert.equal((await client.assets.read(generated.id)).data, "AP8q", "provider output belongs to its caller");
+  await assert.rejects(bobs.assets.read(generated.id), { code: "not-found" });
+  for await (const event of kernel.sessions.send("alice", session.id, input)) {
+    if (event.type === "content.start" && !watch) watch = kernel.sessions.watch("alice", (event) => replay.push(event), life.signal);
+  }
+  life.abort();
+  await watch;
+  assert.deepEqual(replay[0].messages, [input], "late watchers receive complete structured input");
+  assert.ok(replay.some((m) => m.event.type === "content.end" && m.event.part.type === opaque.type));
+  const complete = await client.sessions.complete(session.id, input);
+  assert.deepEqual(complete.content, [attachment, opaque]);
+  assert.equal(await client.sessions.askText(session.id, "hello"), "echo: hello (t1)");
+});
+
+test("a malformed structured stream fails the turn without crashing its fence or kernel", async () => {
+  const session = kernel.sessions.create("alice");
+  const result = await collect(kernel.sessions.send("alice", session.id, "bad-stream?"));
+  assert.equal(result.errors.length, 1);
+  assert.match(result.errors[0], /unopened part/);
+  assert.equal(await kernel.sessions.askText("alice", session.id, "hello"), "echo: hello (t1)");
 });

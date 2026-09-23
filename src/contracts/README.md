@@ -65,3 +65,5 @@ The fence side is the pair `Fence` and `FenceHandle`, and the pool `Fences`. The
 The package has no tests of its own. `test/architecture.test.mjs` checks its import boundaries, and `test/kernel/seams.test.ts` checks the four runtime constants. Run every test with `npm test` from the runtime root.
 
 Providers may emit `{ type: "request", body, at }` for inspection: `body` is the serialized request JSON without transport headers. Harnesses can persist it and emit `{ type: "context.updated" }` after saving; consumers fetch full context on demand. These are data events carried by the existing provider and turn streams, with no new kernel methods.
+
+`content.ts`, `messages.ts` and `assets.ts` define the structured-content contract. `TurnInput` is shared by all session transports; canonical messages carry ordered `ContentPart[]`. Payload kinds are open and JSON-only. See [the migration guide](../../../docs/content.md).

@@ -1,8 +1,10 @@
+import { linkDir } from "../lib/pkg-fs.js";
+import { FileAssetStore } from "../lib/assets.js";
 import { mkdirSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
-import { SYSTEM_USER, type Fence, type Fences, type HostEnv, type KernelRpc, type StoreDriver, type Userspace } from "../contracts/index.js";
+import { SYSTEM_USER, type AssetStore, type Fence, type Fences, type HostEnv, type KernelRpc, type StoreDriver, type Userspace } from "../contracts/index.js";
 import {
-  AuthService, ConfigService, createControlHandler, createRpcHandler, Enumerator, PackageManager, PackageRegistry, PipelineRunner,
+  AssetAccess, AuthService, ConfigService, createControlHandler, createRpcHandler, Enumerator, PackageManager, PackageRegistry, PipelineRunner,
   ProviderRegistry, ServiceSupervisor, SessionApi, SESSION_ID, UserStore, type HostExtensions, type KernelConfig, type KernelServices,
 } from "../kernel/index.js";
 import { EnvFile, LayeredConfig, type EnvSource } from "../lib/config.js";
@@ -26,6 +28,8 @@ export const T = {
   log: token<(line: string) => void>("log"),
   /** The storage driver. Unbound until `createKernel` loads the configured package; a test binds `memoryStore()` instead. */
   store: token<StoreDriver>("store"),
+  assetStore: token<AssetStore>("assetStore"),
+  assets: token<AssetAccess>("assets"),
   /** The host packages, loaded per call by name; a test binds a fake `call`. */
   hosts: token<HostExtensions>("hosts"),
   records: token<Records>("records"),
@@ -101,6 +105,8 @@ export async function createKernel(config: KernelConfig, configure?: (c: Contain
 
 function bindServices(c: Container, config: KernelConfig): void {
   c.bind(T.config, () => config);
+  c.bind(T.assetStore, (c) => new FileAssetStore(resolve(c.get(T.config).home, "assets")));
+  c.bind(T.assets, (c) => new AssetAccess(c.get(T.assetStore)));
   c.bind(T.log, () => (line: string) => process.stderr.write(line + "\n"));
   c.bind(T.users, (c) => new UserStore(c.get(T.records).users));
   c.bind(T.auth, (c) => new AuthService(c.get(T.records).credentials, c.get(T.records).tokens, c.get(T.users)));
@@ -108,7 +114,9 @@ function bindServices(c: Container, config: KernelConfig): void {
   c.bind(T.ssh, (c) => new SshStore(c.get(T.records).ssh));
   // Every Userspace the layout hands out carries its mounts and its ssh grants, so a fence binds them and
   // loads them wherever it is opened from.
-  c.bind(T.userspaces, (c) => new UserspaceLayout(c.get(T.config).home, (id) => c.get(T.mounts).get(id), (id) => c.get(T.ssh).get(id)));
+  c.bind(T.userspaces, (c) => new UserspaceLayout(c.get(T.config).home, (id) => c.get(T.mounts).get(id), (id) => c.get(T.ssh).get(id),
+    (us) => linkDir(resolve(us.root, "node_modules/@thetis/runtime"), c.get(T.config).projectRoot, us.root),
+  ));
   c.bind(T.journal, (c) => new Journal(c.get(T.config).home));
   c.bind(T.env, (c) => new EnvFile(c.get(T.config).envFile));
   // The file layer lives in the service, which `config.reload` replaces; the layers read it from there.
@@ -213,6 +221,7 @@ function kernelOf(c: Container): KernelServices {
     sessions: c.get(T.sessions),
     settings: c.get(T.settings),
     store: c.get(T.store),
+    assets: c.get(T.assets),
     hosts: c.get(T.hosts),
     fences: c.get(T.fences),
     journal: c.get(T.journal),
@@ -231,6 +240,7 @@ function kernelOf(c: Container): KernelServices {
       c.get(T.ssh).set(id, []);
       await c.get(T.settings).forgetUser(id);
       await c.get(T.store).open(storeId("userspaces", id)).clear();
+      await c.get(T.assets).forget(id);
       c.get(T.userspaces).remove(id);
       // The two directories the service plane keeps per person outside any store namespace: the ssh files
       // `ProcessFence` writes for the fence (`fence-ssh/<id>`), and the private keys the host holds for them

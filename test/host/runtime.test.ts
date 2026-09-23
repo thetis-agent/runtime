@@ -1,3 +1,5 @@
+import { FileAssetStore } from "../../src/lib/assets.js";
+import { contentText } from "@thetis/runtime/lib/content";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,11 +21,13 @@ test("the public runtime can boot with injected adapters and no installed extens
     async close(user) { closed.push(user); },
   };
   const store = memoryStore();
+  const assetStore = new FileAssetStore(join(home, "injected-assets"));
   const hosts = { async call() { return "injected host"; } };
 
   try {
     const kernel = await createKernel(config, (container) => {
       container.bind(T.store, () => store);
+      container.bind(T.assetStore, () => assetStore);
       container.bind(T.fences, () => fences);
       container.bind(T.hosts, () => hosts);
       container.bind(T.log, () => () => {});
@@ -31,6 +35,7 @@ test("the public runtime can boot with injected adapters and no installed extens
     });
     try {
       assert.equal(kernel.store, store);
+      assert.equal(kernel.container.get(T.assetStore), assetStore);
       assert.equal(kernel.fences, fences);
       assert.equal(kernel.hosts, hosts);
       kernel.users.create("alice");
@@ -40,12 +45,16 @@ test("the public runtime can boot with injected adapters and no installed extens
       assert.equal(events[0].type, "turn.start");
       assert.equal(events.at(-1)?.type, "turn.end");
       assert.ok(!events.some((event) => event.type === "error"));
-      assert.equal(kernel.sessions.inspect("alice", session.id).conversation[0].content, "hello");
+      assert.equal(contentText(kernel.sessions.inspect("alice", session.id).conversation[0].content), "hello");
       assert.deepEqual(requests, []);
+      const asset = await kernel.assets.put("alice", { mediaType: "image/png", data: "AP8q" });
+      assert.equal((await kernel.assets.read("alice", asset.id)).data, "AP8q");
+      await kernel.removeUser("alice");
+      await assert.rejects(kernel.assets.read("alice", asset.id), { code: "not-found" });
     } finally {
       await kernel.shutdown();
     }
-    assert.deepEqual(closed, [undefined]);
+    assert.deepEqual(closed, ["alice", undefined]);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

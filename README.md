@@ -208,3 +208,7 @@ thetis bench run <suite> [--write]
 ```
 
 See `packages/gateway-cli/README.md` and `packages/gateway-web/README.md`.
+
+## Structured content
+
+The runtime 0.2 API carries ordered content parts, scoped binary assets, rich tool results and extensible stream events. Text shorthand and old transcripts remain readable. See [the content API and migration guide](docs/content.md) for examples, injection points and adapter support.

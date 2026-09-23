@@ -1,6 +1,8 @@
+import type { ToolOutput } from "./content.js";
+import type { AssetClient, ProviderContext } from "./assets.js";
 // What package code sees inside the fence: the environment, the kernel client, and the shapes of a step, a tool,
 // a service, a provider, and an enumerator. The userspace agent builds these; package authors implement them.
-import type { ModelChoices, ModelDescriptor, ProviderCall, ProviderEvent } from "./messages.js";
+import type { Message, TurnInput, ModelChoices, ModelDescriptor, ProviderCall, ProviderEvent } from "./messages.js";
 import type { DeletedPackage, PackageInfo } from "./packages.js";
 import type { AuthUser, SessionInfo, SessionRecord, SessionSummaryRef, UserRole } from "./identity.js";
 import type { StepContext, StepResult, TurnEvent, TurnOptions, WatchedTurnEvent } from "./pipeline.js";
@@ -41,7 +43,7 @@ export interface StepEnv {
    * agent runs one for the kernel. This is how a harness's call step runs what the model asked for: in the
    * caller's fence, with the tool package's effective configuration (`kernel.config.effective`) passed in.
    */
-  invokeTool(ref: Pick<ToolSpec, "package" | "export" | "name">, args: Record<string, unknown>, opts: { session: SessionInfo; config: Record<string, unknown>; signal?: AbortSignal }): Promise<string | object>;
+  invokeTool(ref: Pick<ToolSpec, "package" | "export" | "name">, args: Record<string, unknown>, opts: { session: SessionInfo; config: Record<string, unknown>; signal?: AbortSignal }): Promise<ToolOutput>;
   kernel: KernelClient;
 }
 
@@ -52,6 +54,7 @@ export interface StepEnv {
  * fence only about its own user.
  */
 export interface KernelClient {
+  assets: AssetClient;
   packages: {
     install(source: string): Promise<PackageInfo>;
     uninstall(name: string): Promise<void>;
@@ -70,9 +73,12 @@ export interface KernelClient {
   };
   sessions: {
     create(parent?: string): Promise<SessionSummaryRef>;
-    ask(session: string, input: string): Promise<string>;
+    complete(session: string, input: TurnInput): Promise<Message>;
+    askText(session: string, input: TurnInput): Promise<string>;
+    /** @deprecated Use askText for an explicit text projection, or complete for structured output. */
+    ask(session: string, input: TurnInput): Promise<string>;
     /** `signal` ends the call and cancels the turn it started. */
-    send(session: string, input: string, onEvent: (event: TurnEvent) => void, opts?: TurnOptions, signal?: AbortSignal): Promise<void>;
+    send(session: string, input: TurnInput, onEvent: (event: TurnEvent) => void, opts?: TurnOptions, signal?: AbortSignal): Promise<void>;
     cancel(session: string): Promise<boolean>;
     /** Removes a session's record. A running turn is cancelled first. */
     delete(session: string): Promise<void>;
@@ -133,7 +139,7 @@ export interface ToolEnv extends StepEnv {
   signal?: AbortSignal;
 }
 
-export type Tool = (args: Record<string, unknown>, env: ToolEnv) => Promise<string | object>;
+export type Tool = (args: Record<string, unknown>, env: ToolEnv) => Promise<ToolOutput>;
 
 /** What a UI command handler receives: the fence environment, who asked, and which conversation is on screen. */
 export interface UiCommandEnv extends StepEnv {
@@ -177,7 +183,7 @@ export interface Provider {
    * reaches a `yield`, so a request that produces nothing at all would never notice -- which is why the signal
    * is a parameter and not something the caller can arrange from outside.
    */
-  call(call: ProviderCall, signal?: AbortSignal): AsyncIterable<ProviderEvent>;
+  call(call: ProviderCall, signal?: AbortSignal, context?: ProviderContext): AsyncIterable<ProviderEvent>;
 }
 
 export interface EnumeratorContext {

@@ -118,6 +118,7 @@ export class ProcessHandle implements FenceHandle {
     if (signal?.aborted) return Promise.reject(new CodedError(`fence request ${op} cancelled`, "cancelled"));
     const call: OpenCall = { onEvent };
     const { id, result } = this.pending.open(call);
+    call.cancel = () => this.send({ cancel: id });
     const budget = this.opts.requestTimeoutMs;
     const beat = this.opts.heartbeatMs ?? heartbeatFor(budget);
     const started = Date.now();

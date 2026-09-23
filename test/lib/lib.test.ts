@@ -1,3 +1,4 @@
+import { textContent } from "@thetis/runtime/lib/content";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -304,7 +305,7 @@ test("turn taps: a watcher arriving mid-turn is handed the turn so far, stamped 
 test("session store: the index beside the records answers a list without opening them, is built once from records that predate it, and follows every save", () => {
   const dir = mkdtempSync(join(tmpdir(), "thetis-sessions-"));
   const base = { user: "alice", createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", harness: {} };
-  const old: SessionRecord = { ...base, id: "s_aaaa", turns: 1, conversation: [{ role: "user", content: "  first\n question  " }, { role: "assistant", content: "" }, { role: "assistant", content: "the answer" }] };
+  const old: SessionRecord = { ...base, id: "s_aaaa", turns: 1, conversation: [{ role: "user", content: textContent("  first\n question  ") }, { role: "assistant", content: textContent("") }, { role: "assistant", content: textContent("the answer") }] };
   writeFileSync(join(dir, "s_aaaa.json"), JSON.stringify(old));
   const store = new SessionStore(/^s_[a-f0-9]+$/);
   assert.deepEqual(store.summaries(dir), [{ id: "s_aaaa", user: "alice", createdAt: base.createdAt, updatedAt: base.updatedAt, turns: 1, first: "first question", last: "the answer" }]);
@@ -312,7 +313,7 @@ test("session store: the index beside the records answers a list without opening
   const fresh: SessionRecord = { ...base, id: "s_bbbb", parent: "s_aaaa", turns: 0, conversation: [] };
   store.save(dir, fresh);
   const long = "x".repeat(300);
-  store.save(dir, { ...fresh, turns: 1, turn: { id: "t1", startedAt: base.createdAt, input: long }, conversation: [{ role: "user", content: long }] });
+  store.save(dir, { ...fresh, turns: 1, turn: { id: "t1", startedAt: base.createdAt, input: long }, conversation: [{ role: "user", content: textContent(long) }] });
   const listed = store.summaries(dir).sort((a, b) => a.id.localeCompare(b.id));
   assert.equal(listed.length, 2);
   assert.equal(listed[1].parent, "s_aaaa");
@@ -417,4 +418,19 @@ test("socket paths: a home too long for even a one-character id is refused, by a
   assert.ok(problem?.includes(`at most ${maxHomeLength()} bytes`), "and the length a home may be");
   assert.equal(homeSocketWarning(over), undefined, "a refused home is not also warned about");
   assert.throws(() => assertHomeFitsSockets(over), new RegExp(`at most ${maxHomeLength()} bytes`));
+});
+
+test("a malformed streamed event rejects and cancels its RPC without escaping the frame reader", async () => {
+  const pending = new PendingCalls("content");
+  const failure = new Error("invalid content");
+  let cleaned = 0;
+  let cancelled = 0;
+  const { id, result } = pending.open({ onEvent() { throw failure; }, cleanup() { cleaned++; }, cancel() { cancelled++; } });
+  const rejected = assert.rejects(result, (error) => error === failure);
+  assert.doesNotThrow(() => pending.receive({ id, event: { type: "content.delta" } }));
+  await rejected;
+  assert.equal(cancelled, 1);
+  assert.equal(cleaned, 1);
+  assert.equal(pending.receive({ id, event: {} }), false);
+  assert.equal(pending.size, 0);
 });

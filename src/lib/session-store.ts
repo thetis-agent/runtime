@@ -1,3 +1,4 @@
+import { contentText, normalizeMessages } from "./content.js";
 // The session records of a userspace, with a summary of each kept beside them in `index.json`, so a
 // list of sessions is one small file and not every record: a record grows with its conversation, and a
 // person with sixty of them was reading many megabytes to draw a sidebar. The index is derived, never
@@ -23,7 +24,7 @@ export function clipText(text: string, max = CLIP): string {
 
 /** What the index keeps about one record. */
 export function summarize(rec: SessionRecord): SessionSummary {
-  const said = rec.conversation.filter((m) => m.role === "user" || (m.role === "assistant" && m.content.trim()));
+  const said = rec.conversation.filter((m) => m.role === "user" || (m.role === "assistant" && contentText(m.content).trim()));
   const s: SessionSummary = {
     id: rec.id,
     user: rec.user,
@@ -31,8 +32,8 @@ export function summarize(rec: SessionRecord): SessionSummary {
     updatedAt: rec.updatedAt,
     turns: rec.turns,
     // The record's words, clipped. What a harness adds to them is the harness's to take out where it shows them.
-    first: clipText(rec.conversation.find((m) => m.role === "user")?.content ?? ""),
-    last: clipText(said.at(-1)?.content ?? ""),
+    first: clipText(contentText(rec.conversation.find((m) => m.role === "user")?.content)),
+    last: clipText(contentText(said.at(-1)?.content)),
   };
   if (rec.parent) s.parent = rec.parent;
   return s;
@@ -48,11 +49,13 @@ export class SessionStore {
   }
 
   load(dir: string, id: string): SessionRecord | undefined {
-    return this.records.load(dir, id);
+    const record = this.records.load(dir, id);
+    return record && { ...record, conversation: normalizeMessages(record.conversation) };
   }
 
   /** Writes the record and its index entry. */
   save(dir: string, rec: SessionRecord): void {
+    rec = { ...rec, conversation: normalizeMessages(rec.conversation) };
     this.records.save(dir, rec);
     const index = this.index(dir);
     index[rec.id] = summarize(rec);

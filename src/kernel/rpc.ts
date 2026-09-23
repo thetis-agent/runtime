@@ -1,4 +1,5 @@
-import { SYSTEM_USER, type KernelRpc, type ModelChoices, type ProviderCall, type Userspace } from "../contracts/index.js";
+import { normalizeMessages, normalizeTurnInput } from "../lib/content.js";
+import { SYSTEM_USER, type AssetUpload, type KernelRpc, type ModelChoices, type ProviderCall, type Userspace } from "../contracts/index.js";
 import { assert, CodedError } from "../lib/error.js";
 import { assertStoreDoc, storeId } from "../lib/store.js";
 import type { KernelServices } from "./kernel.js";
@@ -8,7 +9,7 @@ type Args = Record<string, string | undefined>;
 const OPERATOR = "operator.";
 
 /** What a fence's handler needs of the kernel: identity, packages, sessions, providers, tokens, the store and the configuration. */
-export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions" | "providers" | "auth" | "store" | "settings">;
+export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions" | "providers" | "auth" | "store" | "settings" | "assets">;
 
 /**
  * What code inside a fence may ask the kernel to do. Identity is the fence: every method acts as the
@@ -21,6 +22,7 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
   const system = us.id === SYSTEM_USER;
   return async (method, raw, emit, signal) => {
     const args = (raw ?? {}) as Args;
+    const input = () => normalizeTurnInput((raw as { input?: unknown })?.input);
     const actor = k.users.authorize(us.id);
     if (method.startsWith(OPERATOR)) {
       const op = method.slice(OPERATOR.length);
@@ -56,15 +58,23 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
         return k.packages.listFor(us);
       case "sessions.create":
         return k.sessions.create(us.id, { parent: args.parent });
+      case "assets.put":
+        return k.assets.put(us.id, (raw as { upload: AssetUpload }).upload, args.grant);
+      case "assets.read":
+        return k.assets.read(us.id, String(args.id), args.grant);
+      case "sessions.complete":
+        return k.sessions.complete(us.id, String(args.session), input());
+      case "sessions.askText":
+        return k.sessions.askText(us.id, String(args.session), input());
       case "sessions.ask":
-        return k.sessions.ask(us.id, String(args.session), String(args.input));
+        return k.sessions.ask(us.id, String(args.session), input());
       case "sessions.send": {
         // A fence that drops the call cancels the turn it started, so nothing streams into the void.
         const session = String(args.session);
         const cancel = () => void k.sessions.cancel(us.id, session);
         signal?.addEventListener("abort", cancel, { once: true });
         try {
-          for await (const event of k.sessions.send(us.id, session, String(args.input), { model: args.model || undefined })) emit?.(event);
+          for await (const event of k.sessions.send(us.id, session, input(), { model: args.model || undefined })) emit?.(event);
         } finally {
           signal?.removeEventListener("abort", cancel);
         }
@@ -78,7 +88,9 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
         const call = (raw as { call?: ProviderCall }).call;
         assert(call && typeof call === "object" && typeof call.model === "string", "providers.call needs a call with a model", "rpc");
         const provider = await k.providers.resolve(us, call.model);
-        await k.providers.call(provider, call, (e) => emit?.(e), signal);
+        const request = { ...call, messages: normalizeMessages(call.messages) };
+        await k.assets.during(us.id, provider.userspace.id, request.messages, (grant) =>
+          k.providers.call(provider, request, (e) => emit?.(e), signal, grant));
         return null;
       }
       case "sessions.cancel":

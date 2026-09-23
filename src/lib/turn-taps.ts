@@ -5,10 +5,10 @@
 // A turn in progress is also kept, event by event, until it ends: a watcher that arrives in the middle of
 // one (a gateway restarted under a running turn, say) is first handed everything that turn has said so
 // far, stamped exactly as the live events were, and then follows it live. Only running turns are kept.
-import type { TurnEvent, WatchedTurnEvent } from "../contracts/index.js";
+import type { Message, TurnEvent, WatchedTurnEvent } from "../contracts/index.js";
 
 /** What every event of one turn is stamped with. `input` rides on `turn.start` only. */
-export type TapMeta = { session: string; parent?: string; input?: string };
+export type TapMeta = { session: string; parent?: string; input?: string; messages?: Message[] };
 
 export type Watcher = (m: WatchedTurnEvent) => void;
 
@@ -89,6 +89,7 @@ function stamp(run: Running, e: TurnEvent): WatchedTurnEvent {
   if (run.meta.parent) m.parent = run.meta.parent;
   if (e.type === "turn.start") {
     if (run.meta.input !== undefined) m.input = run.meta.input;
+    if (run.meta.messages) m.messages = run.meta.messages;
     m.startedAt = run.startedAt;
   }
   return m;

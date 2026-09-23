@@ -1,3 +1,4 @@
+import type { ContentPart, ContentEvent, ExtensionEvent, JsonValue } from "./content.js";
 // The conversation and the provider request: what a model sees and what it answers.
 
 export type Role = "system" | "user" | "assistant" | "tool";
@@ -10,11 +11,17 @@ export interface ToolCall {
 
 export interface Message {
   role: Role;
-  content: string;
+  id?: string;
+  content: ContentPart[];
+  extensions?: Record<string, JsonValue>;
   toolCalls?: ToolCall[];
   toolCallId?: string;
   name?: string;
 }
+
+/** Legacy text is accepted at API boundaries and normalized immediately. */
+export type MessageInput = Omit<Message, "content"> & { content: string | ContentPart[] };
+export type TurnInput = string | MessageInput | MessageInput[];
 
 export type JsonSchema = Record<string, unknown>;
 
@@ -48,6 +55,8 @@ export interface ProviderCall {
  * thing simply never yields it.
  */
 export type ProviderEvent =
+  | ContentEvent
+  | ExtensionEvent
   /** Optional inspection capture: the serialized request body, without transport headers. */
   | { type: "request"; body: Record<string, unknown>; at: string }
   | { type: "text"; delta: string }

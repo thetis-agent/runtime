@@ -83,3 +83,5 @@ The integration suites exercise real process fences, RPC, storage and gateway be
 Moving a running installation to this layout requires rebuilding and restarting its daemon so it
 uses the new guest entry path and module graph. Keep the runtime and packages repository changes
 together when committing or deploying this migration.
+
+The runtime 0.2 [content contract](docs/content.md) carries ordered JSON parts through every boundary. `AssetAccess` owns authorization, `AssetStore` is injected through `T.assetStore`, and the default file store handles bytes outside userspaces. The harness assembles streamed parts; providers interpret modalities. `lib/kernel-client.ts` is the shared mapping for both fence and in-process clients.

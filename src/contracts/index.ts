@@ -10,3 +10,5 @@ export * from "./bench.js";
 export * from "./storage.js";
 export * from "./config.js";
 export * from "./host.js";
+export * from "./content.js";
+export * from "./assets.js";
