@@ -25,8 +25,10 @@
 // organisation and operability properties. Treat the containment as a tidiness boundary, as with the rest
 // of the fence on a single-operator installation, and turn `fence.docker` off if it has to be more.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { SshGrant } from "../contracts/index.js";
+import { repoRoute } from "../lib/git-url.js";
 
 /**
  * Where the agent socket and its client files appear inside every fence.
@@ -43,12 +45,27 @@ export const FENCE_SSH_DIR = "/etc/ssh";
 export const FENCE_SSH_AUTH_SOCK = "/run/thetis/ssh-agent.sock";
 export const FENCE_SSH_CONFIG = "/etc/ssh/ssh_config";
 export const FENCE_SSH_KNOWN_HOSTS = "/etc/ssh/ssh_known_hosts";
+/** The git system configuration of a fence holding repository keys; `GIT_CONFIG_SYSTEM` names it. */
+export const FENCE_GIT_CONFIG = "/etc/ssh/gitconfig";
 
-/** What the fence is given: the socket to talk to, and the two files that make ssh behave non-interactively. */
+/** Where a repository key's public half appears inside the fence: next to the configuration that names it. */
+export function fenceRepoPub(alias: string): string {
+  return `${FENCE_SSH_DIR}/${alias}.pub`;
+}
+
+/**
+ * What the fence is given: the socket to talk to, and the two files that make ssh behave non-interactively.
+ * A fence holding repository keys (only the system fence does) is also given the public half of each, by
+ * alias, and the git configuration that sends each repository through its alias.
+ */
 export interface FenceSsh {
   sock: string;
   config: string;
   knownHosts: string;
+  /** Host paths of the repository keys' public halves, each bound at `fenceRepoPub(alias)`. */
+  repos?: { alias: string; pub: string }[];
+  /** Host path of the git system configuration, bound at `FENCE_GIT_CONFIG`. Undefined without repository keys. */
+  gitconfig?: string;
 }
 
 export interface SshAgent extends FenceSsh {
@@ -62,18 +79,19 @@ export interface SshAgent extends FenceSsh {
  * `BatchMode` and the two short timeouts are the difference between an error and a hang: without them a
  * missing credential or an unknown host waits on a prompt nobody can answer, and the fence's request timer
  * runs out instead, which reads as "ssh is broken" rather than "this fence has no key for that host".
- * No `IdentitiesOnly`: it would restrict ssh to the identities named by `IdentityFile`, and a fence names
- * none, so the keys the agent holds would never be offered at all and every far end would refuse the
+ * No `IdentitiesOnly` here: it would restrict ssh to the identities named by `IdentityFile`, and `Host *`
+ * names none, so the keys the agent holds would never be offered at all and every far end would refuse the
  * fence while `ssh-add -l` showed the key loaded. The agent holds only the granted keys, so there is no
- * walk through unrelated identities to prevent.
+ * walk through unrelated identities to prevent. A repository key's alias block, which does name its key,
+ * is the one place it is set (see `writeSshFiles`).
  * Host keys: the lines the operator vouched for are the global file, read-only; a host met for the first
  * time is accepted and remembered in the workspace's own `.ssh/known_hosts` under its home (`accept-new`;
  * the path is written out in full, because `~` inside a fence is not the home for every process that runs
  * there), so a key needs no vouched host to be useful; a host whose key changed is refused either way.
  * `no` would accept a changed key too, which is a downgrade wearing the costume of a fix.
  */
-const CLIENT_CONFIG = `# Written by Thetis for this fence. The agent on the other side of IdentityAgent holds the keys.
-Host *
+const CLIENT_HEADER = "# Written by Thetis for this fence. The agent on the other side of IdentityAgent holds the keys.\n";
+const CLIENT_CONFIG = `Host *
   IdentityAgent ${FENCE_SSH_AUTH_SOCK}
   BatchMode yes
   StrictHostKeyChecking accept-new
@@ -87,8 +105,34 @@ export function hasSshAgent(): boolean {
   return existsSync("/usr/bin/ssh-agent") || existsSync("/bin/ssh-agent");
 }
 
-/** Writes the client options and the known hosts the kernel vouches for. Both are bound read-only. */
-export function writeSshFiles(dir: string, knownHosts: string, home?: string): FenceSsh {
+/**
+ * Writes the client options and the known hosts the kernel vouches for. Both are bound read-only.
+ *
+ * `grants` with a `repo` -- repository keys, which only the system userspace holds -- each add three things,
+ * and they are what makes such a key usable for its one repository and useless for any other. The agent
+ * holds every key of the fence, and GitHub takes the first key that authenticates as anybody: with two
+ * deploy keys loaded, a fetch of the second repository is offered the first key, GitHub accepts it as the
+ * first repository's deploy key, and then refuses the fetch. Nothing in the ssh handshake says which
+ * repository git wants, so the repository has to be told apart before ssh starts:
+ *
+ * - an ssh block per repository under its own host alias (`repoRoute(repo).alias`), written *before*
+ *   `Host *` because ssh takes the first value it meets for each option. It names the real host, port and
+ *   user, and `HostKeyAlias` so the host key is checked against the real host's known-hosts line and not
+ *   against an alias nobody vouched for. `IdentityFile` names the key's public half and `IdentitiesOnly`
+ *   restricts ssh to it: given only a `.pub`, ssh asks the agent to sign with the matching private key, so
+ *   the agent offers exactly that one key and none of the others it holds. `IdentityAgent` comes from
+ *   `Host *` below, as for every other host.
+ * - the public half itself, written here as `<alias>.pub` and bound next to the configuration. It is read
+ *   from `<key>.pub`, else derived with `ssh-keygen -y`; the private key still never leaves the agent.
+ * - `gitconfig`, one `url.<alias url>.insteadOf` per spelling of the repository, which is how any `git` in
+ *   the fence -- a clone, a marketplace mirror, a person's own command -- lands on the alias without knowing
+ *   the alias exists. `GIT_CONFIG_SYSTEM` points git at it (see `process-fence.ts`); like the ssh files, it
+ *   replaces the host's system layer rather than adding to it, so the fence's git is what is written here.
+ *
+ * A repository key whose public half cannot be had is left out of all three: its fetches fall through to
+ * `Host *`, which is where they would have been without this.
+ */
+export function writeSshFiles(dir: string, knownHosts: string, home?: string, grants: readonly SshGrant[] = []): FenceSsh {
   mkdirSync(dir, { recursive: true });
   const config = join(dir, "ssh_config");
   const hosts = join(dir, "known_hosts");
@@ -104,9 +148,65 @@ export function writeSshFiles(dir: string, knownHosts: string, home?: string): F
       /* a home that cannot take the directory: the global file alone, and first-met hosts are not kept */
     }
   }
-  writeFileSync(config, CLIENT_CONFIG + own, { mode: 0o644 });
+  const repos = repoFiles(dir, grants);
+  const blocks = repos.map((r) => r.block).join("");
+  writeFileSync(config, CLIENT_HEADER + blocks + CLIENT_CONFIG + own, { mode: 0o644 });
   writeFileSync(hosts, knownHosts.endsWith("\n") || !knownHosts ? knownHosts : `${knownHosts}\n`, { mode: 0o644 });
-  return { sock: join(dir, "agent.sock"), config, knownHosts: hosts };
+  const gitconfig = join(dir, "gitconfig");
+  rmSync(gitconfig, { force: true });
+  if (repos.length) writeFileSync(gitconfig, repos.map((r) => r.git).join(""), { mode: 0o644 });
+  return {
+    sock: join(dir, "agent.sock"),
+    config,
+    knownHosts: hosts,
+    ...(repos.length ? { repos: repos.map(({ alias, pub }) => ({ alias, pub })), gitconfig } : {}),
+  };
+}
+
+/** The ssh block, the public half and the git section of each repository key; see `writeSshFiles`. */
+function repoFiles(dir: string, grants: readonly SshGrant[]): { alias: string; pub: string; block: string; git: string }[] {
+  const out: { alias: string; pub: string; block: string; git: string }[] = [];
+  for (const g of grants) {
+    const route = g.repo ? repoRoute(g.repo) : undefined;
+    if (!route || out.some((r) => r.alias === route.alias)) continue;
+    const half = publicHalf(g.key);
+    if (!half) continue;
+    const pub = join(dir, `${route.alias}.pub`);
+    writeFileSync(pub, half, { mode: 0o644 });
+    // A port other than 22 is how ssh-keyscan and ssh both spell the known-hosts entry: `[host]:port`.
+    const hostKey = route.port ? `[${route.host}]:${route.port}` : route.host;
+    const block = [
+      `Host ${route.alias}`,
+      `  HostName ${route.host}`,
+      ...(route.port ? [`  Port ${route.port}`] : []),
+      `  User ${route.user}`,
+      `  HostKeyAlias ${hostKey}`,
+      `  IdentityFile ${fenceRepoPub(route.alias)}`,
+      `  IdentitiesOnly yes`,
+      "",
+    ].join("\n");
+    const git = [`[url ${gitQuote(route.url)}]`, ...route.insteadOf.map((s) => `\tinsteadOf = ${gitQuote(s)}`), ""].join("\n");
+    out.push({ alias: route.alias, pub, block, git });
+  }
+  return out;
+}
+
+/** A key's public half: `<key>.pub` when it is there, else derived from the key. Undefined when neither works. */
+function publicHalf(key: string): string | undefined {
+  try {
+    const text = readFileSync(`${key}.pub`, "utf8").trim();
+    if (text) return `${text}\n`;
+  } catch {
+    /* derived below */
+  }
+  const derived = spawnSync("ssh-keygen", ["-y", "-f", key], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], env: { ...process.env, DISPLAY: "", SSH_ASKPASS: "/bin/false" } });
+  const text = derived.status === 0 ? (derived.stdout ?? "").trim() : "";
+  return text ? `${text}\n` : undefined;
+}
+
+/** A git config string: double-quoted, so `#` and `;` in a url are not read as a comment. */
+function gitQuote(s: string): string {
+  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
 /**

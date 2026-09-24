@@ -1,8 +1,9 @@
 import type { SshGrant } from "../contracts/index.js";
+import { sameRepository } from "./git-url.js";
 import type { StoreMirror } from "./store.js";
 
 /**
- * The per-user ssh grants: one document per person, `{ ssh: [ { key, hosts } ] }`.
+ * The per-user ssh grants: one document per person, `{ ssh: [ { key, hosts, repo } ] }`.
  *
  * A grant names one key file on the host, never a directory. A host `~/.ssh` holds unrelated credentials
  * -- a deploy key, a cloud key, a personal key -- so a directory grant would hand all of them to a fence
@@ -15,7 +16,7 @@ export class SshStore {
 
   /** A copy of one person's grants; empty when none. */
   get(user: string): SshGrant[] {
-    return (this.docs.get(user)?.ssh ?? []).map((g) => ({ key: g.key, ...(g.hosts?.length ? { hosts: [...g.hosts] } : {}) }));
+    return (this.docs.get(user)?.ssh ?? []).map(copyGrant);
   }
 
   all(): Record<string, SshGrant[]> {
@@ -24,9 +25,22 @@ export class SshStore {
 
   /** Replaces one person's grants; an empty list removes the document. */
   set(user: string, grants: SshGrant[]): void {
-    if (grants.length) this.docs.set(user, { ssh: grants.map((g) => ({ key: g.key, ...(g.hosts?.length ? { hosts: [...g.hosts] } : {}) })) });
+    if (grants.length) this.docs.set(user, { ssh: grants.map(copyGrant) });
     else this.docs.delete(user);
   }
+}
+
+/** A grant with nothing but what a grant holds; `repo` rides along, because a repository key without it is a key for anything. */
+function copyGrant(g: SshGrant): SshGrant {
+  return { key: g.key, ...(g.hosts?.length ? { hosts: [...g.hosts] } : {}), ...(g.repo ? { repo: g.repo } : {}) };
+}
+
+/**
+ * The repository key a grant list holds for `url`, if any: the grant whose `repo` names the same repository
+ * in whatever spelling. Only the system userspace holds such grants, so this is asked of its list.
+ */
+export function repoGrantFor(grants: readonly SshGrant[], url: string): SshGrant | undefined {
+  return grants.find((g) => g.repo && sameRepository(g.repo, url));
 }
 
 /** Every known_hosts line of a grant list, deduplicated, in the order they were granted. The fence writes it when it opens. */

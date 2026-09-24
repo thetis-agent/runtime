@@ -3,8 +3,9 @@ import { isAbsolute, resolve } from "node:path";
 import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type Fences, type Manifest, type PackageInfo, type PackageRecord, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
 import { assert, CodedError, errorMessage } from "../../lib/error.js";
 import { ExecResultSchema } from "../../contracts/schemas/fence.js";
+import { repoGrantFor } from "../../lib/ssh.js";
 import { parseSchema } from "../../lib/validation.js";
-import { buildCommand, cloneCommand, cloneDirFor, cloneSlugOf, copyPackageAs, forkOf, hasPackageJson, headOf, isGitSource, isInside, keepOnly, linkDir, packagesIn, removeLink, samePackage, splitSource } from "../../lib/pkg-fs.js";
+import { buildCommand, cloneCommand, cloneDirFor, cloneSlugOf, copyPackageAs, fetchDirFor, fetchInto, forkOf, hasPackageJson, headOf, isGitSource, isInside, keepOnly, linkDir, packagesIn, removeLink, samePackage, splitSource } from "../../lib/pkg-fs.js";
 import type { KernelConfig } from "../config.js";
 import { readManifest, scopeOf, toInfo } from "./manifest.js";
 import type { PackageRegistry } from "./registry.js";
@@ -24,7 +25,8 @@ export interface PackageListener {
 
 /**
  * Decides what may be installed where, and records it. Clones and builds run inside the fence of the
- * userspace that receives the package; the link into its store and the registry row are the kernel's.
+ * userspace that receives the package -- except a clone of a repository the installation holds a key for,
+ * which the system fence takes -- and the link into its store and the registry row are the kernel's.
  */
 export class PackageManager {
   private readonly listeners: PackageListener[] = [];
@@ -33,6 +35,8 @@ export class PackageManager {
     private readonly config: KernelConfig,
     private readonly registry: PackageRegistry,
     private readonly fences: Fences,
+    /** The system userspace, whose grants are the installation's repository keys. */
+    private readonly system?: () => Userspace,
   ) {}
 
   /** Observers of installs, uninstalls, deletions and promotions: the service supervisor, and the host's store and config hooks. */
@@ -356,7 +360,13 @@ export class PackageManager {
     // nothing to compare and the tip may have moved, so it is always fetched.
     if (!ref || headOf(dir) !== ref) {
       rmSync(dir, { recursive: true, force: true });
-      await this.exec(us, cloneCommand(url, dir, ref), us.store);
+      // A repository only the installation holds a key for is fetched by the system fence, which alone
+      // holds it, and handed over as files: the person gets the package, never the use of the key.
+      const sys = us.id === SYSTEM_USER ? undefined : this.system?.();
+      if (sys && repoGrantFor(sys.ssh ?? [], url)) {
+        const fetch = fetchDirFor(sys.store, source);
+        await fetchInto(fetch, dir, () => this.exec(sys, cloneCommand(url, fetch, ref), sys.store));
+      } else await this.exec(us, cloneCommand(url, dir, ref), us.store);
     }
     return this.subdir(dir, sub);
   }

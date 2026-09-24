@@ -45,6 +45,30 @@ export function cloneDirFor(store: string, source: string): string {
   return resolve(store, "src", cloneSlugOf(source));
 }
 
+/**
+ * A clone taken on another userspace's behalf: the system fence fetches a repository only it holds a key
+ * for into `fetchDir` (under the system store, `fetch/<slug>`), and the host moves the result into `dir`,
+ * the receiving userspace's own clone directory. The fetch directory is removed whether the fetch worked or
+ * not, and it is never under the shared directory: that one every fence can read, and a private registry
+ * copied there would be readable by everybody the key was meant to keep it from.
+ */
+export async function fetchInto(fetchDir: string, dir: string, fetch: () => Promise<void>): Promise<void> {
+  rmSync(fetchDir, { recursive: true, force: true });
+  try {
+    await fetch();
+    rmSync(dir, { recursive: true, force: true });
+    mkdirSync(dirname(dir), { recursive: true });
+    cpSync(fetchDir, dir, { recursive: true, verbatimSymlinks: true });
+  } finally {
+    rmSync(fetchDir, { recursive: true, force: true });
+  }
+}
+
+/** Where the system fence fetches `source` for somebody else; see `fetchInto`. */
+export function fetchDirFor(systemStore: string, source: string): string {
+  return resolve(systemStore, "fetch", cloneSlugOf(source));
+}
+
 export function isGitSource(source: string): boolean {
   return GIT_URL.test(splitSource(source).url);
 }

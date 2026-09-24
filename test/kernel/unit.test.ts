@@ -3,10 +3,11 @@ import { FileAssetStore } from "../../src/lib/assets.js";
 import { textContent, contentText } from "@thetis/runtime/lib/content";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Fences, Manifest, Message, PackageInfo, SessionRecord, StoreDriver, TurnEvent, UserRecord, Userspace, WatchedTurnEvent } from "../../src/contracts/index.js";
+import { SYSTEM_USER } from "../../src/contracts/index.js";
 import { LayeredConfig } from "../../src/lib/config.js";
 import { Journal } from "../../src/lib/journal.js";
 import { SessionStore } from "../../src/lib/session-store.js";
@@ -745,6 +746,67 @@ test("regression: Git installs retain a fork's displaced clone and prune unused 
     assert.equal(existsSync(unused.dir), false, "unused clones are still pruned");
     assert.equal((await manager.unfork(us, "@alice/fork")).name, "@alice/origin");
     assert.deepEqual(manager.installed(us).map((pkg) => pkg.name).sort(), ["@alice/origin", "@alice/unrelated"]);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Repository keys at install time. A key is the installation's and lives only in the system fence's agent,
+ * so a repository it is for is fetched there, into the system store, and handed to the person as files:
+ * they get the package, never the use of the key, and the fetch directory is gone whether the fetch
+ * worked or not. A repository without a key clones in the person's own fence exactly as before.
+ */
+test("packages: a credentialed source is fetched by the system fence and lands in the person's store; any other clones in the person's fence", async () => {
+  const home = tmp();
+  try {
+    const registry = new PackageRegistry(await mirror(memoryStore(), "registry"));
+    const config = defaultConfig(home, "/proj");
+    const layout = new UserspaceLayout(home, () => [], (id) => (id === SYSTEM_USER ? [{ key: "/keys/reg", repo: "git@github.com:thirteen-games/thetis-packages.git" }] : []));
+    const system = layout.ensure(SYSTEM_USER);
+    const us = layout.ensure("alice");
+    const alice = { id: "alice", role: "user", status: "active", createdAt: "" } as const;
+    const calls: { user: string; cmd: string; cwd: string }[] = [];
+    // A fence that "clones" by writing the package where the command says to, and fails a url on request.
+    const fences = {
+      request: async (space: Userspace, _op: string, args: { cmd: string; cwd: string }) => {
+        calls.push({ user: space.id, cmd: args.cmd, cwd: args.cwd });
+        const dir = (/git init --quiet '([^']+)'/.exec(args.cmd) ?? /git clone --depth 1 '[^']+' '([^']+)'/.exec(args.cmd))![1];
+        const name = args.cmd.includes("thetis-packages") ? "@alice/priv" : "@alice/pub";
+        mkdirSync(join(dir, ".git"), { recursive: true });
+        writeFileSync(join(dir, "package.json"), JSON.stringify({ name, version: "1", thetis: { type: "tool" } }));
+        return args.cmd.includes("b".repeat(40)) ? { code: 128, stdout: "", stderr: "fatal: refused" } : { code: 0, stdout: "", stderr: "" };
+      },
+    } as unknown as Fences;
+    const manager = new PackageManager(config, registry, fences, () => layout.pathFor(SYSTEM_USER));
+
+    // Another spelling of the repository the key is for: the match is by repository, not by string.
+    const source = `https://github.com/Thirteen-Games/thetis-packages.git@${"a".repeat(40)}`;
+    assert.equal((await manager.install(us, alice, source)).name, "@alice/priv");
+    assert.equal(calls[0].user, SYSTEM_USER, "fetched by the fence that holds the key");
+    assert.equal(calls[0].cwd, system.store);
+    assert.ok(calls[0].cmd.includes(join(system.store, "fetch")), calls[0].cmd);
+    assert.ok(existsSync(join(cloneDirFor(us.store, source), "package.json")), "the files are the person's");
+    assert.ok(existsSync(join(cloneDirFor(us.store, source), ".git")));
+    assert.deepEqual(readdirSync(join(system.store, "fetch")), [], "the fetch directory is removed");
+    assert.ok(!existsSync(config.sharedDir) || readdirSync(config.sharedDir).length === 0, "never through the shared directory");
+
+    // A fetch that fails leaves nothing behind in the system store either.
+    const broken = `git@github.com:thirteen-games/thetis-packages.git@${"b".repeat(40)}`;
+    await assert.rejects(manager.install(us, alice, broken), /command failed \(128\)/);
+    assert.deepEqual(readdirSync(join(system.store, "fetch")), []);
+
+    // No key for it: the person's own fence, into the person's own clone directory.
+    const pub = "https://github.com/o/public.git";
+    assert.equal((await manager.install(us, alice, pub)).name, "@alice/pub");
+    const last = calls.at(-1)!;
+    assert.equal(last.user, "alice");
+    assert.ok(last.cmd.includes(cloneDirFor(us.store, pub)), last.cmd);
+
+    // The system userspace fetching for itself does it in its own fence, the ordinary way.
+    const admin = { id: SYSTEM_USER, role: "admin", status: "active", createdAt: "" } as const;
+    await manager.install(system, admin, "git@github.com:thirteen-games/thetis-packages.git").catch(() => {});
+    assert.ok(calls.at(-1)!.cmd.includes(cloneDirFor(system.store, "git@github.com:thirteen-games/thetis-packages.git")));
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

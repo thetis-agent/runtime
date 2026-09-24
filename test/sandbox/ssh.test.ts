@@ -2,13 +2,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Userspace } from "../../src/contracts/index.js";
 import { knownHostsOf } from "../../src/lib/ssh.js";
 import { bwrapArgs, fencePlan, hasBwrap, type BwrapLayout } from "../../src/sandbox/bwrap.js";
-import { FENCE_SSH_AUTH_SOCK, FENCE_SSH_KNOWN_HOSTS, hasSshAgent, startSshAgent, writeSshFiles } from "../../src/sandbox/ssh.js";
+import { FENCE_GIT_CONFIG, FENCE_SSH_AUTH_SOCK, FENCE_SSH_KNOWN_HOSTS, fenceRepoPub, hasSshAgent, startSshAgent, writeSshFiles } from "../../src/sandbox/ssh.js";
+import { repoRoute } from "../../src/lib/git-url.js";
 
 function space(root: string): Userspace {
   return { id: "alice", root, home: join(root, "home"), store: join(root, "store"), run: join(root, "run"), mounts: [] } as unknown as Userspace;
@@ -106,4 +107,82 @@ test("an agent with no loadable key is no agent at all", { skip: !hasSshAgent() 
   assert.equal(startSshAgent(files, ["/nowhere/a", "/nowhere/b"], (l) => lines.push(l)), undefined);
   assert.match(lines.join("\n"), /no granted key could be loaded/);
   assert.equal(existsSync(files.sock), false, "the socket is removed with the agent");
+});
+
+// Repository keys: the system fence's, one repository each. The agent holds every key the fence has and
+// GitHub takes the first that authenticates as anybody, so a key offered for the wrong repository is a
+// refused fetch. These hold the alias, the public half and the git rewrite to that.
+const REPO = "git@github.com:thirteen-games/thetis-packages.git";
+const hasTool = (cmd: string) => spawnSync(cmd, ["-V"], { stdio: "ignore" }).error === undefined;
+
+test("a repository key gets an alias block before Host *, its public half, and a git config for every spelling", () => {
+  const dir = mkdtempSync(join(tmpdir(), "thetis-ssh-repo-"));
+  const key = makeKey(dir);
+  const derived = makeKey(dir, "derived");
+  rmSync(`${derived}.pub`);
+  const route = repoRoute(REPO)!;
+  const other = repoRoute("ssh://git@git.example.com:2222/t/p.git")!;
+  const files = writeSshFiles(join(dir, "fence"), "", undefined, [{ key, repo: REPO }, { key: derived, repo: "ssh://git@git.example.com:2222/t/p.git" }, { key, repo: "/srv/local.git" }]);
+  const config = readFileSync(files.config, "utf8");
+  assert.ok(config.indexOf(`Host ${route.alias}`) < config.indexOf("Host *"), "ssh takes the first value it meets, so the alias comes first");
+  assert.match(config, new RegExp(`Host ${route.alias}\n  HostName github.com\n  User git\n  HostKeyAlias github.com\n  IdentityFile ${fenceRepoPub(route.alias)}\n  IdentitiesOnly yes\n`));
+  assert.match(config, new RegExp(`Host ${other.alias}\n  HostName git.example.com\n  Port 2222\n  User git\n  HostKeyAlias \\[git.example.com\\]:2222\n`));
+  assert.deepEqual(files.repos?.map((r) => r.alias), [route.alias, other.alias], "a local repository needs no key and gets no alias");
+  assert.equal(readFileSync(files.repos![0].pub, "utf8"), readFileSync(`${key}.pub`, "utf8"), "the public half, read from <key>.pub");
+  const want = spawnSync("ssh-keygen", ["-y", "-f", derived], { encoding: "utf8" }).stdout.trim();
+  assert.equal(readFileSync(files.repos![1].pub, "utf8").trim(), want, "derived from the key when there is no .pub");
+  const git = readFileSync(files.gitconfig!, "utf8");
+  assert.ok(git.includes(`[url "${route.url}"]`));
+  for (const s of route.insteadOf) assert.ok(git.includes(`\tinsteadOf = "${s}"\n`), s);
+
+  if (hasTool("ssh")) {
+    const g = spawnSync("ssh", ["-G", "-F", files.config, route.alias], { encoding: "utf8" });
+    assert.equal(g.status, 0, g.stderr);
+    for (const line of ["hostname github.com", "user git", "hostkeyalias github.com", `identityfile ${fenceRepoPub(route.alias)}`, "identitiesonly yes", `identityagent ${FENCE_SSH_AUTH_SOCK}`]) {
+      assert.match(g.stdout, new RegExp(`^${line.replace(/[[\]]/g, "\\$&")}$`, "m"), line);
+    }
+  }
+  if (hasTool("git")) {
+    const url = (u: string) => spawnSync("git", ["-C", dir, "ls-remote", "--get-url", u], { encoding: "utf8", env: { ...process.env, GIT_CONFIG_SYSTEM: files.gitconfig!, GIT_CONFIG_GLOBAL: "/dev/null" } }).stdout.trim();
+    for (const s of [REPO, "ssh://git@github.com/thirteen-games/thetis-packages.git", "https://github.com/thirteen-games/thetis-packages.git", "git://github.com/thirteen-games/thetis-packages.git"]) {
+      assert.equal(url(s), route.url, `${s} did not go through the alias`);
+    }
+    for (const s of ["git@github.com:thirteen-games/thetis-packages-other.git", "git@github.com:o/r-other.git"]) assert.equal(url(s), s, `${s} must not be sent this key`);
+  }
+});
+
+test("without a repository key there is no gitconfig, no public half and no IdentitiesOnly", () => {
+  const dir = mkdtempSync(join(tmpdir(), "thetis-ssh-norepo-"));
+  const key = makeKey(dir);
+  const files = writeSshFiles(join(dir, "fence"), "", undefined, [{ key }]);
+  assert.equal(files.gitconfig, undefined);
+  assert.equal(files.repos, undefined);
+  assert.equal(existsSync(join(dir, "fence", "gitconfig")), false);
+  assert.doesNotMatch(readFileSync(files.config, "utf8"), /IdentitiesOnly/);
+  const plan = fencePlan(space("/srv/thetis/users/alice"), { ...layout, ssh: files });
+  assert.ok(!plan.some((i) => i.target === FENCE_GIT_CONFIG));
+});
+
+test("the fence binds the public halves and the git config read-only, and the fence's git uses them", { skip: !hasBwrap() || !hasTool("git") }, () => {
+  const dir = mkdtempSync(join(tmpdir(), "thetis-ssh-repofence-"));
+  const key = makeKey(dir);
+  const route = repoRoute(REPO)!;
+  const files = writeSshFiles(join(dir, "fence"), "", undefined, [{ key, repo: REPO }]);
+  const plan = fencePlan(space("/srv/thetis/users/_system"), { ...layout, ssh: files });
+  const pub = plan.find((i) => i.target === fenceRepoPub(route.alias));
+  const gc = plan.find((i) => i.target === FENCE_GIT_CONFIG);
+  assert.equal(pub?.kind, "ro");
+  assert.equal(gc?.kind, "ro");
+  assert.equal(pub?.source, files.repos![0].pub);
+
+  const root = mkdtempSync(join(tmpdir(), "thetis-ssh-repous-"));
+  spawnSync("mkdir", ["-p", join(root, "home")]);
+  const args = bwrapArgs(space(root), { ...layout, ssh: files }, { PATH: "/usr/bin:/bin", GIT_CONFIG_SYSTEM: FENCE_GIT_CONFIG, GIT_CONFIG_GLOBAL: "/dev/null" });
+  const show = `git ls-remote --get-url ${REPO}; cat ${fenceRepoPub(route.alias)}; test -r ${key} && echo KEY-READABLE || echo key-absent`;
+  const run = spawnSync("bwrap", [...args, "--", "/bin/sh", "-c", show], { encoding: "utf8" });
+  assert.equal(run.status, 0, run.stderr);
+  const [rewritten, half] = run.stdout.split("\n");
+  assert.equal(rewritten, route.url);
+  assert.equal(`${half}\n`, readFileSync(`${key}.pub`, "utf8"));
+  assert.match(run.stdout, /key-absent/, "the private key never reaches the fence");
 });

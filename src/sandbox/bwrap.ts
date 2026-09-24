@@ -7,7 +7,7 @@ import { SYSTEM_USER, type Mount, type Userspace } from "../contracts/index.js";
 import type { FenceCgroup } from "./cgroup.js";
 import { FENCE_DOCKER_SOCKET } from "./docker.js";
 import { orderIntents, renderIntents, resolveGrants, validateIntents, type MountIntent } from "./plan.js";
-import { FENCE_SSH_AUTH_SOCK, FENCE_SSH_CONFIG, FENCE_SSH_DIR, FENCE_SSH_KNOWN_HOSTS, type FenceSsh } from "./ssh.js";
+import { FENCE_GIT_CONFIG, FENCE_SSH_AUTH_SOCK, FENCE_SSH_CONFIG, FENCE_SSH_DIR, FENCE_SSH_KNOWN_HOSTS, fenceRepoPub, type FenceSsh } from "./ssh.js";
 
 /** The OS directories every fence may read. Missing ones are skipped. */
 const OS_DIRS = ["/usr", "/etc", "/opt", "/bin", "/sbin", "/lib", "/lib32", "/lib64"];
@@ -113,6 +113,10 @@ export function fencePlan(us: Userspace, layout: BwrapLayout): MountIntent[] {
     intents.push({ kind: "ro", target: FENCE_SSH_AUTH_SOCK, source: layout.ssh.sock, optional: true, why: "an ssh grant" });
     intents.push({ kind: "ro", target: FENCE_SSH_CONFIG, source: layout.ssh.config, optional: true, why: "the ssh client options" });
     intents.push({ kind: "ro", target: FENCE_SSH_KNOWN_HOSTS, source: layout.ssh.knownHosts, optional: true, why: "the known hosts" });
+    // Repository keys: the public half each alias block names, and the git configuration that sends every
+    // spelling of the repository through its alias. Public halves only; see `writeSshFiles`.
+    for (const r of layout.ssh.repos ?? []) intents.push({ kind: "ro", target: fenceRepoPub(r.alias), source: r.pub, optional: true, why: "a repository key's public half" });
+    if (layout.ssh.gitconfig) intents.push({ kind: "ro", target: FENCE_GIT_CONFIG, source: layout.ssh.gitconfig, optional: true, why: "the git config for repository keys" });
   }
   intents.push({ kind: "rw", target: us.root, source: us.root, why: "the userspace" });
   // Declared last, so a granted path wins over a read-only bind of the same path, and marked `grant`, so a

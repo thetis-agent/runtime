@@ -9,7 +9,7 @@ import type { Cgroups, FenceCgroup, FenceLimits } from "./cgroup.js";
 import { dockerSocket, FENCE_DOCKER_SOCKET, type DockerAccess } from "./docker.js";
 import { heartbeatFor, ProcessHandle, type SandboxHandle } from "./handle.js";
 import { hasSlirp, startEgress, writeResolvConf } from "./network.js";
-import { FENCE_SSH_AUTH_SOCK, startSshAgent, writeSshFiles, type SshAgent } from "./ssh.js";
+import { FENCE_GIT_CONFIG, FENCE_SSH_AUTH_SOCK, startSshAgent, writeSshFiles, type SshAgent } from "./ssh.js";
 
 export type SandboxMode = "auto" | "bwrap" | "none";
 export type FenceNetwork = "auto" | "egress" | "none" | "host";
@@ -182,7 +182,7 @@ export class ProcessFence implements Fence {
   private openSsh(us: Userspace): SshAgent | undefined {
     const grants = us.ssh ?? [];
     if (!grants.length) return undefined;
-    const files = writeSshFiles(join(this.opts.sshDir, us.id), knownHostsOf(grants), us.home);
+    const files = writeSshFiles(join(this.opts.sshDir, us.id), knownHostsOf(grants), us.home, grants);
     return startSshAgent(files, grants.map((g) => g.key), this.log);
   }
 
@@ -233,6 +233,10 @@ export class ProcessFence implements Fence {
       // the fence asks what it has rather than probing a path and guessing why a connection was refused.
       // `SSH_AUTH_SOCK` is what ssh itself reads; `THETIS_SSH` is what a tool or a skill checks.
       ...(ssh ? { SSH_AUTH_SOCK: FENCE_SSH_AUTH_SOCK, THETIS_SSH: FENCE_SSH_AUTH_SOCK } : {}),
+      // Repository keys (the system fence's): git reads its system layer from the file that sends each
+      // credentialed repository through its own ssh alias, so every `git` here uses that repository's key
+      // and no other. Only when the file was written; see `writeSshFiles`.
+      ...(ssh?.gitconfig ? { GIT_CONFIG_SYSTEM: FENCE_GIT_CONFIG } : {}),
     };
     const node = [process.execPath, this.opts.agentPath];
     if (at.sandbox === "none") {

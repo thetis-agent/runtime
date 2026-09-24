@@ -141,7 +141,7 @@ function bindServices(c: Container, config: KernelConfig): void {
     return new ServiceSupervisor(c.get(T.settings), c.get(T.users), c.get(T.userspaces), c.get(T.packages), c.get(T.fences), c.get(T.log), c.get(T.journal));
   });
   c.bind(T.registry, (c) => new PackageRegistry(c.get(T.records).registry));
-  c.bind(T.packages, (c) => new PackageManager(c.get(T.config), c.get(T.registry), c.get(T.fences)));
+  c.bind(T.packages, (c) => new PackageManager(c.get(T.config), c.get(T.registry), c.get(T.fences), () => c.get(T.userspaces).pathFor(SYSTEM_USER)));
   c.bind(T.providers, (c) => new ProviderRegistry(c.get(T.settings), c.get(T.packages), c.get(T.userspaces), c.get(T.fences)));
   c.bind(T.sessionStore, () => new SessionStore(SESSION_ID));
   c.bind(T.enumerator, (c) => new Enumerator(c.get(T.config), c.get(T.fences)));

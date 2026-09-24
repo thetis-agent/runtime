@@ -27,6 +27,13 @@ export interface Mount {
 export interface SshGrant {
   key: string;
   hosts?: string[];
+  /**
+   * A repository key: the git url of the one repository this key is for. Only the system userspace holds
+   * grants with `repo`, and every grant it holds has one -- these are the installation's keys, used for
+   * fetching a registry, and no person's fence is ever given them. The system fence offers the key for that
+   * repository alone (see `repoRoute` in `lib/git-url`).
+   */
+  repo?: string;
 }
 
 export interface Userspace {
