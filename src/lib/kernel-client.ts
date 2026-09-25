@@ -22,6 +22,7 @@ export function kernelClient(transport: KernelRpc): KernelClient {
       delete: (name) => rpc("packages.delete", DeletedPackageSchema, { name }),
       unfork: (name, deleteFiles) => rpc("packages.unfork", PackageInfoSchema, { name, deleteFiles }),
       list: () => rpc("packages.list", z.array(PackageInfoSchema)),
+      catalog: () => rpc("packages.catalog", z.array(PackageInfoSchema)),
     },
     operator: {
       call: (method, args, onEvent) => transport(`operator.${method}`, args ?? {}, onEvent),

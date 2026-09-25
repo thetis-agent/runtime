@@ -67,6 +67,8 @@ export interface KernelClient {
      */
     unfork(name: string, deleteFiles?: boolean): Promise<PackageInfo>;
     list(): Promise<PackageInfo[]>;
+    /** Every system package on disk -- shipped or promoted -- whether or not this fence has it, each saying whether it is everyone's default. Anyone may install one by name. */
+    catalog(): Promise<PackageInfo[]>;
   };
   operator: {
     /** Extension methods own their result shapes; callers validate the unknown reply with their schema. */

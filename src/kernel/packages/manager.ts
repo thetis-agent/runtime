@@ -1,6 +1,6 @@
 import { existsSync, rmSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type Fences, type Manifest, type PackageInfo, type PackageRecord, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
+import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type EveryoneBy, type Fences, type Manifest, type PackageInfo, type PackageRecord, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
 import { assert, CodedError, errorMessage } from "../../lib/error.js";
 import { ExecResultSchema } from "../../contracts/schemas/fence.js";
 import { repoGrantFor } from "../../lib/ssh.js";
@@ -73,12 +73,12 @@ export class PackageManager {
   /** Installed packages of a userspace, with their live manifests, in install order. */
   installed(us: Userspace): PackageInfo[] {
     const out: PackageInfo[] = [];
-    const everyone = new Set(this.forEveryone());
+    const everyone = this.everyoneMap();
     // The record knows where the copy came from; the manifest does not. Carrying it lets a reader see the
     // pin an installation is following without asking the registry a second question.
     const mark = (info: PackageInfo, rec: PackageRecord) => ({
       ...info,
-      ...(everyone.has(info.name) ? { everyone: true } : {}),
+      ...(everyone.has(info.name) ? { everyone: true, everyoneBy: everyone.get(info.name) } : {}),
       ...(rec.replaced ? { replaced: rec.replaced } : {}),
       ...(rec.source ? { source: rec.source } : {}),
     });
@@ -153,7 +153,39 @@ export class PackageManager {
 
   /** The packages every person gets: the `"*"` list, every promoted package, and every package marked for everyone. */
   forEveryone(): string[] {
-    return [...(this.config.systemPackages["*"] ?? []), ...this.promoted(), ...this.registry.everyone()];
+    return [...this.everyoneMap().keys()];
+  }
+
+  /**
+   * The same set, each name with why it is everyone's. The configuration outranks a promotion, which
+   * outranks an admin's mark, because that is the order in which they can be undone from a page: a mark
+   * is taken back by `markEveryone`, a promotion by removing the promoted copy, the `"*"` list only by
+   * editing the configuration -- and a page offering to undo what it cannot is the trap this avoids.
+   */
+  private everyoneMap(): Map<string, EveryoneBy> {
+    const by = new Map<string, EveryoneBy>();
+    for (const name of this.registry.everyone()) by.set(name, "marked");
+    for (const name of this.promoted()) by.set(name, "promoted");
+    for (const name of this.config.systemPackages["*"] ?? []) by.set(name, "config");
+    return by;
+  }
+
+  /**
+   * Every system package on disk, shipped first and then promoted, whether or not anyone has it: what a
+   * person may install by name. The installation put these here, so linking one into one's own workspace
+   * is open to everyone; the marketplace lists them beside what the registries offer.
+   */
+  catalog(): PackageInfo[] {
+    const everyone = this.everyoneMap();
+    const out = new Map<string, PackageInfo>();
+    for (const base of [this.config.systemPackagesDir, this.config.promotedPackagesDir]) {
+      for (const { dir, manifest } of packagesIn(base, readManifest)) {
+        if (out.has(manifest.name)) continue;
+        const by = everyone.get(manifest.name);
+        out.set(manifest.name, { ...toInfo(manifest, dir), source: { kind: "system", ref: dir }, ...(by ? { everyone: true, everyoneBy: by } : {}) });
+      }
+    }
+    return [...out.values()];
   }
 
   /** Marks a shipped system package as the default for everyone. New people are seeded with it. */
@@ -175,19 +207,24 @@ export class PackageManager {
     this.link(us, name, dir);
     const rec = { name, version: manifest.version, type: manifest.thetis.type, owner: SYSTEM_USER, source: { kind: "system" as const, ref: dir }, ...origin(manifest) };
     this.registry.record({ ...rec, ...replaced }, us.id);
-    return toInfo(manifest, this.linkPath(us, name));
+    // The answer says where the copy came from, as the listing does: a caller drawing the row it just installed needs the same facts.
+    return { ...toInfo(manifest, this.linkPath(us, name)), source: rec.source };
   }
 
   /**
-   * Installs from a git URL, a path inside the userspace, or a @thetis/* name (admins only). A fork whose
-   * origin is installed here replaces it in one operation: the origin's service stops and its link goes
-   * before the fork's link and service come, so tool names and sockets never clash.
+   * Installs from a git URL, a path inside the userspace, or a @thetis/* name. A name is a system package
+   * -- shipped or promoted, already on disk and already built -- and anyone may link one into their own
+   * workspace: the installation vouched for it by shipping it, and the link runs in the person's fence as
+   * them. A @thetis-scoped *source* is different: it is code from elsewhere claiming the system scope, and
+   * `checkOwnership` leaves that to admins. A fork whose origin is installed here replaces it in one
+   * operation: the origin's service stops and its link goes before the fork's link and service come, so
+   * tool names and sockets never clash.
    */
   async install(us: Userspace, actor: UserRecord, source: string): Promise<PackageInfo> {
     if (scopeOf(source) === SYSTEM_SCOPE && !source.includes("/", SYSTEM_SCOPE.length + 1)) {
-      assert(actor.role !== "user", "only admins can install system packages", "unauthorized");
       const dir = this.systemPackageDir(source);
-      const replaced = dir ? await this.displace(us, installable(readManifest(dir))) : undefined;
+      assert(dir, `${source} is not a system package here: nothing shipped or promoted has that name`, "not-found");
+      const replaced = await this.displace(us, installable(readManifest(dir)));
       const info = this.installSystem(us, source, replaced);
       await this.each((l) => l.installed?.(us, info));
       return info;
@@ -202,7 +239,7 @@ export class PackageManager {
     this.link(us, manifest.name, dir);
     const rec = { name: manifest.name, version: manifest.version, type: manifest.thetis.type, owner: us.id, source: { kind, ref: source }, ...origin(manifest) };
     this.registry.record({ ...rec, ...replaced }, us.id);
-    const info = { ...toInfo(manifest, this.linkPath(us, manifest.name)), ...(replaced ? { replaced: replaced.replaced } : {}) };
+    const info = { ...toInfo(manifest, this.linkPath(us, manifest.name)), source: rec.source, ...(replaced ? { replaced: replaced.replaced } : {}) };
     if (kind === "git") this.pruneClones(us);
     await this.each((l) => l.installed?.(us, info));
     return info;

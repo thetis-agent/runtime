@@ -11,6 +11,8 @@ export const ToolDeclSchema = z.looseObject({
 export const ForkOriginSchema = z.object({ name: ScopedPackageNameSchema, version: z.string() });
 export const ForkStatusSchema = ForkOriginSchema.extend({ shipped: z.string().optional(), identical: z.boolean().optional(), everyone: z.boolean().optional() });
 export const PackageSourceSchema = z.object({ kind: z.enum(["system", "local", "git"]), ref: z.string() });
+/** Why a system package is everyone's default: the installation's configuration, its promotion, or an admin's mark. Only the mark can be taken back. */
+export const EveryoneBySchema = z.enum(["config", "promoted", "marked"]);
 
 export const UiEntryDeclSchema = z.looseObject({
   id: z.string(), label: z.string().optional(), icon: z.string().optional(), hint: z.string().optional(),
@@ -46,7 +48,7 @@ export const ManifestSchema = z.looseObject({
 });
 export const PackageInfoSchema = z.object({
   name: z.string(), version: z.string(), type: z.string(), description: z.string(), root: z.string(), thetis: ThetisFieldSchema,
-  everyone: z.boolean().optional(), forkedFrom: ForkOriginSchema.optional(), fork: ForkStatusSchema.optional(),
+  everyone: z.boolean().optional(), everyoneBy: EveryoneBySchema.optional(), forkedFrom: ForkOriginSchema.optional(), fork: ForkStatusSchema.optional(),
   replaced: z.string().optional(), source: PackageSourceSchema.optional(),
   /** Version loaded by an open fence; a different on-disk version requires a reload. */
   loadedVersion: z.string().optional(),

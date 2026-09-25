@@ -61,6 +61,8 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
         return k.packages.delete(us, text("name"));
       case "packages.list":
         return k.packages.listFor(us);
+      case "packages.catalog":
+        return k.packages.catalog();
       case "sessions.create":
         return k.sessions.create(us.id, { parent: args.parent });
       case "assets.put":

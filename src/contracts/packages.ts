@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { UiEntryDeclSchema, UiCommandDeclSchema, UiDeclSchema, StepDeclSchema, ToolDeclSchema, ForkOriginSchema, ForkStatusSchema, PackageSourceSchema, ThetisFieldSchema, ManifestSchema, PackageInfoSchema, PackageRecordSchema, DeletedPackageSchema } from "./schemas/packages.js";
+import type { UiEntryDeclSchema, UiCommandDeclSchema, UiDeclSchema, StepDeclSchema, ToolDeclSchema, ForkOriginSchema, ForkStatusSchema, PackageSourceSchema, EveryoneBySchema, ThetisFieldSchema, ManifestSchema, PackageInfoSchema, PackageRecordSchema, DeletedPackageSchema } from "./schemas/packages.js";
 // Packages: the manifest a package ships, what an installed package looks like, and the registry record.
 
 export const SYSTEM_SCOPE = "@thetis";
@@ -22,6 +22,7 @@ export type ForkOrigin = z.infer<typeof ForkOriginSchema>;
  * no change at all and is costing its owner every fix, past and future, for nothing.
  */
 export type ForkStatus = z.infer<typeof ForkStatusSchema>;
+export type EveryoneBy = z.infer<typeof EveryoneBySchema>;
 
 export type PackageSource = z.infer<typeof PackageSourceSchema>;
 

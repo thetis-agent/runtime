@@ -640,10 +640,24 @@ test("packages: a storage driver is refused an install, and manifestOf reads the
     assert.equal(registry.get("@alice/drv"), undefined);
     assert.equal(manager.manifestOf(us, "@thetis/shipped")?.name, "@thetis/shipped", "the shipped directory, though nothing links it yet");
     assert.equal(manager.manifestOf(us, "@thetis/none"), undefined);
-    manager.installSystem(us, "@thetis/shipped");
+    // The catalog is every system package on disk, whether or not anyone has it, each saying whose default it is.
+    assert.deepEqual(manager.catalog().map((p) => [p.name, p.source?.kind, p.everyone, p.everyoneBy]), [["@thetis/shipped", "system", undefined, undefined]]);
+    // A person who is not an admin installs a system package by name: it is the installation's, already built.
+    const got = await manager.install(us, alice, "@thetis/shipped");
+    assert.equal(got.name, "@thetis/shipped");
+    assert.equal(registry.get("@thetis/shipped")?.owner, "_system", "linked by name, the record is the system's");
+    await assert.rejects(manager.install(us, alice, "@thetis/none"), (e: { code: string; message: string }) => e.code === "not-found" && /nothing shipped or promoted/.test(e.message));
     assert.equal(manager.manifestOf(us, "@thetis/shipped")?.name, "@thetis/shipped");
     assert.equal(registry.get("@thetis/shipped")?.forkedFrom, undefined);
     assert.ok(!("forkedFrom" in registry.get("@thetis/shipped")!), "a record holds no undefined: the store would refuse it");
+    // Everyone's, and by whose word: an admin's mark, which can be taken back; the configuration's, which cannot from a page.
+    manager.markEveryone("@thetis/shipped", true);
+    assert.deepEqual([manager.catalog()[0].everyone, manager.catalog()[0].everyoneBy], [true, "marked"]);
+    assert.equal(manager.installed(us)[0].everyoneBy, "marked", "the installed row says so too");
+    config.systemPackages["*"] = ["@thetis/shipped"];
+    assert.equal(manager.catalog()[0].everyoneBy, "config", "the configuration outranks the mark");
+    manager.markEveryone("@thetis/shipped", false);
+    assert.deepEqual([manager.catalog()[0].everyone, manager.catalog()[0].everyoneBy], [true, "config"], "taking the mark off changes nothing the configuration decided");
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

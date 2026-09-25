@@ -108,6 +108,18 @@ export function createControlHandler(k: KernelServices): KernelRpc {
       }
       case "packages.installEveryone":
         return installEveryone(k, actor(), text("source"), journal);
+      case "packages.unmarkEveryone": {
+        // The mark comes off and new people stop being seeded with it; everyone who has it keeps it: taking a
+        // package out of a running workspace is that person's decision, or a `packages.uninstall` naming them.
+        // Only an admin's mark is this method's to undo -- the `"*"` list is the configuration's, a promotion
+        // is the promoted copy's -- and a page offering to undo what it cannot is the trap `everyoneBy` exists to avoid.
+        const by = k.packages.catalog().find((p) => p.name === text("name"))?.everyoneBy;
+        assert(by !== "config", `${text("name")} is everyone's by the installation's configuration (systemPackages "*"); edit that instead`, "invalid");
+        assert(by !== "promoted", `${text("name")} is everyone's because it is promoted; remove the promoted copy instead`, "invalid");
+        k.packages.markEveryone(text("name"), false);
+        journal("package.everyone", text("name"), { on: false });
+        return null;
+      }
       case "fence.reload": {
         // `_system` is a legal target, unlike a grant: the providers and the sign-in page live in it,
         // and are otherwise out of reach without a new daemon. `authorize` refuses the unknown and the suspended.
