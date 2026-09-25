@@ -13,6 +13,8 @@ export const RpcArgumentsSchema = z.looseObject({
 export const ControlArgumentsSchema = RpcArgumentsSchema.extend({
   actor: z.string().optional(), role: UserRoleSchema.optional(), status: UserStatusSchema.optional(),
   reason: z.string().optional(), actor_filter: z.string().optional(), target: z.string().optional(), kind: z.string().optional(),
+  /** `fence.reload`: cancel the turns running in that workspace first, instead of refusing while one runs. */
+  force: z.boolean().optional(),
   limit: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
 });
 

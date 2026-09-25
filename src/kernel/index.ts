@@ -7,7 +7,7 @@ export { AuthService, type Credential, type TokenRecord } from "./auth.js";
 export { ServiceSupervisor } from "./services.js";
 export { ConfigService, type Affected, type ConfigChange, type ConfigTarget, type Settings } from "./settings.js";
 export { createRpcHandler, type RpcServices } from "./rpc.js";
-export { createControlHandler, redact } from "./control.js";
+export { createControlHandler, redact, reloadWorkspace } from "./control.js";
 export { PackageRegistry } from "./packages/registry.js";
 export { PackageManager, type PackageListener } from "./packages/manager.js";
 export { readManifest, validateManifest } from "./packages/manifest.js";

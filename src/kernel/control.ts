@@ -127,10 +127,9 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         // A person may put their own workspace back on the code that is on disk; anyone else's is an admin's
         // call. A call with no named actor came over the control socket, whose 0600 holder is the operator.
         assert(actor().role !== "user" || actor().id === target.id, "a person may reload only their own workspace", "unauthorized");
-        journal("fence.reload", target.id);
-        k.providers.forget(target.id);
-        await k.services.reload(target.id);
-        return { user: target.id, ...serviceState(installedIn(k, target.id), k.services.notRunning.get(target.id) ?? []) };
+        const cancelled = await reloadWorkspace(k, target.id, a.force === true);
+        journal("fence.reload", target.id, cancelled.length ? { force: true, cancelled } : undefined);
+        return { user: target.id, cancelled, ...serviceState(installedIn(k, target.id), k.services.notRunning.get(target.id) ?? []) };
       }
       case "restart.request": {
         // Only an admin, asserted here rather than left to `rpc.ts`, which admits any non-user and so admits
@@ -215,6 +214,22 @@ export function createControlHandler(k: KernelServices): KernelRpc {
 }
 
 type JournalFn = (kind: string, target: string, data?: Record<string, unknown>) => void;
+
+/**
+ * Closes a workspace's fence and opens it again on the code on disk. A turn running there would die with
+ * the fence, and a turn that dies is recorded no further than what it had streamed, so the reload refuses
+ * while one runs and names the session. `force` cancels those turns first and waits for their closing save,
+ * which is the order a restart keeps for every workspace at once. Every reload goes through here: the
+ * control channel, and a host package that changed a grant the fence reads when it opens.
+ */
+export async function reloadWorkspace(k: KernelServices, id: string, force = false): Promise<string[]> {
+  const running = k.sessions.inFlight().filter((key) => key.startsWith(`${id}/`)).map((key) => key.slice(id.length + 1));
+  assert(force || !running.length, `${id} has a turn running in ${running.join(", ")}: wait for it to end, or reload with force to cancel it`, "busy");
+  const cancelled = running.length ? await k.sessions.cancelAll(id) : [];
+  k.providers.forget(id);
+  await k.services.reload(id);
+  return cancelled;
+}
 
 /** What a sweep across the fleet did: the userspaces the package reached, and the people whose fork of it was left in place. */
 type Sweep = { userspaces: string[]; forks: { user: string; fork: string }[] };

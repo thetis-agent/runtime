@@ -1,6 +1,6 @@
 import { StepResultSchema, TurnEventSchema } from "../../contracts/schemas/pipeline.js";
 import { parseSchema } from "../../lib/validation.js";
-import { contentText, normalizeMessage } from "../../lib/content.js";
+import { contentText, normalizeMessage, textContent } from "../../lib/content.js";
 import type { Fences, Message, SessionRecord, StepContext, StepRef, TurnEvent, TurnOptions, Userspace } from "../../contracts/index.js";
 import { CodedError, errorMessage } from "../../lib/error.js";
 import { newId, now } from "../../lib/ids.js";
@@ -44,9 +44,15 @@ export class PipelineRunner {
     // What the steps reported this turn, summed; it is package-reported, so it is journaled under that name.
     const reported: Record<string, number> = {};
     let failure: { message: string; code?: string } | undefined;
+    // What the running step has streamed as whole messages: each assistant message, and each tool result
+    // as the tool message it becomes. A step that dies -- the fence with it -- returns nothing, and these
+    // are then all there is of what the turn said and did.
+    const streamed: Message[] = [];
     const emit: Emit = (event) => {
       if (event.type === "usage") for (const [k, v] of Object.entries(event.usage)) reported[k] = (reported[k] ?? 0) + v;
       if (event.type === "error" && !failure) failure = { message: event.message, code: event.code };
+      if (event.type === "message") streamed.push(normalizeMessage(event.message));
+      if (event.type === "tool.result") streamed.push({ role: "tool", content: event.content ?? textContent(String(event.result ?? "")), toolCallId: event.id, name: event.name });
       emitOut(event.type === "message" ? { ...event, message: normalizeMessage(event.message) } : event);
     };
     const info = { id: session.id, user: session.user, parent: session.parent };
@@ -64,6 +70,7 @@ export class PipelineRunner {
     this.journal.append({ kind: "turn.start", actor: session.user, target: session.id, data: { turn: turn.id } });
     // Written now, with the input, so a turn cut short still leaves what was asked; `turn` marks it in progress.
     session.turn = { id: turn.id, startedAt: now(), input: input.filter((m) => m.role === "user").map((m) => contentText(m.content)).join("\n"), messages: input };
+    delete session.interrupted;
     session.conversation = ctx.conversation;
     this.store.save(us.sessions, session);
     try {
@@ -72,7 +79,17 @@ export class PipelineRunner {
         checkCancelled(signal);
         emit({ type: "step.start", step });
         const started = Date.now();
-        const result = await this.runStep(us, step, ctx, emit, signal);
+        const mark = streamed.length;
+        let result: unknown;
+        try {
+          result = await this.runStep(us, step, ctx, emit, signal);
+        } catch (err) {
+          // The step is gone without a result. A cancel is not this: a cancelled step answers with its partial
+          // result. What it streamed is kept, and a tool call it never got to answer is answered with the
+          // reason, so the record stays one a provider will take on the next turn.
+          ctx.conversation = withStreamed(ctx.conversation, streamed.slice(mark), errorMessage(err));
+          throw err;
+        }
         this.apply(ctx, result, step.id ?? step.export);
         emit({ type: "step.end", step, ms: Date.now() - started });
       }
@@ -80,6 +97,7 @@ export class PipelineRunner {
     } catch (err) {
       const code = err instanceof CodedError ? err.code : undefined;
       emit({ type: "error", message: errorMessage(err), code });
+      if (code !== "cancelled") session.interrupted = { turn: turn.id, at: now(), error: { message: errorMessage(err), ...(code ? { code } : {}) } };
     } finally {
       delete session.turn;
       session.conversation = ctx.conversation;
@@ -113,4 +131,12 @@ export class PipelineRunner {
     if (r.call !== undefined) ctx.call = r.call;
     if (r.harness !== undefined) ctx.harness = r.harness;
   }
+}
+
+/** The conversation with what a dead step had streamed, every tool call it left unanswered answered with why. */
+function withStreamed(conversation: Message[], streamed: Message[], why: string): Message[] {
+  const out = [...conversation, ...streamed];
+  const answered = new Set(streamed.filter((m) => m.role === "tool").map((m) => m.toolCallId));
+  for (const m of streamed) for (const tc of m.toolCalls ?? []) if (!answered.has(tc.id)) out.push({ role: "tool", content: [{ type: "text", data: { text: `error: the turn was interrupted: ${why}` } }], toolCallId: tc.id, name: tc.name });
+  return out;
 }

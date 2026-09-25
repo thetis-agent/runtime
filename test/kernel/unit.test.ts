@@ -25,7 +25,8 @@ import { PackageRegistry } from "../../src/kernel/packages/registry.js";
 import { validateManifest } from "../../src/kernel/packages/manifest.js";
 import { Enumerator } from "../../src/kernel/pipeline/enumerator.js";
 import { defaultConfig, saveConfig, loadConfig, packagesLayer } from "../../src/kernel/config.js";
-import { createControlHandler, redact } from "../../src/kernel/control.js";
+import { createControlHandler, redact, reloadWorkspace } from "../../src/kernel/control.js";
+import { CodedError as KernelError } from "../../src/lib/error.js";
 import { createRpcHandler, type RpcServices } from "../../src/kernel/rpc.js";
 import { SessionApi, SESSION_ID } from "../../src/kernel/sessions/api.js";
 import { PipelineRunner } from "../../src/kernel/pipeline/runner.js";
@@ -145,6 +146,105 @@ test("runner: a step's events are the turn's, with its package's configuration, 
     const data = end.data as { reported: unknown; error: { code?: string } };
     assert.deepEqual(data.reported, { tokens: 7 }, "usage is summed across a step's reports");
     assert.equal(data.error.code, "provider", "the first error is the turn's failure");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+/**
+ * A step that dies -- the fence killed under it, as a workspace reload used to do -- returns nothing, and
+ * before this the turn was saved with only what it was asked. What the step had streamed is all there is
+ * of two hours of work, so it is kept: every assistant message, every tool result, and a tool call it never
+ * got to answer answered with the reason, so the next turn's provider takes the record as it stands.
+ */
+test("runner: a step that dies keeps what it streamed, answers its dangling tool calls, marks the session interrupted, and the next turn clears the mark", async () => {
+  const home = tmp();
+  try {
+    let dies = true;
+    const { r, us, session, store } = runner(home, [pkgs[1]], async (_payload, emit) => {
+      if (!dies) return { conversation: [{ role: "user", content: textContent("again") }, { role: "assistant", content: textContent("fine") }] };
+      emit({ type: "message", message: { role: "assistant", content: textContent("looking"), toolCalls: [{ id: "c1", name: "shell", args: { cmd: "ls" } }] } });
+      emit({ type: "tool.result", id: "c1", name: "shell", content: textContent("a b"), result: "a b" });
+      emit({ type: "message", message: { role: "assistant", content: textContent("now this"), toolCalls: [{ id: "c2", name: "shell", args: { cmd: "make" } }, { id: "c3", name: "read", args: {} }] } });
+      emit({ type: "tool.result", id: "c3", name: "read", content: textContent("read ok"), result: "read ok" });
+      throw new KernelError("userspace agent for bob exited (signal)", "fence");
+    });
+    const events: TurnEvent[] = [];
+    await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], (e) => events.push(e));
+    assert.deepEqual(events.filter((e): e is Extract<TurnEvent, { type: "error" }> => e.type === "error").map((e) => e.code), ["fence"]);
+    const saved = store.load(us.sessions, "s_1")!;
+    assert.deepEqual(
+      saved.conversation.map((m) => [m.role, contentText(m.content), m.toolCallId ?? null]),
+      [
+        ["user", "go", null],
+        ["assistant", "looking", null],
+        ["tool", "a b", "c1"],
+        ["assistant", "now this", null],
+        ["tool", "read ok", "c3"],
+        ["tool", "error: the turn was interrupted: userspace agent for bob exited (signal)", "c2"],
+      ],
+      "what was streamed, in order, and the one call never answered is answered with why"
+    );
+    assert.equal(saved.turn, undefined);
+    assert.equal(saved.interrupted?.turn.startsWith("t_"), true);
+    assert.deepEqual(saved.interrupted?.error, { message: "userspace agent for bob exited (signal)", code: "fence" });
+    // The next turn starts clean and, ending well, leaves no mark.
+    dies = false;
+    await r.runTurn(us, saved, [{ role: "user", content: textContent("again") }], () => {});
+    const next = store.load(us.sessions, "s_1")!;
+    assert.equal(next.interrupted, undefined, "the mark is the last turn's, and this one ended well");
+    assert.equal(contentText(next.conversation.at(-1)!.content), "fine");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+/**
+ * The reload guard. A workspace reload closes the fence, and a turn running there dies with it; the
+ * production turn this was written for had run for two and a half hours. So the reload refuses while a
+ * turn runs, naming the session, and with `force` cancels the turns first and waits for their closing
+ * save -- the same order a restart keeps -- before the fence goes.
+ */
+test("reloadWorkspace: refused while a turn runs there and names it; forced, it cancels the turns, waits for their save, and only then reloads", async () => {
+  const home = tmp();
+  try {
+    const driver = memoryStore();
+    const users = new UserStore(await mirror(driver, "users"));
+    users.create("bob");
+    users.create("carol");
+    const packages = { installed: () => [{}], seedSystem: () => {} } as unknown as PackageManager;
+    const store = new SessionStore(SESSION_ID);
+    const layout = new UserspaceLayout(home);
+    const order: string[] = [];
+    const fake = {
+      runTurn: async (us: Userspace, session: SessionRecord, _input: Message[], emit: (e: TurnEvent) => void, signal: AbortSignal) => {
+        emit({ type: "turn.start", turn: "t1", session: session.id });
+        await new Promise<void>((done) => signal.addEventListener("abort", () => done(), { once: true }));
+        await new Promise((r) => setTimeout(r, 10));
+        order.push(`saved ${session.id}`);
+        store.save(us.sessions, { ...session, turns: session.turns + 1 });
+        emit({ type: "turn.end", turn: "t1", session: session.id });
+        return session;
+      },
+    } as unknown as PipelineRunner;
+    const api = new SessionApi(users, layout, packages, store, fake);
+    const k = { sessions: api, providers: { forget: (id: string) => order.push(`forget ${id}`) }, services: { reload: async (id: string) => order.push(`reload ${id}`) } } as unknown as KernelServices;
+    const a = api.create("bob");
+    const b = api.create("bob");
+    const c = api.create("carol");
+    const turns = [a, b].map((s) => (async () => { for await (const _ of api.send("bob", s.id, "wait")) void _; })());
+    const other = (async () => { for await (const _ of api.send("carol", c.id, "wait")) void _; })();
+    await new Promise((r) => setTimeout(r, 5));
+    await assert.rejects(reloadWorkspace(k, "bob"), (e: { code: string; message: string }) => e.code === "busy" && e.message.includes(a.id) && e.message.includes(b.id) && /reload with force/.test(e.message));
+    assert.deepEqual(order, [], "a refusal touches nothing");
+    assert.deepEqual((await reloadWorkspace(k, "bob", true)).sort(), [a.id, b.id].sort());
+    await Promise.all(turns);
+    assert.deepEqual(order.slice(0, 2).sort(), [`saved ${a.id}`, `saved ${b.id}`].sort(), "both closing saves landed before the fence went");
+    assert.deepEqual(order.slice(2), ["forget bob", "reload bob"]);
+    assert.equal(api.inspect("carol", c.id).status, "running", "another person's turn is nobody else's business");
+    assert.deepEqual(await reloadWorkspace(k, "bob"), [], "nothing running: nothing to cancel");
+    api.cancel("carol", c.id);
+    await other;
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

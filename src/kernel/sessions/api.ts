@@ -97,6 +97,18 @@ export class SessionApi {
   }
 
   /**
+   * Cancels every turn running in a user's sessions and waits for each one's closing save: what a reload of
+   * that workspace does before it closes the fence, so a turn ends as a cancel with its partial result kept
+   * rather than dying with the process. Answers the session ids it cancelled.
+   */
+  async cancelAll(userId: string): Promise<string[]> {
+    const mine = [...this.running].filter(([key]) => key.startsWith(`${userId}/`));
+    for (const [, turn] of mine) turn.control.abort();
+    await Promise.all(mine.map(([, turn]) => turn.done.catch(() => {})));
+    return mine.map(([key]) => key.slice(userId.length + 1));
+  }
+
+  /**
    * Every turn running anywhere, as `user/session`. Ids and not a count, because the one caller that waits
    * on this — a restart, which ends them all — must be able to name whose turn it cut.
    */

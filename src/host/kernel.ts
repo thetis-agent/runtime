@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { SYSTEM_USER, type AssetStore, type Fence, type Fences, type HostEnv, type KernelRpc, type StoreDriver, type Userspace } from "../contracts/index.js";
 import {
   AssetAccess, AuthService, ConfigService, createControlHandler, createRpcHandler, Enumerator, PackageManager, PackageRegistry, PipelineRunner,
-  ProviderRegistry, ServiceSupervisor, SessionApi, SESSION_ID, UserStore, type HostExtensions, type KernelConfig, type KernelServices,
+  ProviderRegistry, ServiceSupervisor, SessionApi, SESSION_ID, UserStore, reloadWorkspace, type HostExtensions, type KernelConfig, type KernelServices,
 } from "../kernel/index.js";
 import { EnvFile, LayeredConfig, type EnvSource } from "../lib/config.js";
 import { Container, token } from "../lib/container.js";
@@ -169,9 +169,10 @@ function hostEnv(c: Container): HostEnv {
     users: { get: (id) => c.get(T.users).get(id), list: () => c.get(T.users).list() },
     records: { mounts: c.get(T.mounts), ssh: c.get(T.ssh) },
     journal: (row) => c.get(T.journal).append({ kind: row.kind, actor: row.actor ?? "operator", target: row.target, data: row.data }),
+    // The same guarded reload `fence.reload` runs: refused with `busy` while a turn runs there, so a grant is
+    // recorded and reaches the fence at its next reload rather than killing the turn.
     reloadFence: async (user) => {
-      c.get(T.providers).forget(user);
-      await c.get(T.services).reload(user);
+      await reloadWorkspace(kernelOf(c), user);
     },
     log: c.get(T.log),
   };

@@ -15,6 +15,8 @@ export const SessionRecordSchema = z.looseObject({
   turn: z.looseObject({
     id: z.string().min(1), startedAt: z.string(), input: z.string().optional(), messages: MessagesInputSchema.optional(),
   }).optional(),
+  /** The last turn ended in an error other than a cancel -- the fence died under it, most often -- and what it had streamed was kept. Cleared when the next turn starts. */
+  interrupted: z.looseObject({ turn: z.string(), at: z.string(), error: z.looseObject({ message: z.string(), code: z.string().optional() }) }).optional(),
 });
 export const SessionSummaryRefSchema = z.looseObject({
   ...SessionInfoSchema.shape,
