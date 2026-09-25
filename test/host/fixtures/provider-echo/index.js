@@ -7,6 +7,13 @@ export function createProvider(config) {
       const last = call.messages[call.messages.length - 1];
       if (last?.role === "tool" && /FAIL_NEXT/.test(contentText(last.content))) { yield { type: "error", message: "the provider gave up" }; return; }
       if (last?.role === "tool") { yield { type: "text", delta: `tool said: ${contentText(last.content)}` }; return; }
+      // A summarization request (tool_choice none, the way @thetis/compaction sends one) is answered slowly, a
+      // few words at a time, so a browser pass can watch a compaction in progress and reload the page under it.
+      if (call.params?.tool_choice === "none") {
+        const words = "echo: Summarize the conversation as the summarizer saw it, slowly, one word at a time, so that a page can be reloaded while this is still being written".split(" ");
+        for (const word of words) { yield { type: "text", delta: `${word} ` }; await new Promise((done) => setTimeout(done, 250)); }
+        return;
+      }
       // The harness ends each input with a [Turn context: ...] line; the triggers below are the words before it.
       const text = contentText(last?.content).replace(/\n\n\[Turn context: [^\n\]]*\]$/, "");
       if (text === "bad-stream?") {
