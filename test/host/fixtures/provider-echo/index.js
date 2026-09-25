@@ -33,6 +33,15 @@ export function createProvider(config) {
         yield { type: "tool_call", call: { id: "c1", name: "shell", args: { cmd: text.slice(5) } } };
         return;
       }
+      // The file tools, for a browser pass over the workspace: `read: <path>` and `list: <path>` ask for them by name.
+      if (text.startsWith("read: ") && call.tools.some((t) => t.name === "read_path")) {
+        yield { type: "tool_call", call: { id: "c10", name: "read_path", args: { path: text.slice(6) } } };
+        return;
+      }
+      if (text.startsWith("list: ") && call.tools.some((t) => t.name === "get_directory")) {
+        yield { type: "tool_call", call: { id: "c11", name: "get_directory", args: { path: text.slice(6) } } };
+        return;
+      }
       if (text.startsWith("spawn: ") && call.tools.some((t) => t.name === "spawn_subagent")) {
         yield { type: "tool_call", call: { id: "c9", name: "spawn_subagent", args: { task: text.slice(7), label: "helper" } } };
         return;
