@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import type { Fences, Manifest, Message, PackageInfo, SessionRecord, StoreDriver, TurnEvent, UserRecord, Userspace, WatchedTurnEvent } from "../../src/contracts/index.js";
+import type { Fences, Manifest, Message, PackageInfo, SessionRecord, StoreDriver, TurnEvent, UserRecord, Userspace, WatchedTurnEvent, PackageRecord } from "../../src/contracts/index.js";
 import { SYSTEM_USER } from "../../src/contracts/index.js";
 import { LayeredConfig } from "../../src/lib/config.js";
 import { Journal } from "../../src/lib/journal.js";
@@ -477,10 +477,10 @@ async function configFixture(home: string, filePackages: Record<string, Record<s
     "@alice/prov2": { name: "@alice/prov2", version: "1", thetis: { type: "provider", forkedFrom: { name: "@thetis/prov", version: "1" }, service: { export: "start" } } },
   };
   const packages = { manifestOf: (_us: Userspace, name: string) => manifests[name] } as unknown as PackageManager;
-  const prov = { name: "@thetis/prov", version: "1", type: "provider", owner: "_system", source: { kind: "system" as const, ref: "/x" } };
-  registry.record(prov, "_system");
-  registry.record(prov, "bob");
-  registry.record({ name: "@alice/prov2", version: "1", type: "provider", owner: "alice", source: { kind: "local", ref: "p" }, forkedFrom: { name: "@thetis/prov", version: "1" } }, "alice");
+  const prov = { version: "1", type: "provider", source: { kind: "system" as const, ref: "/x" } };
+  registry.record("@thetis/prov", "_system", prov);
+  registry.record("@thetis/prov", "bob", prov);
+  registry.record("@alice/prov2", "alice", { version: "1", type: "provider", source: { kind: "local", ref: "p" } }, { name: "@thetis/prov", version: "1" });
   const journal = new Journal(home);
   const userspaces = new UserspaceLayout(home);
   const env = { snapshot: () => ({ PROV_KEY: "from-env" }) };
@@ -621,6 +621,74 @@ test("rpc: a fence's store stays under its own namespace, a document is capped, 
   }
 });
 
+/**
+ * The registry holds one entry per workspace and no owner. Before this, one record carried one source for
+ * every workspace and the later install won: two people on different pins shared a pin, so clone pruning
+ * deleted the earlier person's clone, and a maintainer running a package from a local directory lost Promote
+ * and Delete the moment somebody installed the same name from the registry.
+ */
+test("registry: each workspace's entry stands on its own, a legacy one-owner record is rewritten on open, and the last unlink deletes the document", async () => {
+  const driver = memoryStore();
+  const legacy = { name: "@alice/x", version: "0.1.0", type: "tool", owner: "alice", source: { kind: "local", ref: "packages/x" }, userspaces: ["alice", "bob"], replaced: "@thetis/x", replacedSource: { kind: "system", ref: "/sys/x" } };
+  await driver.open("registry").set("@alice/x", legacy);
+  const records = await mirror<PackageRecord>(driver, "registry");
+  const registry = new PackageRegistry(records);
+  const one = { version: "0.1.0", type: "tool", source: { kind: "local" as const, ref: "packages/x" }, replaced: "@thetis/x", replacedSource: { kind: "system" as const, ref: "/sys/x" } };
+  assert.deepEqual(registry.get("@alice/x"), { name: "@alice/x", installs: { alice: one, bob: one } }, "the legacy source and displacement applied to every workspace it listed, and still do");
+  await records.flush();
+  assert.deepEqual(await driver.open("registry").get("@alice/x"), { name: "@alice/x", installs: { alice: one, bob: one } }, "and the store holds the new shape");
+  // bob takes the same name from the registry at one pin; alice keeps her local directory. Two entries, nothing overwritten.
+  registry.record("@alice/x", "bob", { version: "0.2.0", type: "tool", source: { kind: "git", ref: "https://r/p.git#x@" + "2".repeat(40) } });
+  assert.deepEqual(registry.installOf("@alice/x", "alice")?.source, { kind: "local", ref: "packages/x" });
+  assert.equal(registry.installOf("@alice/x", "bob")?.source.kind, "git");
+  assert.equal(registry.installOf("@alice/x", "bob")?.replaced, "@thetis/x", "a re-record that says nothing about a displacement keeps the one recorded");
+  assert.deepEqual(registry.holders("@alice/x").sort(), ["alice", "bob"]);
+  assert.deepEqual(registry.installedIn("bob").map((r) => [r.name, r.version, r.replaced]), [["@alice/x", "0.2.0", "@thetis/x"]]);
+  assert.equal(registry.installOf("@alice/x", "carol"), undefined);
+  registry.unlink("@alice/x", "alice");
+  assert.deepEqual(registry.holders("@alice/x"), ["bob"], "alice's uninstall leaves bob's entry exactly as it was");
+  registry.unlink("@alice/x", "bob");
+  assert.equal(registry.get("@alice/x"), undefined, "the last entry gone, the document goes");
+  await records.flush();
+  assert.equal(await driver.open("registry").get("@alice/x"), undefined);
+});
+
+test("packages: two workspaces hold one name from different sources, and promote and delete go by the workspace's own entry", async () => {
+  const home = tmp();
+  try {
+    const registry = new PackageRegistry(await mirror(memoryStore(), "registry"));
+    const config = defaultConfig(home, "/proj");
+    config.systemPackagesDir = join(home, "system");
+    config.promotedPackagesDir = join(home, "promoted");
+    const manager = new PackageManager(config, registry, {} as Fences);
+    const layout = new UserspaceLayout(home);
+    const alice = layout.ensure("alice");
+    const bob = layout.ensure("bob");
+    const person = (id: string) => ({ id, role: "user", status: "active", createdAt: "" }) as const;
+    const write = (us: Userspace, dir: string, version: string) => {
+      mkdirSync(join(us.home, "packages", dir), { recursive: true });
+      writeFileSync(join(us.home, "packages", dir, "package.json"), JSON.stringify({ name: "@alice/x", version, main: "index.js", thetis: { type: "tool" } }));
+      writeFileSync(join(us.home, "packages", dir, "index.js"), "");
+    };
+    write(alice, "x", "0.1.0");
+    write(bob, "x-copy", "0.2.0");
+    // The name says "alice"; that decides nothing. bob installs his own copy of it into his own workspace.
+    await manager.install(alice, person("alice"), "packages/x");
+    await manager.install(bob, person("bob"), "packages/x-copy");
+    assert.deepEqual(manager.installed(alice).map((p) => [p.name, p.version, p.source?.ref]), [["@alice/x", "0.1.0", "packages/x"]]);
+    assert.deepEqual(manager.installed(bob).map((p) => [p.name, p.version, p.source?.ref]), [["@alice/x", "0.2.0", "packages/x-copy"]], "bob's entry is bob's; the second install did not rewrite alice's");
+    // Delete goes by where the files are: bob's copy is under bob's home, and alice's entry is untouched.
+    assert.equal((await manager.delete(bob, "@alice/x")).path, join(bob.home, "packages", "x-copy"));
+    assert.deepEqual(registry.holders("@alice/x"), ["alice"]);
+    await assert.rejects(manager.delete(bob, "@alice/x"), (e: { code: string }) => e.code === "not-found");
+    // Promote goes by alice's own entry, from a source of her own, whatever the scope is called.
+    assert.equal(await manager.promote(alice, "@alice/x"), "@thetis/x");
+    assert.ok(manager.promoted().includes("@thetis/x"));
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
 test("packages: a storage driver is refused an install, and manifestOf reads the link or the shipped directory", async () => {
   const home = tmp();
   try {
@@ -645,7 +713,7 @@ test("packages: a storage driver is refused an install, and manifestOf reads the
     // A person who is not an admin installs a system package by name: it is the installation's, already built.
     const got = await manager.install(us, alice, "@thetis/shipped");
     assert.equal(got.name, "@thetis/shipped");
-    assert.equal(registry.get("@thetis/shipped")?.owner, "_system", "linked by name, the record is the system's");
+    assert.equal(registry.installOf("@thetis/shipped", "alice")?.source.kind, "system", "linked by name, alice's entry is the installation's copy");
     await assert.rejects(manager.install(us, alice, "@thetis/none"), (e: { code: string; message: string }) => e.code === "not-found" && /nothing shipped or promoted/.test(e.message));
     assert.equal(manager.manifestOf(us, "@thetis/shipped")?.name, "@thetis/shipped");
     assert.equal(registry.get("@thetis/shipped")?.forkedFrom, undefined);
@@ -712,7 +780,7 @@ test("packages: a fork says what it was forked from and how far that has moved, 
     // the person locked out of their own browser. `unfork` reads the origin off the fork's manifest.
     await manager.uninstall(us, "@thetis/gw");
     await manager.install(us, alice, "packages/gw");
-    assert.equal(registry.get("@alice/gw")?.replaced, undefined, "nothing was displaced, so nothing was recorded");
+    assert.equal(registry.installOf("@alice/gw", "alice")?.replaced, undefined, "nothing was displaced, so nothing was recorded");
     assert.equal((await manager.unfork(us, "@alice/gw", true)).name, "@thetis/gw", "the origin comes back on its name alone");
     assert.deepEqual(manager.listFor(us).map((p) => p.name), ["@thetis/gw"]);
     assert.ok(!existsSync(to), "asked for, so the files went too");

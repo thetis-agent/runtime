@@ -170,13 +170,23 @@ test("self-extension: a package written into the userspace is live on the next t
   assert.ok(existsSync(join(us.store, "node_modules", "@alice", "hello", "package.json")));
 });
 
-test("a user cannot install into another scope, and bob does not see alice's package", async () => {
+test("a scope is a namespace: alice installs a package named in bob's scope into her own workspace, bob does not see it, and only @thetis is refused her", async () => {
   const us = kernel.userspaces.pathFor("alice");
   const dir = join(us.home, "packages", "evil");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "@bob/evil", version: "0.0.1", main: "index.js", thetis: { type: "tool" } }));
   writeFileSync(join(dir, "index.js"), "");
-  await assert.rejects(kernel.packages.install(us, kernel.users.authorize("alice"), "packages/evil"), /may only install packages in scope @alice/);
+  // The name is a label the author chose. The copy is alice's, lands in her workspace only, and the registry keeps her entry apart from anything bob might hold under that name.
+  assert.equal((await kernel.packages.install(us, kernel.users.authorize("alice"), "packages/evil")).name, "@bob/evil");
+  assert.deepEqual(kernel.registry.holders("@bob/evil"), ["alice"]);
+  assert.ok(!kernel.packages.installed(kernel.userspaces.pathFor("bob")).some((p) => p.name === "@bob/evil"), "bob's workspace is untouched");
+  await kernel.packages.uninstall(us, "@bob/evil");
+  // The one namespace with a meaning: the kernel resolves @thetis names on disk, so a source claiming it is an admin's to install.
+  const claim = join(us.home, "packages", "claim");
+  mkdirSync(claim, { recursive: true });
+  writeFileSync(join(claim, "package.json"), JSON.stringify({ name: "@thetis/claim", version: "0.0.1", main: "index.js", thetis: { type: "tool" } }));
+  writeFileSync(join(claim, "index.js"), "");
+  await assert.rejects(kernel.packages.install(us, kernel.users.authorize("alice"), "packages/claim"), (e: { code: string; message: string }) => e.code === "unauthorized" && /installation's namespace/.test(e.message));
   await assert.rejects(kernel.packages.install(us, kernel.users.authorize("alice"), "../../.."), /inside the userspace/);
   const s = kernel.sessions.create("bob");
   const tools = await collect(kernel.sessions.send("bob", s.id, "tools?"));
@@ -202,7 +212,7 @@ test("promote: an admin makes a user package the default for everyone", async ()
   assert.ok(tools.text.split(",").includes("greet"), `bob has the promoted tool: ${tools.text}`);
   const sys = await collect(kernel.sessions.send("bob", s.id, "system?"));
   assert.match(sys.text, /MARKER-FROM-ALICE/);
-  await assert.rejects(control("packages.promote", { user: "alice", name: "@thetis/hello" }), /not a package of alice/);
+  await assert.rejects(control("packages.promote", { user: "alice", name: "@thetis/hello" }), /not installed in alice from a source of its own/);
 });
 
 test("git install: a package directory inside a repository, as url#dir", async () => {
@@ -428,7 +438,7 @@ test("fork: a fork of a promoted package replaces it on install, and uninstallin
   const info = kernel.packages.installed(us).find((p) => p.name === "@alice/hello2");
   assert.deepEqual(info?.forkedFrom, { name: "@thetis/hello", version: "0.1.0" });
   assert.equal(info?.replaced, "@thetis/hello");
-  const rec = kernel.registry.get("@alice/hello2");
+  const rec = kernel.registry.installOf("@alice/hello2", "alice");
   assert.equal(rec?.replaced, "@thetis/hello");
   assert.equal(rec?.replacedSource?.kind, "system");
   const tools = await collect(kernel.sessions.send("alice", s.id, "tools?"));
@@ -471,15 +481,16 @@ test("fork with a service: replacing stops the origin and starts the fork; delet
   assert.match((await collect(kernel.sessions.send("alice", s.id, "fork: @alice/svc as svc2"))).text, /forked @alice\/svc@0\.1\.0 to packages\/svc2 as @alice\/svc2@0\.1\.0-fork\.1; a service\./);
   assert.match((await collect(kernel.sessions.send("alice", s.id, "install: packages/svc2"))).text, /installed @alice\/svc2@0\.1\.0-fork\.1 \(service\); a service; replaced @alice\/svc\./);
   assert.deepEqual(log(), ["started-origin", "stopped-origin", "started-fork"], "the origin stops before the fork starts");
-  assert.equal(kernel.registry.get("@alice/svc2")?.replacedSource?.ref, "packages/svc");
-  assert.match((await collect(kernel.sessions.send("alice", s.id, "delete: @thetis/hello"))).text, /error: .*@thetis\/hello is not a package of alice/);
+  assert.equal(kernel.registry.installOf("@alice/svc2", "alice")?.replacedSource?.ref, "packages/svc");
+  // Delete is about where the files are, not what the package is called: the installation's copy is not under alice's home.
+  assert.match((await collect(kernel.sessions.send("alice", s.id, "delete: @thetis/hello"))).text, /error: .*@thetis\/hello does not live under the home directory/);
   const deleted = await collect(kernel.sessions.send("alice", s.id, "delete: @alice/svc2"));
   assert.match(deleted.text, /deleted @alice\/svc2 and its files at .*packages\/svc2; @alice\/svc is back in place\./);
   assert.deepEqual(log(), ["started-origin", "stopped-origin", "started-fork", "stopped-fork", "started-origin"], "the origin's service runs again");
   assert.ok(!existsSync(join(us.home, "packages", "svc2")), "delete removes the directory");
   const names = kernel.packages.installed(us).map((p) => p.name);
   assert.ok(names.includes("@alice/svc") && !names.includes("@alice/svc2"));
-  assert.deepEqual(kernel.registry.get("@alice/svc")?.source, { kind: "local", ref: "packages/svc" });
+  assert.deepEqual(kernel.registry.installOf("@alice/svc", "alice")?.source, { kind: "local", ref: "packages/svc" });
   assert.match((await collect(kernel.sessions.send("alice", s.id, "delete: @alice/svc"))).text, /deleted @alice\/svc and its files at .*packages\/svc\. Live/);
   assert.ok(!existsSync(dir));
   assert.deepEqual(log().at(-1), "stopped-origin");
@@ -887,7 +898,9 @@ test("migrate: a data directory with the four legacy files refuses to start, imp
     try {
       assert.equal(migrated.users.get("alice")?.role, "admin");
       assert.equal(migrated.auth.authenticate(token)?.id, "alice", "the token still signs alice in");
-      assert.deepEqual(migrated.registry.get("@thetis/harness-core")?.userspaces, ["alice"]);
+      // The legacy one-owner record was rewritten into one entry per workspace when the registry opened.
+      assert.deepEqual(migrated.registry.get("@thetis/harness-core")?.installs, { alice: { version: "0.1.0", type: "harness", source: { kind: "system", ref: resolve(PROJECT, "packages/harness-core") } } });
+      assert.deepEqual(migrated.registry.holders("@thetis/harness-core"), ["alice"]);
       assert.deepEqual(migrated.mounts.get("alice"), [{ path: "/srv/x", mode: "ro" }]);
       assert.deepEqual(migrated.mounts.get("bob"), [], "an empty list was not imported as a document");
     } finally {

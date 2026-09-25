@@ -1,6 +1,6 @@
 import { existsSync, rmSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
-import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type EveryoneBy, type Fences, type Manifest, type PackageInfo, type PackageRecord, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
+import { HOST_TYPE, STORAGE_TYPE, SYSTEM_SCOPE, SYSTEM_USER, type DeletedPackage, type EveryoneBy, type Fences, type InstalledRecord, type Manifest, type PackageInfo, type PackageSource, type UserRecord, type Userspace } from "../../contracts/index.js";
 import { assert, CodedError, errorMessage } from "../../lib/error.js";
 import { ExecResultSchema } from "../../contracts/schemas/fence.js";
 import { repoGrantFor } from "../../lib/ssh.js";
@@ -64,8 +64,7 @@ export class PackageManager {
 
   /** Where a package a fork displaced still lives: its files stay where they were installed from. */
   private displacedDir(us: Userspace, name: string): string | undefined {
-    const fork = this.registry.all().find((r) => r.replaced === name && r.userspaces.includes(us.id));
-    const src = fork?.replacedSource;
+    const src = this.registry.installedIn(us.id).find((r) => r.replaced === name)?.replacedSource;
     if (!src || src.kind === "system") return undefined;
     return src.kind === "local" ? resolve(us.home, src.ref) : this.subdir(cloneDirFor(us.store, src.ref), splitSource(src.ref).sub);
   }
@@ -76,7 +75,7 @@ export class PackageManager {
     const everyone = this.everyoneMap();
     // The record knows where the copy came from; the manifest does not. Carrying it lets a reader see the
     // pin an installation is following without asking the registry a second question.
-    const mark = (info: PackageInfo, rec: PackageRecord) => ({
+    const mark = (info: PackageInfo, rec: InstalledRecord) => ({
       ...info,
       ...(everyone.has(info.name) ? { everyone: true, everyoneBy: everyone.get(info.name) } : {}),
       ...(rec.replaced ? { replaced: rec.replaced } : {}),
@@ -147,7 +146,7 @@ export class PackageManager {
     const everyone = us.id === SYSTEM_USER ? [] : this.forEveryone();
     const names = [...everyone, ...(this.config.systemPackages[us.id] ?? [])];
     for (const name of new Set(names)) {
-      if (!this.registry.get(name)?.userspaces.includes(us.id) && !forkOf(this.registry.installedIn(us.id), name)) this.installSystem(us, name);
+      if (!this.registry.installOf(name, us.id) && !forkOf(this.registry.installedIn(us.id), name)) this.installSystem(us, name);
     }
   }
 
@@ -205,10 +204,10 @@ export class PackageManager {
     assert(dir, `unknown system package: ${name}`);
     const manifest = readManifest(dir);
     this.link(us, name, dir);
-    const rec = { name, version: manifest.version, type: manifest.thetis.type, owner: SYSTEM_USER, source: { kind: "system" as const, ref: dir }, ...origin(manifest) };
-    this.registry.record({ ...rec, ...replaced }, us.id);
+    const source: PackageSource = { kind: "system", ref: dir };
+    this.registry.record(name, us.id, { version: manifest.version, type: manifest.thetis.type, source, ...replaced }, manifest.thetis.forkedFrom);
     // The answer says where the copy came from, as the listing does: a caller drawing the row it just installed needs the same facts.
-    return { ...toInfo(manifest, this.linkPath(us, name)), source: rec.source };
+    return { ...toInfo(manifest, this.linkPath(us, name)), source };
   }
 
   /**
@@ -216,7 +215,9 @@ export class PackageManager {
    * -- shipped or promoted, already on disk and already built -- and anyone may link one into their own
    * workspace: the installation vouched for it by shipping it, and the link runs in the person's fence as
    * them. A @thetis-scoped *source* is different: it is code from elsewhere claiming the system scope, and
-   * `checkOwnership` leaves that to admins. A fork whose origin is installed here replaces it in one
+   * `checkNamespace` leaves that to admins. Every other scope is a name: anyone installs any source into
+   * their own workspace, and the registry keeps that workspace's entry apart from everybody else's, so
+   * whose namespace a package sits in decides nothing. A fork whose origin is installed here replaces it in one
    * operation: the origin's service stops and its link goes before the fork's link and service come, so
    * tool names and sockets never clash.
    */
@@ -232,14 +233,14 @@ export class PackageManager {
     const kind: PackageSource["kind"] = isGitSource(source) ? "git" : "local";
     const dir = kind === "git" ? await this.clone(us, source) : this.localDir(us, source);
     const manifest = installable(readManifest(dir));
-    this.checkOwnership(manifest, us, actor);
+    this.checkNamespace(manifest, actor);
     this.checkPeers(manifest, us);
     await this.build(us, dir, manifest);
     const replaced = await this.displace(us, manifest);
     this.link(us, manifest.name, dir);
-    const rec = { name: manifest.name, version: manifest.version, type: manifest.thetis.type, owner: us.id, source: { kind, ref: source }, ...origin(manifest) };
-    this.registry.record({ ...rec, ...replaced }, us.id);
-    const info = { ...toInfo(manifest, this.linkPath(us, manifest.name)), source: rec.source, ...(replaced ? { replaced: replaced.replaced } : {}) };
+    const from: PackageSource = { kind, ref: source };
+    this.registry.record(manifest.name, us.id, { version: manifest.version, type: manifest.thetis.type, source: from, ...replaced }, manifest.thetis.forkedFrom);
+    const info = { ...toInfo(manifest, this.linkPath(us, manifest.name)), source: from, ...(replaced ? { replaced: replaced.replaced } : {}) };
     if (kind === "git") this.pruneClones(us);
     await this.each((l) => l.installed?.(us, info));
     return info;
@@ -247,7 +248,7 @@ export class PackageManager {
 
   /** Removes the link and the record. When the package had displaced its origin, the origin comes back, service and all. */
   async uninstall(us: Userspace, name: string): Promise<PackageInfo | undefined> {
-    const rec = this.registry.get(name);
+    const rec = this.registry.installOf(name, us.id);
     const pkg = this.installed(us).find((p) => p.name === name);
     if (pkg) await this.each((l) => l.uninstalled?.(us, pkg));
     removeLink(this.linkPath(us, name));
@@ -276,9 +277,9 @@ export class PackageManager {
    * origin is put back by name when it does not; that way the origin's service is started once, not twice.
    */
   async unfork(us: Userspace, name: string, deleteFiles = false): Promise<PackageInfo> {
-    const rec = this.registry.get(name);
+    const rec = this.registry.installOf(name, us.id);
     const origin = this.installed(us).find((p) => p.name === name)?.forkedFrom?.name;
-    assert(rec && origin && rec.userspaces.includes(us.id), `${name} is not a fork installed in ${us.id}`, "invalid");
+    assert(rec && origin, `${name} is not a fork installed in ${us.id}`, "invalid");
     assert(this.manifestOf(us, origin), `${origin} is not here to go back to; keep ${name}, or install ${origin} from its source first`, "not-found");
     const files = deleteFiles && rec.source.kind === "local" ? resolve(us.home, rec.source.ref) : undefined;
     const back = (await this.uninstall(us, name)) ?? (await this.restore(us, origin));
@@ -290,10 +291,10 @@ export class PackageManager {
     return back;
   }
 
-  /** Uninstalls a package of the userspace's own scope and deletes its files. Only files under the home go. */
+  /** Uninstalls a package and deletes its files. Only a copy that lives under this userspace's home goes: the files are the person's by where they are, not by what the package is called. */
   async delete(us: Userspace, name: string): Promise<DeletedPackage> {
-    const rec = this.registry.get(name);
-    assert(rec && scopeOf(name) === `@${us.id}` && rec.userspaces.includes(us.id), `${name} is not a package of ${us.id}`, "unauthorized");
+    const rec = this.registry.installOf(name, us.id);
+    assert(rec, `${name} is not installed in ${us.id}`, "not-found");
     const dir = rec.source.kind === "local" ? resolve(us.home, rec.source.ref) : undefined;
     assert(dir && isInside(us.home, dir), `${name} does not live under the home directory; uninstall it instead`, "unauthorized");
     const restored = await this.uninstall(us, name);
@@ -331,18 +332,18 @@ export class PackageManager {
     const fork = forkOf(this.registry.installedIn(us.id), m.name);
     assert(!fork, `${us.id} holds ${fork}, a fork of ${m.name}: un-fork ${fork} first, or leave it in place`, "fork");
     const origin = m.thetis.forkedFrom?.name;
-    const rec = origin && origin !== m.name ? this.registry.get(origin) : undefined;
-    if (!rec?.userspaces.includes(us.id)) return undefined;
+    const rec = origin && origin !== m.name ? this.registry.installOf(origin, us.id) : undefined;
+    if (!rec) return undefined;
     await this.uninstall(us, rec.name);
     return { replaced: rec.name, replacedSource: rec.source };
   }
 
   /** Puts a displaced origin back: a system package by name, anything else from where it was installed from. */
   private async restore(us: Userspace, name: string, source?: PackageSource): Promise<PackageInfo | undefined> {
-    const own = source && source.kind !== "system" ? { name, version: "", type: "", owner: us.id, source, userspaces: [] } : undefined;
+    const own = source && source.kind !== "system" ? { name, source } : undefined;
     const info = own ? this.relink(us, own) : this.systemPackageDir(name) ? this.installSystem(us, name) : undefined;
     if (!info) return undefined;
-    if (own) this.registry.record({ ...own, version: info.version, type: info.type }, us.id);
+    if (own) this.registry.record(name, us.id, { version: info.version, type: info.type, source: own.source });
     await this.each((l) => l.installed?.(us, info));
     return info;
   }
@@ -357,14 +358,15 @@ export class PackageManager {
   }
 
   /**
-   * Makes a user's package the default for everyone: copies it into the promoted directory under the
-   * @thetis scope, from where every new userspace is seeded with it. Returns the new name. The caller
-   * links it into the existing userspaces and removes the owner's original. The configuration file is
-   * never written by the kernel.
+   * Makes a package this userspace holds the default for everyone: copies it into the promoted directory
+   * under the @thetis scope, from where every new userspace is seeded with it. Returns the new name. The
+   * caller links it into the existing userspaces and removes this userspace's original. Any copy that is
+   * not the installation's own will do -- a package is promoted from where it is, whatever its scope says.
+   * The configuration file is never written by the kernel.
    */
   async promote(us: Userspace, name: string): Promise<string> {
-    const rec = this.registry.get(name);
-    assert(rec && rec.owner === us.id && rec.source.kind !== "system" && rec.userspaces.includes(us.id), `${name} is not a package of ${us.id}`, "invalid");
+    const rec = this.registry.installOf(name, us.id);
+    assert(rec && rec.source.kind !== "system", `${name} is not installed in ${us.id} from a source of its own`, "invalid");
     const base = name.slice(name.indexOf("/") + 1);
     const promoted = `${SYSTEM_SCOPE}/${base}`;
     const target = resolve(this.config.promotedPackagesDir, base);
@@ -375,10 +377,9 @@ export class PackageManager {
     return promoted;
   }
 
-  private checkOwnership(m: Manifest, us: Userspace, actor: UserRecord): void {
-    const scope = scopeOf(m.name);
-    const allowed = scope === `@${us.id}` || (scope === SYSTEM_SCOPE && actor.role !== "user");
-    assert(allowed, `${m.name}: user ${us.id} may only install packages in scope @${us.id}/*`, "unauthorized");
+  /** The one namespace with a meaning: `@thetis` is resolved by name on disk, so a source claiming it is an admin's to install. */
+  private checkNamespace(m: Manifest, actor: UserRecord): void {
+    assert(scopeOf(m.name) !== SYSTEM_SCOPE || actor.role !== "user", `${m.name}: ${SYSTEM_SCOPE} is the installation's namespace; only an admin installs a source that claims it`, "unauthorized");
   }
 
   private checkPeers(m: Manifest, us: Userspace): void {
@@ -445,7 +446,7 @@ export class PackageManager {
   }
 
   /** Repairs a dead store link after the checkout or the data directory moved. */
-  private relink(us: Userspace, rec: PackageRecord): PackageInfo | undefined {
+  private relink(us: Userspace, rec: { name: string; source: PackageSource }): PackageInfo | undefined {
     if (rec.source.kind === "system") return this.systemPackageDir(rec.name) ? this.installSystem(us, rec.name) : undefined;
     // The pin is part of the clone's directory name, so repairing a link has to carry it or it looks for a
     // clone that was never made.
@@ -471,7 +472,3 @@ function installable(m: Manifest): Manifest {
   return m;
 }
 
-/** The record holds no `undefined`: a store keeps only what JSON keeps. */
-function origin(m: Manifest): { forkedFrom?: PackageRecord["forkedFrom"] } {
-  return m.thetis.forkedFrom ? { forkedFrom: m.thetis.forkedFrom } : {};
-}

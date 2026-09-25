@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { UiEntryDeclSchema, UiCommandDeclSchema, UiDeclSchema, StepDeclSchema, ToolDeclSchema, ForkOriginSchema, ForkStatusSchema, PackageSourceSchema, EveryoneBySchema, ThetisFieldSchema, ManifestSchema, PackageInfoSchema, PackageRecordSchema, DeletedPackageSchema } from "./schemas/packages.js";
+import type { UiEntryDeclSchema, UiCommandDeclSchema, UiDeclSchema, StepDeclSchema, ToolDeclSchema, ForkOriginSchema, ForkStatusSchema, PackageSourceSchema, EveryoneBySchema, ThetisFieldSchema, ManifestSchema, PackageInfoSchema, PackageRecordSchema, PackageInstallSchema, InstalledRecordSchema, DeletedPackageSchema } from "./schemas/packages.js";
 // Packages: the manifest a package ships, what an installed package looks like, and the registry record.
 
 export const SYSTEM_SCOPE = "@thetis";
@@ -41,6 +41,8 @@ export type Manifest = z.infer<typeof ManifestSchema>;
 export type PackageInfo = z.infer<typeof PackageInfoSchema>;
 
 export type PackageRecord = z.infer<typeof PackageRecordSchema>;
+export type PackageInstall = z.infer<typeof PackageInstallSchema>;
+export type InstalledRecord = z.infer<typeof InstalledRecordSchema>;
 
 /** The result of deleting a package: what went, where its files were, and what came back in its place. */
 export type DeletedPackage = z.infer<typeof DeletedPackageSchema>;

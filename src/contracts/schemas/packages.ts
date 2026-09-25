@@ -53,7 +53,19 @@ export const PackageInfoSchema = z.object({
   /** Version loaded by an open fence; a different on-disk version requires a reload. */
   loadedVersion: z.string().optional(),
 });
-export const PackageRecordSchema = z.object({
+/** One workspace's copy of a package: what it is, where it came from, and what it displaced. */
+export const PackageInstallSchema = z.object({ version: z.string(), type: z.string(), source: PackageSourceSchema, replaced: z.string().optional(), replacedSource: PackageSourceSchema.optional() });
+/**
+ * One document per package name: the workspaces holding it, each with its own copy. There is no owner. A
+ * scope is a namespace and nothing more; `@thetis` is the installation's because the kernel resolves that
+ * one by name on disk, and every other scope is a label a person chose. Two people holding the same name
+ * from different sources, or at different pins, are two entries here and never overwrite each other.
+ */
+export const PackageRecordSchema = z.object({ name: z.string(), everyone: z.boolean().optional(), forkedFrom: ForkOriginSchema.optional(), installs: z.record(z.string(), PackageInstallSchema) });
+/** A record as one workspace reads it: its own copy, with the facts the record holds for every workspace. */
+export const InstalledRecordSchema = PackageInstallSchema.extend({ name: z.string(), everyone: z.boolean().optional(), forkedFrom: ForkOriginSchema.optional() });
+/** The shape written before 2026-09-25: one owner and one source for every workspace. Read once and rewritten. */
+export const LegacyPackageRecordSchema = z.object({
   name: z.string(), version: z.string(), type: z.string(), owner: z.string(), source: PackageSourceSchema,
   userspaces: z.array(z.string()), everyone: z.boolean().optional(), forkedFrom: ForkOriginSchema.optional(),
   replaced: z.string().optional(), replacedSource: PackageSourceSchema.optional(),

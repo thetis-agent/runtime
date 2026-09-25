@@ -129,7 +129,7 @@ export class ConfigService {
   private async changed(target: ConfigTarget): Promise<Affected[]> {
     const affected: Affected[] = [];
     for (const rec of this.registry.all()) {
-      for (const user of rec.userspaces.filter((u) => !target.user || u === target.user)) {
+      for (const user of Object.keys(rec.installs).filter((u) => !target.user || u === target.user)) {
         if (this.chainIn(this.userspaces.pathFor(user), rec.name).some((l) => l.name === target.name)) affected.push({ user, package: rec.name });
       }
     }
@@ -139,8 +139,9 @@ export class ConfigService {
 
   /** The chain as seen from the target's userspace; for the system layer, from any userspace that has the package. */
   private chain(target: ConfigTarget): ConfigLink[] {
-    const holder = this.registry.get(target.name) ?? this.registry.all().find((r) => r.replaced === target.name);
-    const us = this.userspaces.pathFor(target.user ?? holder?.userspaces[0] ?? SYSTEM_USER);
+    // Any workspace that has the package, or that holds the fork standing in for it.
+    const holder = this.registry.holders(target.name)[0] ?? this.registry.all().flatMap((r) => Object.entries(r.installs)).find(([, i]) => i.replaced === target.name)?.[0];
+    const us = this.userspaces.pathFor(target.user ?? holder ?? SYSTEM_USER);
     assert(this.manifest(us.id, target.name), `${target.name} is not installed${target.user ? ` for ${target.user}` : ""}`, "not-found");
     return this.chainIn(us, target.name);
   }
