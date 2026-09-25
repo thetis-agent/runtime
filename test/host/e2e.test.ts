@@ -41,7 +41,7 @@ before(async () => {
   home = mkdtempSync(join(tmpdir(), "thetis-e2e-"));
   const sys = join(home, "system-packages");
   mkdirSync(sys);
-  for (const name of ["harness-core", "tool-exec", "prompt-cache", "terminal", "store-toml"]) symlinkSync(resolve(PROJECT, "packages", name), join(sys, name));
+  for (const name of ["harness-core", "tool-exec", "prompt-cache", "terminal", "store-toml", "compaction"]) symlinkSync(resolve(PROJECT, "packages", name), join(sys, name));
   for (const name of ["provider-echo", "config-probe", "config-svc"]) symlinkSync(join(FIXTURES, name), join(sys, name));
   const config = defaultConfig(join(home, "data"), PROJECT);
   config.systemPackagesDir = sys;
@@ -49,7 +49,11 @@ before(async () => {
   config.fence.sandbox = SANDBOX;
   config.fence.readOnly.push(sys, FIXTURES);
   config.systemPackages = { "*": ["@thetis/harness-core", "@thetis/tool-exec", "@thetis/prompt-cache", "@thetis/terminal", "@thetis/config-probe"], _system: ["@thetis/provider-echo"] };
-  config.packages = { "@thetis/provider-echo": { tag: "t1" }, "@thetis/prompt-cache": { explicitVendors: ["echo"], ttl: "1h" } };
+  config.packages = {
+    "@thetis/provider-echo": { tag: "t1" }, "@thetis/prompt-cache": { explicitVendors: ["echo"], ttl: "1h" },
+    // A window small enough that a handful of long echoed turns crosses it: the compaction test below installs the package for one person only.
+    "@thetis/compaction": { window: 2000, threshold: 0.5, keepTokens: 600, minShedTokens: 100 },
+  };
   config.requestTimeoutMs = 60_000;
   if (!REAL_DRIVER) console.error("packages/store-toml is not built: the e2e records live in a memory store and file modes are not checked");
   kernel = await createKernel(config, (c) => {
@@ -990,4 +994,36 @@ test("malformed step return values fail across a real fence before becoming empt
     await kernel.packages.uninstall(us, "@alice/malformed-step");
   }
   assert.equal(await kernel.sessions.askText("alice", session.id, "hello"), "echo: hello (t1)", "the same fence remains usable");
+});
+
+test("compaction: a long conversation is summarized into one note for the next request, and the record itself is never edited", async () => {
+  kernel.users.create("carol");
+  const us = kernel.userspaces.pathFor("carol");
+  const s = kernel.sessions.create("carol");
+  // The first turn seeds her workspace from the default list; installing before it would leave her with this one package and no harness.
+  assert.deepEqual((await collect(kernel.sessions.send("carol", s.id, "hello"))).errors, []);
+  // A system package by name: carol is not an admin, and the package is not in her default list.
+  await kernel.packages.install(us, kernel.users.authorize("carol"), "@thetis/compaction");
+  // Each turn is a long message and the echo of it, ~600 estimated tokens each way, against a 2000-token window with a 0.5 trigger.
+  const long = "lorem ipsum ".repeat(200);
+  for (let i = 1; i <= 5; i++) {
+    const r = await collect(kernel.sessions.send("carol", s.id, `turn ${i}: ${long}`));
+    assert.deepEqual(r.errors, [], `turn ${i} ran clean`);
+    assert.match(r.text, new RegExp(`^echo: turn ${i}:`), `the reply is still the echo of the person's message, not of the summary; events: ${JSON.stringify(r.all.map((e) => e.type === "text" ? e : { ...e, message: undefined })).slice(0, 3000)}`);
+  }
+  const record = kernel.sessions.inspect("carol", s.id);
+  const state = record.harness["@thetis/compaction"] as { cut: number; summary: string | null; compactions: number; ledger: { kind: string }[] };
+  assert.ok(state.cut > 0, `something was compacted: ${JSON.stringify(state)}`);
+  assert.match(state.summary ?? "", /^echo: Summarize the conversation/, "the summary is what the provider answered to the instructions");
+  assert.ok(state.compactions >= 1);
+  assert.ok(state.ledger.every((row) => row.kind === "compact"), "no attempt failed");
+  assert.equal(record.conversation.length, 12, "the record holds every message: compaction is a projection, not an edit");
+  assert.ok(record.conversation.every((m) => !/Context compacted/.test(contentText(m.content))), "the note is never written into the record");
+  // What the provider last received: the note first, then the kept tail, fewer messages than the record holds.
+  const file = join(us.home, "harness-core/context", `${s.id}.json`);
+  const snapshot = JSON.parse(readFileSync(file, "utf8"));
+  const sent = (snapshot.lastCall.request.messages as { role: string; content: unknown }[]).filter((m) => m.role !== "system");
+  assert.match(contentText(sent[0].content), /^\[Context compacted: the first \d+ messages/);
+  assert.ok(sent.length < record.conversation.length, `${sent.length} messages went out for a record of ${record.conversation.length}`);
+  assert.match(contentText(sent.at(-1)!.content), /turn 5:/, "the tail is verbatim and ends with the newest message");
 });
