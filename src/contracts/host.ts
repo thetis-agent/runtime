@@ -22,6 +22,8 @@ export interface GrantRecords<T> {
 export interface HostEnv {
   /** The service-plane data directory: where a host package keeps what it holds for a fence, under a directory of its own. */
   home: string;
+  /** The runtime checkout: the code the daemon runs and every fence loads, with the packages submodule under it. */
+  root: string;
   users: {
     get(id: string): UserRecord | undefined;
     list(): UserRecord[];

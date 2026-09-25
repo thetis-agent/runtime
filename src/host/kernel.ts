@@ -165,6 +165,7 @@ function bindServices(c: Container, config: KernelConfig): void {
 function hostEnv(c: Container): HostEnv {
   return {
     home: c.get(T.config).home,
+    root: c.get(T.config).projectRoot,
     users: { get: (id) => c.get(T.users).get(id), list: () => c.get(T.users).list() },
     records: { mounts: c.get(T.mounts), ssh: c.get(T.ssh) },
     journal: (row) => c.get(T.journal).append({ kind: row.kind, actor: row.actor ?? "operator", target: row.target, data: row.data }),
