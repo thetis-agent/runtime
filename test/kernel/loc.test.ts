@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../../../src/kernel");
 // 2026-09-25: the reload guard and the kept partial turn added the lines past 1420; authority over a running turn is the kernel's.
-const LIMIT = 1450;
+// 2026-09-26: person-scoped operator and host calls (self exports, own password, own journal); authority over who may act on whom is the kernel's.
+const LIMIT = 1458;
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {

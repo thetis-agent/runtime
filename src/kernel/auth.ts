@@ -59,13 +59,20 @@ export class AuthService {
     for (const [token, rec] of this.tokens.all()) if (rec.user === id) this.tokens.delete(token);
   }
 
-  /** Verifies the pair and issues a token. The work is the same whether or not the user exists. */
-  async login(id: string, password: string): Promise<{ token: string; user: UserRecord } | undefined> {
+  /**
+   * Whether the password is this id's. The work is the same whether or not the user exists or has a
+   * password, so the answer's timing says nothing either. `login` asks it; so does a person changing their own password.
+   */
+  async verify(id: string, password: string): Promise<boolean> {
     const cred = this.credentials.get(id) ?? EMPTY;
     const hash = Buffer.from(await scryptHex(password, cred.salt), "hex");
     const expected = Buffer.from(cred.hash, "hex");
-    const ok = hash.length === expected.length && timingSafeEqual(hash, expected) && this.credentials.has(id);
-    if (!ok) return undefined;
+    return hash.length === expected.length && timingSafeEqual(hash, expected) && this.credentials.has(id);
+  }
+
+  /** Verifies the pair and issues a token. The work is the same whether or not the user exists. */
+  async login(id: string, password: string): Promise<{ token: string; user: UserRecord } | undefined> {
+    if (!(await this.verify(id, password))) return undefined;
     let user: UserRecord;
     try {
       user = this.users.authorize(id);

@@ -37,6 +37,15 @@ export class HostPackages implements HostExtensions {
     return (fn as HostMethod)(args, this.env);
   }
 
+  /**
+   * The exports the package lets a person call about themselves (`thetis.host.self`), read from its manifest
+   * on every call as the entry is, so an edited declaration is live on the next call. A package that is not
+   * there is not-found, as `call` would be.
+   */
+  selfExports(name: string): string[] {
+    return readManifest(this.locate(name)).thetis?.host?.self ?? [];
+  }
+
   private locate(name: string): string {
     const known = this.dirs.get(name);
     if (known && existsSync(resolve(known, "package.json"))) return known;

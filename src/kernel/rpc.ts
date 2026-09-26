@@ -17,8 +17,8 @@ export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions"
  * What code inside a fence may ask the kernel to do. Identity is the fence: every method acts as the
  * userspace's own user, so a package can only install into its own scope, drive its own sessions, and
  * resolve login tokens that name its own user. An admin's fence may also call operator methods
- * (`operator.<method>`, the table the command line uses); the kernel checks the role, so a gateway
- * hiding a button is a courtesy. The system userspace alone may log people in.
+ * (`operator.<method>`, the table the command line uses), and a person's fence the few of them that act only
+ * on that person; the kernel checks the role, so a gateway hiding a button is a courtesy. The system userspace alone may log people in.
  */
 export function createRpcHandler(us: Userspace, k: RpcServices, operator?: KernelRpc, models?: (us: Userspace) => Promise<ModelChoices>): KernelRpc {
   const system = us.id === SYSTEM_USER;
@@ -28,10 +28,12 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
     if (method.startsWith(OPERATOR)) {
       const op = method.slice(OPERATOR.length);
       assert(operator, "no operator channel is configured", "rpc");
-      // One exception to the role: a person may reload their own workspace, because the code it is holding is
-      // theirs to put right. Their own id, named: the control table reads no `user` as the system userspace,
-      // which is nobody's own. It checks the target again, so this opens nothing wider.
-      const own = op === "fence.reload" && payload.user === us.id;
+      // A person's fence is admitted to the few operator methods that have a person-sized answer: reloading
+      // their own workspace (their own id, named: the control table reads no `user` as the system userspace,
+      // which is nobody's own), their own password, their own journal rows, and the host exports a package
+      // declares for themselves. This gate only admits; the control table decides per method, from the actor
+      // set here, and pins every one of them to that person, so nothing admitted reaches anyone else.
+      const own = op === "fence.reload" ? payload.user === us.id : op === "users.passwd" || op === "journal.tail" || op.startsWith("host.");
       assert(own || actor.role !== "user", "only an admin may use operator methods", "unauthorized");
       return operator(op, { ...payload, actor: us.id }, emit);
     }

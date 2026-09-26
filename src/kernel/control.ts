@@ -17,7 +17,8 @@ import type { KernelServices } from "./kernel.js";
 /**
  * Operator scope: everything the command line does, against one running kernel. The same handler serves
  * an in-process kernel, the control socket, and an admin's fence through `operator.*`, so every path
- * runs the same checks and leaves the same journal rows.
+ * runs the same checks and leaves the same journal rows. A person's fence reaches a few methods too (`rpc.ts`
+ * admits them); each of those decides here what a person may do, and it is only ever about themselves.
  */
 export function createControlHandler(k: KernelServices): KernelRpc {
   return async (method, raw, emit) => {
@@ -26,6 +27,8 @@ export function createControlHandler(k: KernelServices): KernelRpc {
     const us = () => k.sessions.userspaceFor(k.users.authorize(user()));
     /** Who performs the operation: the named actor (an admin over the operator channel, the operator from the CLI), else the target user. */
     const actor = () => k.users.authorize(caller.actor ?? user());
+    /** A person acting through their own fence, not an admin or the operator: whatever they reach, they reach only about themselves. */
+    const self = () => !!caller.actor && actor().role === "user";
     /** Every operator act leaves one row, with who did it and to whom. */
     const journal = (kind: string, target: string, data?: Record<string, unknown>) => {
       k.journal.append({ kind, actor: caller.actor ?? "operator", target, data });
@@ -33,14 +36,24 @@ export function createControlHandler(k: KernelServices): KernelRpc {
     if (method.startsWith("host.")) {
       // `host.<name>.<export>`: a host package's method, run by the host process. The kernel checks who
       // is calling and writes the row; what the method does and with what is the package's, so the
-      // arguments are never journalled here (a key's material travels this way). Only an admin, for the
-      // same reason as `restart.request`: `rpc.ts` admits the system userspace, which has no business
-      // granting anything.
+      // arguments are never journalled here (a key's material travels this way). An admin may call any
+      // export; the system userspace none, for the same reason as `restart.request`: `rpc.ts` admits it,
+      // and it has no business granting anything. A person may call only what the package declares for
+      // themselves (`thetis.host.self`), and the call is pinned to them whoever it names, with `self` set so
+      // the package applies its own limits on top. `self` is the kernel's word, so nobody else's call carries it.
       const [name, exp, ...rest] = method.slice("host.".length).split(".");
       if (name && exp && !rest.length) {
+        const { self: _, ...args } = caller;
+        if (self()) {
+          const me = actor().id;
+          const declared = k.hosts.selfExports(name).includes(exp);
+          assert(declared, `only an admin may call host.${name}.${exp}; a person may call only the exports a host package declares for themselves`, "unauthorized");
+          journal("host.call", me, { name, method: exp });
+          return k.hosts.call(name, exp, { ...args, user: me, actor: me, self: true });
+        }
         if (caller.actor) assert(actor().role === "admin", "only an admin may call a host package", "unauthorized");
         journal("host.call", user(), { name, method: exp });
-        return k.hosts.call(name, exp, { ...caller, ...(caller.actor ? { actor: caller.actor } : {}) });
+        return k.hosts.call(name, exp, args);
       }
       throw new CodedError(`unknown control method: ${method}`, "rpc");
     }
@@ -78,7 +91,12 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         journal("user.role", text("id"), { role });
         return k.users.setRole(text("id"), role);
       }
+      // A person changes only their own, and proves it is theirs first: a fence left open is not the password.
+      // An admin changes anyone's, their own included, without one, as the command line always has; a `current`
+      // an admin does send is checked all the same, so a form that asks for it never passes a wrong one.
       case "users.passwd":
+        if (self()) assert(text("id") === actor().id, "a person may change only their own password", "unauthorized");
+        if (self() || a.current !== undefined) assert(await k.auth.verify(text("id"), text("current")), "the current password was refused", "unauthorized");
         await k.auth.setPassword(text("id"), text("password"));
         journal("user.password", text("id"));
         return null;
@@ -157,8 +175,11 @@ export function createControlHandler(k: KernelServices): KernelRpc {
       }
       case "status":
         return status(k);
-      case "journal.tail":
-        return k.journal.tail(Math.min(1000, Number(a.limit ?? 200) || 200), { actor: a.actor_filter, target: a.target, kind: a.kind });
+      // A person reads the rows they are in, as either side; the actor and target filters are an admin's.
+      case "journal.tail": {
+        const filter = self() ? { involving: actor().id, kind: a.kind } : { actor: a.actor_filter, target: a.target, kind: a.kind };
+        return k.journal.tail(Math.min(1000, Number(a.limit ?? 200) || 200), filter);
+      }
       case "config.get":
         return redact(k.config);
       case "config.list":

@@ -22,7 +22,7 @@ test("the public runtime can boot with injected adapters and no installed extens
   };
   const store = memoryStore();
   const assetStore = new FileAssetStore(join(home, "injected-assets"));
-  const hosts = { async call() { return "injected host"; } };
+  const hosts = { async call() { return "injected host"; }, selfExports: () => [] };
 
   try {
     const kernel = await createKernel(config, (container) => {

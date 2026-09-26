@@ -22,6 +22,8 @@ import type { UserStore } from "./users.js";
  */
 export interface HostExtensions {
   call(name: string, method: string, args: Record<string, unknown>): Promise<unknown>;
+  /** The exports a person may call about themselves, as the package's manifest declares them (`thetis.host.self`); none when it declares none. */
+  selfExports(name: string): string[];
 }
 
 /** One running kernel. The host constructs it; the kernel does not depend on its composition root. */

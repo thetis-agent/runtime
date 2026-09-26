@@ -39,7 +39,7 @@ export const ThetisFieldSchema = z.looseObject({
   forkedFrom: ForkOriginSchema.optional(),
   /** Optional contributions interpreted by extension packages. */
   bench: BenchDeclSchema.optional(), ui: UiDeclSchema.optional(),
-  skills: z.string().optional(), config: ConfigDeclsSchema.optional(), host: z.looseObject({ name: z.string() }).optional(),
+  skills: z.string().optional(), config: ConfigDeclsSchema.optional(), host: z.looseObject({ name: z.string(), self: z.array(z.string()).optional() }).optional(),
 });
 export const ManifestSchema = z.looseObject({
   name: ScopedPackageNameSchema, version: z.string(), description: z.string().optional(), main: z.string().optional(),

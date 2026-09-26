@@ -15,6 +15,8 @@ export interface JournalFilter {
   actor?: string;
   target?: string;
   kind?: string;
+  /** Rows this id is in, either side: what they did and what was done to them. */
+  involving?: string;
 }
 
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -63,5 +65,6 @@ function matches(row: JournalRow, filter: JournalFilter): boolean {
   if (filter.actor && row.actor !== filter.actor) return false;
   if (filter.target && row.target !== filter.target) return false;
   if (filter.kind && row.kind !== filter.kind) return false;
+  if (filter.involving && row.actor !== filter.involving && row.target !== filter.involving) return false;
   return true;
 }

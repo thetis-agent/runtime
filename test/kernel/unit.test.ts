@@ -1217,7 +1217,7 @@ test("host.<name>.<export>: the control handler journals the call without its ar
     const k = {
       users,
       journal: new Journal(home),
-      hosts: { call: async (name: string, method: string, args: Record<string, unknown>) => (calls.push({ name, method, args }), { ok: true }) },
+      hosts: { call: async (name: string, method: string, args: Record<string, unknown>) => (calls.push({ name, method, args }), { ok: true }), selfExports: () => [] },
     } as unknown as KernelServices;
     const control = createControlHandler(k);
     // The operator at the socket: no actor, and the row says so. The arguments reach the host and never the journal.
@@ -1240,6 +1240,109 @@ test("host.<name>.<export>: the control handler journals the call without its ar
     await assert.rejects(control("host.grants", {}), /unknown control method/);
     await assert.rejects(control("host.grants.mountsSet.extra", {}), /unknown control method/);
     await assert.rejects(control("hosts.grants.mountsSet", {}), /unknown control method/);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+/** Alice is an admin, bob and carol are people; the host package `grants` declares `sshList` and `mountsList` for themselves. */
+async function personScoped(home: string) {
+  const users = new UserStore(await mirror(memoryStore(), "users"));
+  users.create("alice", "admin");
+  users.create("bob");
+  users.create("carol");
+  const driver = memoryStore();
+  const auth = new AuthService(await mirror(driver, "auth/credentials"), await mirror(driver, "auth/tokens"), users);
+  const calls: { name: string; method: string; args: Record<string, unknown> }[] = [];
+  const hosts = {
+    call: async (name: string, method: string, args: Record<string, unknown>) => (calls.push({ name, method, args }), { ok: true }),
+    selfExports: (name: string) => (name === "grants" ? ["sshList", "mountsList"] : []),
+  };
+  const k = { users, auth, journal: new Journal(home), hosts } as unknown as KernelServices;
+  const control = createControlHandler(k);
+  const fenceOf = (id: string) => createRpcHandler(new UserspaceLayout(home).pathFor(id), k as unknown as RpcServices, control);
+  return { k, auth, calls, control, fenceOf };
+}
+
+test("host.<name>.<export> from a person: only a declared export, pinned to them whoever it names and marked self; an admin's call is as before", async () => {
+  const home = tmp();
+  try {
+    const { k, calls, control, fenceOf } = await personScoped(home);
+    // Through bob's own fence: the gate admits it, the control table pins it. Naming carol changes nothing.
+    assert.deepEqual(await fenceOf("bob")("operator.host.grants.sshList", { user: "carol" }), { ok: true });
+    assert.deepEqual(calls[0], { name: "grants", method: "sshList", args: { user: "bob", actor: "bob", self: true } });
+    const row = k.journal.tail(1, { kind: "host.call" })[0];
+    assert.deepEqual([row.actor, row.target], ["bob", "bob"], "the row names the person, not whom the call named");
+    await control("host.grants.mountsList", { actor: "bob", user: "carol", self: false });
+    assert.deepEqual(calls[1].args, { user: "bob", actor: "bob", self: true }, "a caller cannot unset self either");
+    // An export the package did not declare for a person, and a package that declares none, are refused before the host sees them.
+    await assert.rejects(fenceOf("bob")("operator.host.grants.mountsSet", { user: "bob", mounts: [] }), /only an admin may call host\.grants\.mountsSet/);
+    await assert.rejects(control("host.other.sshList", { actor: "bob" }), code("unauthorized"));
+    assert.equal(calls.length, 2);
+    // An admin names anyone and is never marked self, even when the call says so; the system userspace is refused.
+    await fenceOf("alice")("operator.host.grants.mountsSet", { user: "carol", self: true });
+    assert.deepEqual(calls[2].args, { user: "carol", actor: "alice" });
+    await assert.rejects(control("host.grants.sshList", { user: "bob", actor: "_system" }), code("unauthorized"));
+    assert.equal(calls.length, 3);
+    // The gate still refuses a person the rest of the operator table.
+    for (const op of ["users.list", "users.setRole", "packages.list", "config.get", "status"])
+      await assert.rejects(fenceOf("bob")(`operator.${op}`, { id: "bob", role: "admin" }), /only an admin may use operator methods/, op);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("users.passwd from a person: their own id, with the current password; an admin needs neither but has one checked when sent, and both leave the same row", async () => {
+  const home = tmp();
+  try {
+    const { k, auth, fenceOf, control } = await personScoped(home);
+    await auth.setPassword("bob", "old");
+    await auth.setPassword("carol", "hers");
+    const bob = fenceOf("bob");
+    await assert.rejects(bob("operator.users.passwd", { id: "bob", password: "new" }), /users\.passwd\.current/, "no current password");
+    await assert.rejects(bob("operator.users.passwd", { id: "bob", password: "new", current: "wrong" }), /the current password was refused/);
+    await assert.rejects(bob("operator.users.passwd", { id: "carol", password: "new", current: "old" }), /only their own password/);
+    await assert.rejects(bob("operator.users.passwd", { id: "carol", password: "new", current: "hers" }), code("unauthorized"), "knowing someone's password is not being them");
+    assert.ok(await auth.verify("bob", "old") && await auth.verify("carol", "hers"), "nothing changed");
+    assert.equal(k.journal.tail(10, { kind: "user.password" }).length, 0);
+    assert.equal(await bob("operator.users.passwd", { id: "bob", password: "new", current: "old" }), null);
+    assert.ok(await auth.verify("bob", "new"));
+    assert.equal(await auth.verify("bob", "old"), false);
+    let row = k.journal.tail(1, { kind: "user.password" })[0];
+    assert.deepEqual([row.actor, row.target], ["bob", "bob"]);
+    // An admin, their own password or anyone's, and the operator at the socket: no current password asked.
+    assert.equal(await fenceOf("alice")("operator.users.passwd", { id: "carol", password: "reset" }), null);
+    assert.ok(await auth.verify("carol", "reset"));
+    row = k.journal.tail(1, { kind: "user.password" })[0];
+    assert.deepEqual([row.actor, row.target], ["alice", "carol"]);
+    assert.equal(await control("users.passwd", { id: "alice", password: "root" }), null);
+    assert.ok(await auth.verify("alice", "root"));
+    // An admin who does send one -- the Account page asks everyone -- has it checked like anyone else.
+    await assert.rejects(fenceOf("alice")("operator.users.passwd", { id: "alice", password: "next", current: "wrong" }), /the current password was refused/);
+    assert.ok(await auth.verify("alice", "root"), "a refused change changes nothing");
+    assert.equal(await fenceOf("alice")("operator.users.passwd", { id: "alice", password: "next", current: "root" }), null);
+    assert.ok(await auth.verify("alice", "next"));
+    assert.equal(await auth.verify("nobody", "root"), false, "an unknown id is a plain no");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("journal.tail from a person: the rows they are in as either side, whatever filters they send; an admin's filters are as before", async () => {
+  const home = tmp();
+  try {
+    const { k, fenceOf } = await personScoped(home);
+    k.journal.append({ kind: "a", actor: "bob", target: "carol" });
+    k.journal.append({ kind: "b", actor: "alice", target: "bob" });
+    k.journal.append({ kind: "a", actor: "alice", target: "carol" });
+    k.journal.append({ kind: "b", actor: "carol", target: "carol" });
+    type Row = { kind: string; actor?: string; target?: string };
+    const tail = async (id: string, args: Record<string, unknown>) => ((await fenceOf(id)("operator.journal.tail", args)) as Row[]).map((r) => `${r.kind}:${r.actor}>${r.target}`);
+    assert.deepEqual(await tail("bob", {}), ["b:alice>bob", "a:bob>carol"]);
+    assert.deepEqual(await tail("bob", { actor_filter: "carol", target: "carol" }), ["b:alice>bob", "a:bob>carol"], "another person's filters are ignored");
+    assert.deepEqual(await tail("bob", { kind: "a" }), ["a:bob>carol"], "the kind still narrows");
+    assert.deepEqual(await tail("alice", { target: "carol" }), ["b:carol>carol", "a:alice>carol", "a:bob>carol"]);
+    assert.deepEqual(await tail("alice", { actor_filter: "alice" }), ["a:alice>carol", "b:alice>bob"]);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

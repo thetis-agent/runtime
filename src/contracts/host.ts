@@ -3,7 +3,9 @@
 // driver: from the shipped or the promoted packages, never from a userspace, and its entry is imported again
 // whenever its file changes, so a change is live on the next call. The kernel dispatches `host.<name>.<export>`
 // from the operator channel to the export, after checking that the caller is an admin or the operator, and
-// journals the call. Nothing about mounts, keys or any other feature is known to the kernel.
+// journals the call. A person may call the exports the package declares for themselves in `thetis.host.self`
+// and no others; the kernel pins such a call to the caller and marks it `self`, and the package applies its
+// own limits on top. Nothing about mounts, keys or any other feature is known to the kernel.
 import type { Mount, SshGrant, UserRecord } from "./identity.js";
 
 /** The package type of a host package. Chosen by `thetis.host.name`; never installed into a fence. */
@@ -42,5 +44,8 @@ export interface HostEnv {
 /**
  * The export a `host.<name>.<export>` call names. `args` is the call's object as it arrived, with `actor`
  * set to the admin who called when the call came through a fence, and absent for the operator at the socket.
+ * `args.self` is true when a person called about themselves (an export the manifest lists in
+ * `thetis.host.self`); then `args.user === args.actor`, both the caller's id whatever the call named, and
+ * what the person may do within that is the package's to limit. It is absent on every other call.
  */
 export type HostMethod = (args: Record<string, unknown>, env: HostEnv) => Promise<unknown>;

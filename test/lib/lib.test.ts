@@ -8,6 +8,7 @@ import type { Mount, SessionRecord, SshGrant, TurnEvent, WatchedTurnEvent } from
 import { AsyncQueue } from "../../src/lib/async.js";
 import { Container, token } from "../../src/lib/container.js";
 import { JsonDirStore } from "../../src/lib/json-store.js";
+import { Journal } from "../../src/lib/journal.js";
 import { MountStore } from "../../src/lib/mounts.js";
 import { findDependency, forkOf, forkPackage, forkVersion, isGitSource, isInside, keepOnly, packageDigest, packagesIn, samePackage, splitSource } from "../../src/lib/pkg-fs.js";
 import { PendingCalls, callHandler } from "../../src/lib/rpc-frames.js";
@@ -433,4 +434,21 @@ test("a malformed streamed event rejects and cancels its RPC without escaping th
   assert.equal(cleaned, 1);
   assert.equal(pending.receive({ id, event: {} }), false);
   assert.equal(pending.size, 0);
+});
+
+test("journal: `involving` keeps the rows an id is in as either side, and composes with the kind", () => {
+  const home = mkdtempSync(join(tmpdir(), "thetis-journal-"));
+  try {
+    const journal = new Journal(home);
+    journal.append({ kind: "a", actor: "bob", target: "carol" });
+    journal.append({ kind: "b", actor: "alice", target: "bob" });
+    journal.append({ kind: "a", actor: "alice", target: "carol" });
+    journal.append({ kind: "b", actor: "operator" });
+    const kinds = (rows: { kind: string; actor?: string; target?: string }[]) => rows.map((r) => `${r.kind}:${r.actor}>${r.target}`);
+    assert.deepEqual(kinds(journal.tail(10, { involving: "bob" })), ["b:alice>bob", "a:bob>carol"], "newest first, either side");
+    assert.deepEqual(kinds(journal.tail(10, { involving: "bob", kind: "a" })), ["a:bob>carol"]);
+    assert.deepEqual(journal.tail(10, { involving: "nobody" }), []);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
 });
