@@ -12,7 +12,7 @@ export const TurnEventSchema = z.discriminatedUnion("type", [
   ContentEventSchema, ExtensionEventSchema,
   z.looseObject({ type: z.literal("context.updated") }),
   // `resumed`: a turn with no input over a record that was interrupted, and why that one stopped.
-  z.looseObject({ type: z.literal("turn.start"), turn: z.string(), session: z.string(), resumed: z.looseObject({ why: z.string(), from: z.string() }).optional() }),
+  z.looseObject({ type: z.literal("turn.start"), turn: z.string(), session: z.string(), resumed: z.looseObject({ why: z.string(), from: z.string(), for: z.string().optional() }).optional() }),
   z.looseObject({ type: z.literal("step.start"), step: StepRefSchema }),
   z.looseObject({ type: z.literal("step.end"), step: StepRefSchema, ms: z.number().nonnegative() }),
   z.looseObject({ type: z.literal("text"), delta: z.string() }),

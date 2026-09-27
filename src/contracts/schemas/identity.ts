@@ -14,6 +14,8 @@ export const InterruptedSchema = z.looseObject({
   why: InterruptedWhySchema.catch("failed").optional(),
   /** The turn stopped at a round boundary: nothing partial, no tool call left unanswered. */
   clean: z.boolean().optional(),
+  /** For a yield: what the turn paused for, a restart of Thetis or an update of this person's space. */
+  for: z.enum(["restart", "reload"]).catch("restart").optional(),
   /** How many automatic resumes the chain this turn belongs to already had. Absent: none. */
   resumes: z.number().int().nonnegative().optional(),
 });

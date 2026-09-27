@@ -59,7 +59,7 @@ export class PipelineRunner {
     // A turn with no input over an interrupted record continues it. The count of automatic resumes runs on along
     // that chain, so whoever resumes can refuse to do it twice; a turn with input starts a new chain.
     const prev = session.interrupted;
-    const resumed = input.length === 0 && prev ? { why: prev.why ?? "failed", from: prev.turn } : undefined;
+    const resumed = input.length === 0 && prev ? { why: prev.why ?? "failed", from: prev.turn, ...(prev.for ? { for: prev.for } : {}) } : undefined;
     const resumes = resumed ? (prev?.resumes ?? 0) + 1 : 0;
     // What the running step has streamed as whole messages: each assistant message, and each tool result
     // as the tool message it becomes. A step that dies -- the fence with it -- returns nothing, and these
@@ -141,7 +141,7 @@ export class PipelineRunner {
       const why = endedBy(thrown, failure, yielded, signal);
       if (why && why !== "stop" && why !== "budget") {
         const error = why === "yield" ? { message: `the turn stopped at a round boundary for a ${yielded}`, code: "yield" } : why === "provider" ? failure! : thrown!;
-        session.interrupted = { turn: turn.id, at: now(), error, why, ...(why === "yield" ? { clean: true } : {}), ...(resumes ? { resumes } : {}) };
+        session.interrupted = { turn: turn.id, at: now(), error, why, ...(why === "yield" ? { clean: true, for: yielded === "reload" ? "reload" : "restart" } : {}), ...(resumes ? { resumes } : {}) };
       }
       delete session.turn;
       session.conversation = ctx.conversation;

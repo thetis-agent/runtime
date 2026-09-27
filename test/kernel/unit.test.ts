@@ -1472,7 +1472,14 @@ test("runner: a step that yields at a round boundary ends the turn clean, `yield
     assert.equal(saved.interrupted?.clean, true);
     assert.equal(saved.interrupted?.error.code, "yield");
     assert.match(saved.interrupted!.error.message, /round boundary for a restart/);
+    assert.equal(saved.interrupted?.for, "restart", "a pause says what it paused for");
     assert.equal(lastTurnEnd(home).why, "yield");
+    // The resume carries it on, so a page can say "resumed after Thetis restarted" and not "after an update".
+    const resumedEvents: TurnEvent[] = [];
+    const paused = saved.interrupted!.turn;
+    await r.runTurn(us, saved, [], (e) => resumedEvents.push(e));
+    const start = resumedEvents.find((e) => e.type === "turn.start") as { resumed?: Record<string, unknown> };
+    assert.deepEqual(start.resumed, { why: "yield", from: paused, for: "restart" });
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
