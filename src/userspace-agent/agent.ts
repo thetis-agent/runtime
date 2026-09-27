@@ -105,7 +105,7 @@ const env: StepEnv = {
   storage: noStorage,
   invokeTool: async (ref, args, opts) => {
     const fn = await loadExport(ref.package, ref.export);
-    const toolEnv: ToolEnv = { ...envFor(ref.package), session: opts.session, config: opts.config ?? {}, signal: opts.signal };
+    const toolEnv: ToolEnv = { ...envFor(ref.package), session: opts.session, config: opts.config ?? {}, model: opts.model, signal: opts.signal };
     return fn(args ?? {}, toolEnv) as Promise<string | object>;
   },
   kernel,
