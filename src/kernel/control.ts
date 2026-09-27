@@ -7,7 +7,7 @@ import { resolve } from "node:path";
 import { SYSTEM_USER, type KernelRpc, type PackageInfo, type UserRecord } from "../contracts/index.js";
 import { assert, CodedError } from "../lib/error.js";
 import { newestMtime } from "../lib/freshness.js";
-import { isSupervised } from "../lib/restart.js";
+import { isSupervised, updateInstalling, UPDATING, type ArmResult } from "../lib/restart.js";
 import { assertUserIdFitsSockets } from "../lib/socket-paths.js";
 import { applyInPlace, classifyChanges } from "../lib/config-tiers.js";
 import { forkOf } from "../lib/pkg-fs.js";
@@ -145,9 +145,10 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         // A person may put their own workspace back on the code that is on disk; anyone else's is an admin's
         // call. A call with no named actor came over the control socket, whose 0600 holder is the operator.
         assert(actor().role !== "user" || actor().id === target.id, "a person may reload only their own workspace", "unauthorized");
-        const cancelled = await reloadWorkspace(k, target.id, a.force === true);
-        journal("fence.reload", target.id, cancelled.length ? { force: true, cancelled } : undefined);
-        return { user: target.id, cancelled, ...serviceState(installedIn(k, target.id), k.services.notRunning.get(target.id) ?? []) };
+        const mode = a.force === true ? "force" : a.drain === true ? "drain" : "idle";
+        const { drained, cancelled } = await reloadWorkspace(k, target.id, mode);
+        journal("fence.reload", target.id, mode !== "idle" || cancelled.length ? { mode, cancelled, ...(mode === "drain" ? { drained } : {}) } : undefined);
+        return { user: target.id, cancelled, ...(mode === "drain" ? { drained } : {}), ...serviceState(installedIn(k, target.id), k.services.notRunning.get(target.id) ?? []) };
       }
       case "restart.request": {
         // Only an admin, asserted here rather than left to `rpc.ts`, which admits any non-user and so admits
@@ -157,13 +158,19 @@ export function createControlHandler(k: KernelServices): KernelRpc {
         const reason = String(a.reason ?? "").trim();
         assert(reason, "a restart needs a reason: it is shown to everyone waiting and recorded", "invalid");
         // The latch wrote every sentence, refusals included; passing them through is what keeps the host, the
-        // page and the model reading the same words about the same latch.
-        const armed = k.restart.arm(reason, caller.actor ?? "operator");
+        // page and the model reading the same words about the same latch. While an update installs, a restart
+        // would come up on a half-installed checkout: the update arms one itself when it is done.
+        const armed: ArmResult = updateInstalling(k.config.home) ? { state: "refused", why: "updating", message: UPDATING } : k.restart.arm(reason, caller.actor ?? "operator");
         journal(`restart.${armed.state}`, "daemon", { reason, ...(armed.why ? { why: armed.why } : {}) });
         return armed;
       }
-      case "restart.status":
-        return { ...k.restart.status(), policy: k.restartPolicy() };
+      // Everyone may read this (`rpc.ts` admits it): a person's page counts the restart down and says their
+      // reply will continue. A person gets the countdown only; the latch's host facts are an admin's.
+      case "restart.status": {
+        const pending = k.restart.armed();
+        const countdown = pending ? { armed: true, reason: pending.reason, at: pending.at, deadlineAt: pending.deadlineAt, ...(pending.firesAt !== undefined ? { firesAt: pending.firesAt } : {}), secondsLeft: Math.max(0, Math.ceil(((pending.firesAt ?? pending.deadlineAt) - Date.now()) / 1000)), drain: true } : { armed: false };
+        return self() ? countdown : { ...k.restart.status(), policy: k.restartPolicy(), ...countdown };
+      }
       case "restart.cancel": {
         // The same assert as `restart.request`, for the same reason. Calling one off is the safer direction,
         // but an armed restart is an admin's decision and the system userspace is not one.
@@ -219,7 +226,7 @@ export function createControlHandler(k: KernelServices): KernelRpc {
       case "sessions.inspect":
         return k.sessions.inspect(user(), text("session"));
       case "sessions.cancel":
-        return k.sessions.cancel(user(), text("session"));
+        return k.sessions.cancel(user(), text("session"), a.why);
       case "sessions.delete":
         await k.sessions.delete(user(), text("session"));
         journal("session.delete", user(), { session: text("session") });
@@ -238,18 +245,27 @@ type JournalFn = (kind: string, target: string, data?: Record<string, unknown>) 
 
 /**
  * Closes a workspace's fence and opens it again on the code on disk. A turn running there would die with
- * the fence, and a turn that dies is recorded no further than what it had streamed, so the reload refuses
- * while one runs and names the session. `force` cancels those turns first and waits for their closing save,
- * which is the order a restart keeps for every workspace at once. Every reload goes through here: the
- * control channel, and a host package that changed a grant the fence reads when it opens.
+ * the fence, so what happens to it is the mode's: `idle` refuses while one runs and names the session;
+ * `drain` asks each to stop at its next round boundary, waits for them up to the restart's `quietWaitMs`,
+ * and cancels the rest; `force` cancels them at once. A cancel here is a `reload` cancel, which marks the
+ * record for a resume, and the closing saves land before the fence goes -- the order a restart keeps for
+ * every workspace at once. Every reload goes through here: the control channel, and a host package that
+ * changed a grant the fence reads when it opens. While an update installs, a reload would open the fence on a
+ * half-installed checkout, so it is refused as a restart is -- except a host package's (`host`): the update
+ * job itself reloads the workspaces it changed at its end, while it still holds the lock.
  */
-export async function reloadWorkspace(k: KernelServices, id: string, force = false): Promise<string[]> {
+export async function reloadWorkspace(k: KernelServices, id: string, mode: "idle" | "drain" | "force" = "idle", host = false): Promise<{ drained: string[]; cancelled: string[] }> {
+  assert(host || !updateInstalling(k.config.home), UPDATING, "busy");
+  const reload = async () => {
+    k.providers.forget(id);
+    await k.services.reload(id);
+  };
+  if (mode === "drain") return k.sessions.drain(id, k.config.control.quietWaitMs, reload);
   const running = k.sessions.inFlight().filter((key) => key.startsWith(`${id}/`)).map((key) => key.slice(id.length + 1));
-  assert(force || !running.length, `${id} has a turn running in ${running.join(", ")}: wait for it to end, or reload with force to cancel it`, "busy");
-  const cancelled = running.length ? await k.sessions.cancelAll(id) : [];
-  k.providers.forget(id);
-  await k.services.reload(id);
-  return cancelled;
+  assert(mode === "force" || !running.length, `${id} has a turn running in ${running.join(", ")}: wait for it to end, or reload with force to cancel it`, "busy");
+  const cancelled = running.length ? await k.sessions.cancelAll(id, "reload") : [];
+  await reload();
+  return { drained: [], cancelled };
 }
 
 /** What a sweep across the fleet did: the userspaces the package reached, and the people whose fork of it was left in place. */

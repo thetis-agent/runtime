@@ -2,7 +2,7 @@
 // Who may install what, and where, is decided by the caller.
 import { createHash, type Hash } from "node:crypto";
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 const GIT_URL = /^(https?:\/\/|git@|git:\/\/|ssh:\/\/|file:\/\/).+|\.git$/;
 
@@ -279,7 +279,51 @@ export function forkPackage(spec: ForkSpec): ForkResult {
   else delete manifest.dependencies;
   manifest.thetis = { ...manifest.thetis, forkedFrom: { ...spec.origin } };
   writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
+  writeFileSync(resolve(spec.to, FORK_BASE), JSON.stringify(fileHashes(from), null, 2) + "\n");
   return { manifest, linked };
+}
+
+/** Where a fork keeps the origin as it was copied: `{ <relative path>: <sha256> }`. */
+export const FORK_BASE = ".thetis-fork-base.json";
+
+/**
+ * How a fork stands against the package it was copied from, using the base it recorded when it was made:
+ * - `identical`: it holds the same files as the origin does now (the fields a fork rewrites aside);
+ * - `superseded`: it differs, but every change it made to its base -- a file edited, added or deleted -- is
+ *   in the origin now, byte for byte, so going back to the origin loses nothing of it;
+ * - `diverged`: it carries a change the origin does not have;
+ * - `unknown`: it has no base (made before bases were recorded) or a side could not be read.
+ * Built output (`dist`) is compared like any file: a fork of a TypeScript package that cannot rebuild is
+ * edited there, and a change nobody can see must not be called superseded.
+ */
+export function forkState(forkRoot: string, originRoot: string): "superseded" | "identical" | "diverged" | "unknown" {
+  try {
+    const baseFile = resolve(forkRoot, FORK_BASE);
+    if (!existsSync(baseFile)) return "unknown";
+    const base = JSON.parse(readFileSync(baseFile, "utf8")) as Record<string, string>;
+    const fork = fileHashes(forkRoot);
+    const origin = fileHashes(realpathSync(originRoot));
+    const paths = new Set([...Object.keys(base), ...Object.keys(fork), ...Object.keys(origin)]);
+    if ([...paths].every((p) => fork[p] === origin[p])) return "identical";
+    const changed = [...new Set([...Object.keys(base), ...Object.keys(fork)])].filter((p) => fork[p] !== base[p]);
+    return changed.every((p) => fork[p] === origin[p]) ? "superseded" : "diverged";
+  } catch {
+    return "unknown";
+  }
+}
+
+/** Every file of a package tree with its sha256, `node_modules`, `.git` and the fork's base file left out; package.json fork-neutral. */
+function fileHashes(root: string, dir = root, out: Record<string, string> = {}): Record<string, string> {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (DIGEST_SKIP.has(entry.name) || (dir === root && entry.name === FORK_BASE)) continue;
+    const path = resolve(dir, entry.name);
+    if (entry.isDirectory()) fileHashes(root, path, out);
+    else {
+      const bytes = entry.isSymbolicLink() ? `L${readlinkSync(path)}` : path === resolve(root, "package.json") ? forkNeutralManifest(path) : readFileSync(path);
+      out[relative(root, path).split(sep).join("/")] = createHash("sha256").update(bytes).digest("hex");
+    }
+  }
+  return out;
 }
 
 /**
@@ -328,7 +372,8 @@ function forkNeutralManifest(file: string): string {
 
 function digestInto(dir: string, base: string, hash: Hash): void {
   for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-    if (DIGEST_SKIP.has(entry.name)) continue;
+    // The base a fork records is about the fork, not part of the package it holds.
+    if (DIGEST_SKIP.has(entry.name) || (dir === base && entry.name === FORK_BASE)) continue;
     const path = resolve(dir, entry.name);
     if (entry.isDirectory()) {
       digestInto(path, base, hash);

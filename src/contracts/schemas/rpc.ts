@@ -8,6 +8,8 @@ export const RpcArgumentsSchema = z.looseObject({
   id: z.string().optional(), grant: z.string().optional(), session: z.string().optional(),
   model: z.string().optional(), key: z.string().optional(), prefix: z.string().optional(),
   token: z.string().optional(), password: z.string().optional(), deleteFiles: z.boolean().optional(),
+  /** `sessions.cancel`: whose cancel it is. A fence may say only these two; see `SessionApi.cancel`. */
+  why: z.enum(["stop", "budget"]).optional(),
 });
 
 export const ControlArgumentsSchema = RpcArgumentsSchema.extend({
@@ -15,6 +17,8 @@ export const ControlArgumentsSchema = RpcArgumentsSchema.extend({
   reason: z.string().optional(), actor_filter: z.string().optional(), target: z.string().optional(), kind: z.string().optional(),
   /** `fence.reload`: cancel the turns running in that workspace first, instead of refusing while one runs. */
   force: z.boolean().optional(),
+  /** `fence.reload`: ask the turns running there to stop at their next round boundary, wait, then reload. */
+  drain: z.boolean().optional(),
   limit: z.union([z.number().int().nonnegative(), z.string().regex(/^\d+$/).transform(Number)]).optional(),
 });
 

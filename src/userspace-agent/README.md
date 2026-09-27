@@ -47,7 +47,7 @@ unaffected: its other services, sessions and this fence are still running.
 
 The allowance is raced against the work rather than enforced inside it: the point is to end an operation that is not going to end by itself, and one that ignores its signal would sit there being asked nicely for ever. The signal is aborted first all the same, so work that does watch it stops rather than running on unwatched.
 
-A module is loaded from `<store>/node_modules/<package>`: `main` from its `package.json` (default `index.js`), imported with the query `?v=<modification time>`, so a changed file is a new module. The named export must be a function.
+A module is loaded from `<store>/node_modules/<package>`: `main` from its `package.json` (default `index.js`), imported with the query `?v=<newest modification time of the package's code>` (`lib/fresh-import`), and every module that entry imports inside the same package carries the same query, so a change to any file of the package is a new module graph on the next call; its dependencies outside the package keep one copy. The named export must be a function.
 
 The agent reaches the kernel through RPC lines on `stdout`. The `KernelClient` it builds has `packages.install`, `uninstall`, `delete`, `list`; `sessions.create`, `ask`, `send`, `cancel`, `list`, `inspect`; `models`; `config.show`, `set`, `unset`, `effective`; `auth.login`, `authenticate`, `logout`; and `operator.call`. Every method acts as the fence's own user; the kernel authorizes it on each call.
 

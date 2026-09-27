@@ -80,9 +80,17 @@ export interface KernelClient {
     askText(session: string, input: TurnInput): Promise<string>;
     /** @deprecated Use askText for an explicit text projection, or complete for structured output. */
     ask(session: string, input: TurnInput): Promise<string>;
-    /** `signal` ends the call and cancels the turn it started. */
+    /**
+     * `signal` ends the call and cancels the turn it started. An empty `input` appends nothing and runs the
+     * pipeline over the saved conversation: over a record marked `interrupted`, that is the resume, and its
+     * `turn.start` carries `resumed`.
+     */
     send(session: string, input: TurnInput, onEvent: (event: TurnEvent) => void, opts?: TurnOptions, signal?: AbortSignal): Promise<void>;
-    cancel(session: string): Promise<boolean>;
+    /**
+     * Stops the running turn; false when none runs. `why` is `stop` (a person's, the default) or `budget` (a
+     * workflow's cut); neither marks the record `interrupted`. The installation's own reasons are not a fence's to give.
+     */
+    cancel(session: string, opts?: { why?: "stop" | "budget" }): Promise<boolean>;
     /** Removes a session's record. A running turn is cancelled first. */
     delete(session: string): Promise<void>;
     list(): Promise<SessionSummaryRef[]>;
@@ -93,6 +101,14 @@ export interface KernelClient {
      * long as it lives calls once and never awaits it.
      */
     watch(onEvent: (m: WatchedTurnEvent) => void): Promise<void>;
+  };
+  turns: {
+    /**
+     * Whether the installation asks running turns to stop at their next round boundary: a restart is armed, or
+     * a reload of this workspace is draining it. A harness asks at the top of every round after the first and,
+     * when it is asked, emits `{ type: "yield", why }` and returns what it has. No I/O on the kernel's side.
+     */
+    yielding(): Promise<false | { why: "restart" | "reload" }>;
   };
   /** The models the fence's own providers serve, and the default. */
   models(): Promise<ModelChoices>;

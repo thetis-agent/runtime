@@ -15,7 +15,7 @@ The public API is re-exported by `src/index.ts`; the host itself is an internal 
 
 The returned kernel owns users, credentials, package records, configuration, sessions, fences, host
 extensions and the restart latch. `removeUser(id)` removes that user's records, sessions, files, grants
-and held keys. `shutdown()` closes every fence, flushes the records, and closes the storage driver.
+and held keys. `shutdown()` cancels every running turn as a restart and awaits its closing save, then closes every fence, flushes the records, and closes the storage driver.
 
 `HostPackages` loads host extensions by manifest name from the shipped or promoted packages. It
 implements the single `HostExtensions` interface declared by the kernel. A fence pool is bound through

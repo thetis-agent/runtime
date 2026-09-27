@@ -5,6 +5,7 @@ import { parseSchema } from "./validation.js";
 
 const VoidReplySchema = z.null().optional().transform(() => undefined);
 const SessionInspectionSchema = SessionRecordSchema.extend({ status: z.enum(["idle", "running"]) });
+const YieldingSchema = z.union([z.literal(false), z.object({ why: z.enum(["restart", "reload"]) })]);
 const LoginReplySchema = z.object({ token: z.string(), user: AuthUserSchema }).nullable();
 
 /** One client mapping for in-process hosts and fence RPC transports. */
@@ -33,12 +34,15 @@ export function kernelClient(transport: KernelRpc): KernelClient {
       askText: (session, input) => rpc("sessions.askText", z.string(), { session, input }),
       ask: (session, input) => rpc("sessions.ask", z.string(), { session, input }),
       send: (session, input, onEvent, opts, signal) => rpc("sessions.send", VoidReplySchema, { session, input, model: opts?.model }, (e) => onEvent(parseSchema(TurnEventSchema, e, "sessions.send event", "rpc")), signal),
-      cancel: (session) => rpc("sessions.cancel", z.boolean(), { session }),
+      cancel: (session, opts) => rpc("sessions.cancel", z.boolean(), { session, ...(opts?.why ? { why: opts.why } : {}) }),
       delete: (session) => rpc("sessions.delete", VoidReplySchema, { session }),
       list: () => rpc("sessions.list", z.array(SessionSummaryRefSchema)),
       inspect: (session) => rpc("sessions.inspect", SessionInspectionSchema, { session }),
       // Settles only when the fence closes: the pending call has no timer, so it may stay open for the life of this process.
       watch: (onEvent) => rpc("sessions.watch", VoidReplySchema, {}, (e) => onEvent(parseSchema(WatchedTurnEventSchema, e, "sessions.watch event", "rpc"))),
+    },
+    turns: {
+      yielding: () => rpc("turns.yielding", YieldingSchema),
     },
     models: () => rpc("models", ModelChoicesSchema),
     providers: {

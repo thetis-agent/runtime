@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { RoleSchema, ToolCallSchema, MessageSchema, ToolSpecSchema, ProviderCallSchema, ProviderEventSchema, ModelDescriptorSchema, ModelChoicesSchema } from "./schemas/messages.js";
+import type { RoleSchema, ToolCallSchema, MessageSchema, ToolSpecSchema, ProviderCallSchema, ProviderEventSchema, ModelDescriptorSchema, ModelChoicesSchema, FailureKindSchema } from "./schemas/messages.js";
 import type { ContentPart } from "./content.js";
 // The conversation and the provider request: what a model sees and what it answers.
 
@@ -32,3 +32,10 @@ export type ModelDescriptor = z.infer<typeof ModelDescriptorSchema>;
 
 /** The models a userspace can call, and the configured default. */
 export type ModelChoices = z.infer<typeof ModelChoicesSchema>;
+
+/**
+ * What kind of failure an error was: `connection`, `rate-limit`, `overloaded`, `timeout`, `credits`, `context`,
+ * `output-limit`, `filter`, `auth` or `other`. A provider's error event, a harness's turn error and the record's
+ * `interrupted.error` may carry it, beside `retryable`.
+ */
+export type FailureKind = z.infer<typeof FailureKindSchema>;

@@ -170,9 +170,18 @@ function hostEnv(c: Container): HostEnv {
     records: { mounts: c.get(T.mounts), ssh: c.get(T.ssh) },
     journal: (row) => c.get(T.journal).append({ kind: row.kind, actor: row.actor ?? "operator", target: row.target, data: row.data }),
     // The same guarded reload `fence.reload` runs: refused with `busy` while a turn runs there, so a grant is
-    // recorded and reaches the fence at its next reload rather than killing the turn.
-    reloadFence: async (user) => {
-      await reloadWorkspace(kernelOf(c), user);
+    // recorded and reaches the fence at its next reload rather than killing the turn -- unless the package asks
+    // for a drain, which waits for the turns to reach a round boundary and marks the rest for a resume. Not
+    // refused while an update installs: `@thetis/host-update` reloads the workspaces it changed from here.
+    reloadFence: async (user, opts) => {
+      await reloadWorkspace(kernelOf(c), user, opts?.drain ? "drain" : "idle", true);
+    },
+    // The latch `restart.request` arms, with the row it writes: the package already checked its caller, and the
+    // kernel checked the package's (`host.*` is an admin's).
+    restart: (reason, by) => {
+      const armed = c.get(T.restart).arm(reason, by);
+      c.get(T.journal).append({ kind: `restart.${armed.state}`, actor: by, target: "daemon", data: { reason, ...(armed.why ? { why: armed.why } : {}) } });
+      return { state: armed.state, message: armed.message, ...(armed.why ? { why: armed.why } : {}) };
     },
     log: c.get(T.log),
   };
@@ -257,6 +266,9 @@ function kernelOf(c: Container): KernelServices {
       c.get(T.providers).forget(id);
     },
     async shutdown() {
+      // Every running turn is cancelled as a restart and its closing save awaited while its fence is still
+      // there to answer the cancel: closing the fences first is how a restart lost a twelve-minute turn whole.
+      await c.get(T.sessions).cancelAll("*", "restart");
       await c.get(T.fences).close();
       await flushRecords(c.get(T.records));
       await c.get(T.store).close?.();

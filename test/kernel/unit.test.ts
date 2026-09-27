@@ -3,7 +3,7 @@ import { FileAssetStore } from "../../src/lib/assets.js";
 import { textContent, contentText } from "@thetis/runtime/lib/content";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { Fences, Manifest, Message, PackageInfo, SessionRecord, StoreDriver, TurnEvent, UserRecord, Userspace, WatchedTurnEvent, PackageRecord } from "../../src/contracts/index.js";
@@ -26,7 +26,7 @@ import { validateManifest } from "../../src/kernel/packages/manifest.js";
 import { Enumerator } from "../../src/kernel/pipeline/enumerator.js";
 import { defaultConfig, saveConfig, loadConfig, packagesLayer } from "../../src/kernel/config.js";
 import { createControlHandler, redact, reloadWorkspace } from "../../src/kernel/control.js";
-import { CodedError as KernelError } from "../../src/lib/error.js";
+import { CodedError as KernelError, cancelReason, cancelWhy } from "../../src/lib/error.js";
 import { createRpcHandler, type RpcServices } from "../../src/kernel/rpc.js";
 import { SessionApi, SESSION_ID } from "../../src/kernel/sessions/api.js";
 import { PipelineRunner } from "../../src/kernel/pipeline/runner.js";
@@ -228,7 +228,7 @@ test("reloadWorkspace: refused while a turn runs there and names it; forced, it 
       },
     } as unknown as PipelineRunner;
     const api = new SessionApi(users, layout, packages, store, fake);
-    const k = { sessions: api, providers: { forget: (id: string) => order.push(`forget ${id}`) }, services: { reload: async (id: string) => order.push(`reload ${id}`) } } as unknown as KernelServices;
+    const k = { sessions: api, config: { home }, providers: { forget: (id: string) => order.push(`forget ${id}`) }, services: { reload: async (id: string) => order.push(`reload ${id}`) } } as unknown as KernelServices;
     const a = api.create("bob");
     const b = api.create("bob");
     const c = api.create("carol");
@@ -237,12 +237,12 @@ test("reloadWorkspace: refused while a turn runs there and names it; forced, it 
     await new Promise((r) => setTimeout(r, 5));
     await assert.rejects(reloadWorkspace(k, "bob"), (e: { code: string; message: string }) => e.code === "busy" && e.message.includes(a.id) && e.message.includes(b.id) && /reload with force/.test(e.message));
     assert.deepEqual(order, [], "a refusal touches nothing");
-    assert.deepEqual((await reloadWorkspace(k, "bob", true)).sort(), [a.id, b.id].sort());
+    assert.deepEqual((await reloadWorkspace(k, "bob", "force")).cancelled.sort(), [a.id, b.id].sort());
     await Promise.all(turns);
     assert.deepEqual(order.slice(0, 2).sort(), [`saved ${a.id}`, `saved ${b.id}`].sort(), "both closing saves landed before the fence went");
     assert.deepEqual(order.slice(2), ["forget bob", "reload bob"]);
     assert.equal(api.inspect("carol", c.id).status, "running", "another person's turn is nobody else's business");
-    assert.deepEqual(await reloadWorkspace(k, "bob"), [], "nothing running: nothing to cancel");
+    assert.deepEqual(await reloadWorkspace(k, "bob"), { drained: [], cancelled: [] }, "nothing running: nothing to cancel");
     api.cancel("carol", c.id);
     await other;
   } finally {
@@ -493,7 +493,7 @@ test("restart.request: an admin arms the latch, nobody else does, and every answ
       now: () => clock,
     });
     latch.onFire((r) => void fired.push(r));
-    const k = { users, journal: new Journal(home), restart: latch, restartPolicy: () => "always" } as unknown as KernelServices;
+    const k = { users, journal: new Journal(home), restart: latch, restartPolicy: () => "always", config: { home } } as unknown as KernelServices;
     const control = createControlHandler(k);
     const request = (actor: string | undefined, reason?: string) => control("restart.request", { actor, reason }) as Promise<ArmResult>;
     const rows = (kind: string) => k.journal.tail(50, { kind });
@@ -518,7 +518,7 @@ test("restart.request: an admin arms the latch, nobody else does, and every answ
     const armed = await request("alice", "new kernel code");
     assert.equal(armed.state, "armed");
     assert.equal(armed.pending?.reason, "new kernel code");
-    assert.match(armed.message, /A restart is armed: new kernel code \(asked by alice\)/);
+    assert.match(armed.message, /Restart armed: new kernel code \(asked by alice\)/);
     const row = rows("restart.armed")[0];
     assert.equal(row.actor, "alice");
     assert.equal(row.target, "daemon");
@@ -1389,6 +1389,351 @@ test("status leaves a service that failed to start out of what is running, and s
     const good = (await report()).workspaces[0];
     assert.deepEqual(good.services, ["@x/svc"]);
     assert.deepEqual(good.down, []);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+// ---- 2026-09-27: why a turn stopped, the resume, the checkpoint, the crash sweep, and the drain ----
+
+const said = (m: Message) => contentText(m.content);
+const lastTurnEnd = (home: string) => new Journal(home).tail(1, { kind: "turn.end" })[0].data as Record<string, unknown>;
+
+for (const [why, marked] of [[undefined, false], ["stop", false], ["budget", false], ["reload", true], ["restart", true]] as const) {
+  test(`runner: a cancel ${why ? `for ${why}` : "with no reason"} ${marked ? "marks the record interrupted with that reason" : "leaves no interrupted mark"}, and the journal says why`, async () => {
+    const home = tmp();
+    try {
+      const control = new AbortController();
+      const { r, us, session, store } = runner(home, [pkgs[1]], async (_payload, emit) => {
+        emit({ type: "message", message: { role: "assistant", content: textContent("half") } });
+        if (why) control.abort(cancelReason(why));
+        else control.abort();
+        return { conversation: [{ role: "user", content: textContent("go") }, { role: "assistant", content: textContent("half") }] };
+      });
+      const events: TurnEvent[] = [];
+      await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], (e) => events.push(e), control.signal);
+      const error = events.find((e): e is Extract<TurnEvent, { type: "error" }> => e.type === "error");
+      assert.equal(error?.code, "cancelled");
+      const saved = store.load(us.sessions, "s_1")!;
+      assert.deepEqual(saved.conversation.map(said), ["go", "half"], "what the step had is kept either way");
+      if (marked) {
+        assert.equal(saved.interrupted?.why, why);
+        assert.equal(saved.interrupted?.error.code, "cancelled");
+        assert.match(saved.interrupted!.error.message, new RegExp(why!));
+        assert.equal(saved.interrupted?.clean, undefined, "a cut is not a clean stop");
+      } else assert.equal(saved.interrupted, undefined, "a person's Stop and a budget cut are nobody's to resume");
+      const data = lastTurnEnd(home);
+      assert.equal(data.why, why ?? "stop");
+      assert.equal(data.model, "anthropic/claude-sonnet-5", "the journal names the model the turn ran on");
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+}
+
+test("runner: a turn whose first error was the provider's, and that returned, is interrupted `provider` with the event's kind and retryable; an unknown kind reads as other", async () => {
+  const home = tmp();
+  try {
+    let kind = "connection";
+    const { r, us, session, store } = runner(home, [pkgs[1]], async (_payload, emit) => {
+      emit({ type: "error", message: "provider error: the stream was cut", code: "provider", kind, retryable: true });
+      emit({ type: "error", message: "a later one", code: "provider", kind: "auth" });
+      return { conversation: [{ role: "user", content: textContent("go") }, { role: "assistant", content: textContent("partial") }] };
+    });
+    await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], () => {});
+    const saved = store.load(us.sessions, "s_1")!;
+    assert.equal(saved.interrupted?.why, "provider");
+    assert.deepEqual(saved.interrupted?.error, { message: "provider error: the stream was cut", code: "provider", kind: "connection", retryable: true });
+    assert.deepEqual(new SessionStore(SESSION_ID).summaries(us.sessions)[0].interrupted, { why: "provider", at: saved.interrupted!.at, kind: "connection" }, "the index carries it, so nobody opens every record to find one");
+    assert.equal(lastTurnEnd(home).why, "provider");
+    kind = "no-such-kind";
+    await r.runTurn(us, saved, [{ role: "user", content: textContent("again") }], () => {});
+    assert.equal(store.load(us.sessions, "s_1")!.interrupted?.error.kind, "other", "a label is never worth the turn");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("runner: a step that yields at a round boundary ends the turn clean, `yield` in the record and the journal, and a cancel after the yield does not change that", async () => {
+  const home = tmp();
+  try {
+    const control = new AbortController();
+    const { r, us, session, store } = runner(home, [pkgs[1]], async (_payload, emit) => {
+      emit({ type: "message", message: { role: "assistant", content: textContent("round one done") } });
+      emit({ type: "yield", why: "restart" });
+      control.abort(cancelReason("restart"));
+      return { conversation: [{ role: "user", content: textContent("go") }, { role: "assistant", content: textContent("round one done") }] };
+    });
+    const events: TurnEvent[] = [];
+    await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], (e) => events.push(e), control.signal);
+    assert.ok(events.some((e) => e.type === "yield"), "the event is relayed to watchers");
+    const saved = store.load(us.sessions, "s_1")!;
+    assert.equal(saved.interrupted?.why, "yield");
+    assert.equal(saved.interrupted?.clean, true);
+    assert.equal(saved.interrupted?.error.code, "yield");
+    assert.match(saved.interrupted!.error.message, /round boundary for a restart/);
+    assert.equal(lastTurnEnd(home).why, "yield");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("runner: a turn with no input over an interrupted record is its resume: nothing appended, turn.start says what it resumes, and the chain counts its resumes until a turn with input", async () => {
+  const home = tmp();
+  try {
+    const seen: { conversation: string[]; input: number }[] = [];
+    let fail = true;
+    const { r, us, session, store } = runner(home, [pkgs[1]], async (payload, emit) => {
+      const ctx = payload.ctx as unknown as { conversation: Message[]; turn: { input: Message[] } };
+      seen.push({ conversation: ctx.conversation.map(said), input: ctx.turn.input.length });
+      if (fail) emit({ type: "error", message: "provider error: dropped", code: "provider", kind: "connection", retryable: true });
+      return { conversation: [...ctx.conversation, { role: "assistant", content: textContent(fail ? "cut" : "done") }] };
+    });
+    await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], () => {});
+    const first = store.load(us.sessions, "s_1")!;
+    assert.equal(first.interrupted?.resumes, undefined, "a turn with input starts a chain with no resumes");
+    const from = first.interrupted!.turn;
+    const events: TurnEvent[] = [];
+    await r.runTurn(us, first, [], (e) => events.push(e));
+    assert.deepEqual(events[0], { type: "turn.start", turn: (events[0] as { turn: string }).turn, session: "s_1", resumed: { why: "provider", from } });
+    assert.deepEqual(seen[1], { conversation: ["go", "cut"], input: 0 }, "the step sees the saved conversation, with nothing appended to it");
+    const second = store.load(us.sessions, "s_1")!;
+    assert.equal(second.conversation.filter((m) => m.role === "user").length, 1, "the person's message is not repeated");
+    assert.equal(second.interrupted?.resumes, 1, "interrupted again, it carries the chain's count");
+    assert.deepEqual(new Journal(home).tail(1, { kind: "turn.start" })[0].data?.resumed, { why: "provider", from });
+    await r.runTurn(us, second, [], () => {});
+    assert.equal(store.load(us.sessions, "s_1")!.interrupted?.resumes, 2);
+    await r.runTurn(us, store.load(us.sessions, "s_1")!, [{ role: "user", content: textContent("new ask") }], () => {});
+    assert.equal(store.load(us.sessions, "s_1")!.interrupted?.resumes, undefined, "a turn with input resets the chain");
+    fail = false;
+    const quiet: TurnEvent[] = [];
+    await r.runTurn(us, store.load(us.sessions, "s_1")!, [], (e) => quiet.push(e));
+    const done = store.load(us.sessions, "s_1")!;
+    assert.equal(done.interrupted, undefined, "a resume that finishes clears the mark");
+    const before = done.conversation.length;
+    await r.runTurn(us, done, [], (e) => quiet.push(e));
+    assert.equal((quiet.at(-2) as { resumed?: unknown }).resumed, undefined);
+    assert.equal(store.load(us.sessions, "s_1")!.conversation.length, before + 1, "with nothing to resume, an empty turn still appends no input");
+    assert.ok(quiet.filter((e) => e.type === "turn.start").every((e, i) => i > 0 || (e as { resumed?: unknown }).resumed), "only the turn over a mark says it resumed");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+/**
+ * A process killed outright (SIGKILL, the OOM killer, a backstop) runs no `finally`. The checkpoint is what is
+ * left: the record with what the running step had streamed, about once a second. At the next boot the sweep
+ * closes it the way the turn's own end would have.
+ */
+test("runner: the checkpoint saves what a running step streamed; the boot sweep closes a record a dead process left mid-turn as a crash, with its checkpoint and a turn.end row", async () => {
+  const home = tmp();
+  try {
+    let killed: string | undefined;
+    const { r, us, session, store } = runner(home, [pkgs[1]], async (_payload, emit) => {
+      emit({ type: "message", message: { role: "assistant", content: textContent("looking"), toolCalls: [{ id: "c1", name: "shell", args: { cmd: "ls" } }] } });
+      emit({ type: "tool.result", id: "c1", name: "shell", content: textContent("a b"), result: "a b" });
+      emit({ type: "message", message: { role: "assistant", content: textContent("now this"), toolCalls: [{ id: "c2", name: "shell", args: { cmd: "make" } }] } });
+      await new Promise((done) => setTimeout(done, 30));
+      // The record as a SIGKILL right now would leave it.
+      killed = readFileSync(join(us.sessions, "s_1.json"), "utf8");
+      return undefined;
+    });
+    await r.runTurn(us, session, [{ role: "user", content: textContent("go") }], () => {});
+    const onDisk = JSON.parse(killed!) as SessionRecord;
+    assert.equal(onDisk.turn?.streamed?.length, 3, "the checkpoint holds every message the step streamed");
+    assert.equal(r.recover(us).length, 0, "a record whose turn ended has nothing to sweep");
+    onDisk.turn!.resumes = 2;
+    writeFileSync(join(us.sessions, "s_1.json"), JSON.stringify(onDisk, null, 2));
+    const users = new UserStore(await mirror(memoryStore(), "users"));
+    users.create("bob");
+    const api = new SessionApi(users, new UserspaceLayout(home), { installed: () => [{}], seedSystem: () => {} } as unknown as PackageManager, store, r);
+    assert.deepEqual(api.recover(), ["bob/s_1"]);
+    const saved = store.load(us.sessions, "s_1")!;
+    assert.equal(saved.turn, undefined);
+    assert.deepEqual(saved.conversation.map((m) => [m.role, said(m), m.toolCallId ?? null]), [
+      ["user", "go", null],
+      ["assistant", "looking", null],
+      ["tool", "a b", "c1"],
+      ["assistant", "now this", null],
+      ["tool", "error: the turn was interrupted: Thetis stopped while this turn was running", "c2"],
+    ]);
+    assert.equal(saved.interrupted?.why, "crash");
+    assert.equal(saved.interrupted?.turn, onDisk.turn!.id);
+    assert.equal(saved.interrupted?.error.code, "interrupted");
+    assert.equal(saved.interrupted?.resumes, 2, "the chain's count survives the crash");
+    const end = lastTurnEnd(home);
+    assert.equal(end.turn, onDisk.turn!.id);
+    assert.equal(end.why, "crash");
+    assert.equal((end.error as { code: string }).code, "interrupted");
+    assert.deepEqual(api.recover(), [], "swept once");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+/** A SessionApi over a fake runner whose turns either watch `yielding` ("polite") or ignore it ("stubborn"). */
+async function drainFixture(home: string) {
+  const users = new UserStore(await mirror(memoryStore(), "users"));
+  users.create("bob");
+  users.create("carol");
+  const order: string[] = [];
+  let api!: SessionApi;
+  const fake = {
+    runTurn: async (_us: Userspace, session: SessionRecord, input: Message[], emit: (e: TurnEvent) => void, signal: AbortSignal) => {
+      emit({ type: "turn.start", turn: "t1", session: session.id });
+      const polite = said(input[0]) === "polite";
+      await new Promise<void>((done) => {
+        signal.addEventListener("abort", () => done(), { once: true });
+        if (polite) {
+          const t = setInterval(() => api.yielding(session.user) && (clearInterval(t), done()), 5);
+          signal.addEventListener("abort", () => clearInterval(t), { once: true });
+        }
+      });
+      order.push(`${session.user}/${said(input[0])} ${signal.aborted ? cancelWhy(signal) : "yielded"}`);
+      emit({ type: "turn.end", turn: "t1", session: session.id });
+      return session;
+    },
+  } as unknown as PipelineRunner;
+  api = new SessionApi(users, new UserspaceLayout(home), { installed: () => [{}], seedSystem: () => {} } as unknown as PackageManager, new SessionStore(SESSION_ID), fake);
+  const start = (user: string, text: string) => {
+    const s = api.create(user);
+    const run = (async () => { for await (const _ of api.send(user, s.id, text)) void _; })();
+    return { id: s.id, run };
+  };
+  return { users, api, order, start };
+}
+
+test("reloadWorkspace drain: turns are asked to stop at a round boundary, the ones that do are drained, the rest cancelled for the reload at the deadline, and only then the fence goes", async () => {
+  const home = tmp();
+  try {
+    const { users, api, order, start } = await drainFixture(home);
+    const polite = start("bob", "polite");
+    const stubborn = start("bob", "stubborn");
+    const hers = start("carol", "stubborn");
+    await new Promise((r) => setTimeout(r, 5));
+    const k = { sessions: api, config: { home, control: { quietWaitMs: 150 } }, providers: { forget: (id: string) => order.push(`forget ${id}`) }, services: { reload: async (id: string) => order.push(`reload ${id} (yielding ${api.yielding(id)})`) } } as unknown as KernelServices;
+    const rpc = createRpcHandler(new UserspaceLayout(home).pathFor("bob"), { users, sessions: api, restart: { armed: () => undefined } } as unknown as RpcServices);
+    const carolRpc = createRpcHandler(new UserspaceLayout(home).pathFor("carol"), { users, sessions: api, restart: { armed: () => undefined } } as unknown as RpcServices);
+    assert.equal(await rpc("turns.yielding", {}), false);
+    const reloading = reloadWorkspace(k, "bob", "drain");
+    await new Promise((r) => setTimeout(r, 1));
+    assert.deepEqual(await rpc("turns.yielding", {}), { why: "reload" }, "a drained reload asks this workspace's turns");
+    assert.equal(await carolRpc("turns.yielding", {}), false, "and nobody else's");
+    const answer = await reloading;
+    await Promise.all([polite.run, stubborn.run]);
+    assert.deepEqual(answer, { drained: [polite.id], cancelled: [stubborn.id] });
+    assert.deepEqual(order, ["bob/polite yielded", "bob/stubborn reload", "forget bob", "reload bob (yielding true)"], "the ask stays up until the fence is back");
+    assert.equal(api.yielding("bob"), false, "and comes down after");
+    assert.equal(api.inspect("carol", hers.id).status, "running");
+    // Shutdown: everyone's, as a restart, with `user/session` names.
+    assert.deepEqual(await api.cancelAll("*", "restart"), [`carol/${hers.id}`]);
+    await hers.run;
+    assert.equal(order.at(-1), "carol/stubborn restart");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("sessions.cancel: a fence may say stop or budget, never the installation's reasons; an armed restart makes every fence's turns yield", async () => {
+  const home = tmp();
+  try {
+    const { users, api, order, start } = await drainFixture(home);
+    let clock = Date.now();
+    const latch = new RestartLatch({ config: { minUptimeSecs: 0 }, inFlight: () => api.inFlight(), policy: () => "always", env: { INVOCATION_ID: "t" }, now: () => clock });
+    latch.onFire(() => {});
+    const k = { users, sessions: api, restart: latch } as unknown as RpcServices;
+    const rpc = createRpcHandler(new UserspaceLayout(home).pathFor("bob"), k);
+    const one = start("bob", "stubborn");
+    await new Promise((r) => setTimeout(r, 5));
+    await assert.rejects(rpc("sessions.cancel", { session: one.id, why: "reload" }), code("rpc"));
+    assert.equal(await rpc("sessions.cancel", { session: one.id, why: "budget" }), true);
+    await one.run;
+    assert.deepEqual(order, ["bob/stubborn budget"]);
+    assert.equal(await rpc("turns.yielding", {}), false);
+    latch.arm("new code", "alice");
+    assert.deepEqual(await rpc("turns.yielding", {}), { why: "restart" }, "an armed restart drains everyone");
+    latch.cancel();
+    clock += 1;
+    assert.equal(await rpc("turns.yielding", {}), false);
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("restart.status: a person's fence may read it and gets the countdown only; an admin gets the latch's facts as well", async () => {
+  const home = tmp();
+  try {
+    const users = new UserStore(await mirror(memoryStore(), "users"));
+    users.create("alice", "admin");
+    users.create("bob");
+    const latch = new RestartLatch({ config: { minUptimeSecs: 0 }, inFlight: () => [], policy: () => "always", env: { INVOCATION_ID: "t" } });
+    latch.onFire(() => {});
+    const k = { users, journal: new Journal(home), restart: latch, restartPolicy: () => "always" } as unknown as KernelServices;
+    const control = createControlHandler(k);
+    const bob = createRpcHandler(new UserspaceLayout(home).pathFor("bob"), k as unknown as RpcServices, control);
+    const alice = createRpcHandler(new UserspaceLayout(home).pathFor("alice"), k as unknown as RpcServices, control);
+    assert.deepEqual(await bob("operator.restart.status", {}), { armed: false });
+    latch.arm("an update", "alice");
+    const shown = (await bob("operator.restart.status", {})) as Record<string, unknown>;
+    assert.deepEqual(Object.keys(shown).sort(), ["armed", "at", "deadlineAt", "drain", "reason", "secondsLeft"]);
+    assert.equal(shown.reason, "an update");
+    assert.ok((shown.secondsLeft as number) > 100 && (shown.secondsLeft as number) <= 120);
+    const admin = (await alice("operator.restart.status", {})) as Record<string, unknown>;
+    assert.equal(admin.policy, "always");
+    assert.equal((admin.pending as { by: string }).by, "alice");
+    assert.equal(admin.armed, true, "an admin's answer is the person's plus the latch's facts");
+    await assert.rejects(bob("operator.restart.request", { reason: "x" }), code("unauthorized"), "reading is not arming");
+    latch.cancel();
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("reloadWorkspace is refused while an update installs, with the restart's sentence; a host package's reload (the update job's own) is not", async () => {
+  const home = tmp();
+  try {
+    const order: string[] = [];
+    const k = { sessions: { inFlight: () => [] }, config: { home }, providers: { forget: () => {} }, services: { reload: async (id: string) => order.push(`reload ${id}`) } } as unknown as KernelServices;
+    const lock = join(home, "update", "lock");
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, JSON.stringify({ pid: process.pid }));
+    for (const mode of ["idle", "drain", "force"] as const) {
+      await assert.rejects(reloadWorkspace(k, "bob", mode), (e: { code: string; message: string }) => e.code === "busy" && e.message === "An update is installing; Thetis restarts by itself when it is done.");
+    }
+    assert.deepEqual(order, [], "a refusal touches nothing");
+    await reloadWorkspace(k, "bob", "idle", true);
+    assert.deepEqual(order, ["reload bob"], "the update job reloads what it changed while it holds the lock");
+    rmSync(lock);
+    await reloadWorkspace(k, "bob");
+    assert.deepEqual(order, ["reload bob", "reload bob"], "no lock, no refusal");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("restart.request is refused while an update installs (a live `<home>/update/lock`); a lock with nothing behind it is not an update", async () => {
+  const home = tmp();
+  try {
+    const users = new UserStore(await mirror(memoryStore(), "users"));
+    users.create("alice", "admin");
+    const latch = new RestartLatch({ config: { minUptimeSecs: 0 }, inFlight: () => [], policy: () => "always", env: { INVOCATION_ID: "t" } });
+    latch.onFire(() => {});
+    const k = { users, journal: new Journal(home), restart: latch, restartPolicy: () => "always", config: { home } } as unknown as KernelServices;
+    const control = createControlHandler(k);
+    const lock = join(home, "update", "lock");
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, by: "alice", startedAt: new Date().toISOString() }));
+    const refused = (await control("restart.request", { actor: "alice", reason: "new code" })) as ArmResult;
+    assert.deepEqual(refused, { state: "refused", why: "updating", message: "An update is installing; Thetis restarts by itself when it is done." });
+    assert.deepEqual(k.journal.tail(1, { kind: "restart.refused" })[0].data, { reason: "new code", why: "updating" });
+    assert.equal(latch.armed(), undefined);
+    const old = new Date(Date.now() - 31 * 60_000);
+    utimesSync(lock, old, old);
+    assert.equal(((await control("restart.request", { actor: "alice", reason: "new code" })) as ArmResult).state, "armed", "a heartbeat half an hour old is a dead job");
+    latch.cancel();
+    writeFileSync(lock, JSON.stringify({ pid: 2 ** 22 + 12345 }));
+    assert.equal(((await control("restart.request", { actor: "alice", reason: "again" })) as ArmResult).state, "armed", "so is a process that is gone");
+    latch.cancel();
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

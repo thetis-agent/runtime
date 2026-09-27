@@ -1,11 +1,11 @@
 import { kernelClient } from "../lib/kernel-client.js";
+import { importFresh } from "../lib/fresh-import.js";
 // The guest side of the fence. One instance per userspace, booted by the kernel's fence.
 // It loads package modules from the userspace store and runs steps, tools, enumerators
 // and providers on the kernel's behalf. Protocol: newline-delimited JSON on stdin/stdout.
 import { exec as cpExec } from "node:child_process";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import type {
   EnumeratorContext, ExecOptions, KernelClient, PackageInfo, PackageQuery, PackageStepContext,
   Provider, ProviderCall, ProviderEvent, ServiceEnv, ServiceHandle, SessionInfo, StepContext, StepEnv, ToolEnv, TurnEvent, WatchedTurnEvent,
@@ -126,9 +126,8 @@ function packageQuery(list: PackageInfo[]): PackageQuery {
 async function loadExport(pkg: string, name: string): Promise<(...a: unknown[]) => unknown> {
   const dir = resolve(STORE, "node_modules", pkg);
   const manifest = JSON.parse(await readFile(resolve(dir, "package.json"), "utf8")) as { main?: string };
-  const main = resolve(dir, manifest.main ?? "index.js");
-  const { mtimeMs } = await stat(main);
-  const mod = (await import(`${pathToFileURL(main).href}?v=${mtimeMs}`)) as Record<string, unknown>;
+  // Fresh when any file of the package changed, the modules its entry imports included (`lib/fresh-import`).
+  const mod = await importFresh(resolve(dir, manifest.main ?? "index.js"), dir);
   const fn = mod[name];
   if (typeof fn !== "function") throw new Error(`${pkg} does not export a function named "${name}"`);
   return fn as (...a: unknown[]) => unknown;

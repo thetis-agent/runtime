@@ -2,13 +2,13 @@
 // and the promoted packages, never installed into a fence. The kernel holds `HostExtensions` only and
 // dispatches `host.<name>.<export>` to `call` after checking who is calling; what the package does with the
 // host is its own, over the `HostEnv` the composition root built.
-import { existsSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
 import { HOST_TYPE, type HostEnv, type HostMethod } from "../contracts/index.js";
 import type { HostExtensions, KernelConfig } from "../kernel/index.js";
 import { readManifest } from "../kernel/packages/manifest.js";
 import { CodedError } from "../lib/error.js";
+import { importFresh } from "../lib/fresh-import.js";
 import { findPackage } from "./store.js";
 
 export class HostPackages implements HostExtensions {
@@ -22,16 +22,15 @@ export class HostPackages implements HostExtensions {
   ) {}
 
   /**
-   * Runs one export of the package named. The entry is imported under its modification time, as the
-   * userspace agent imports a package's entry, so an edited file is live on the next call and an unchanged
-   * one is the module already loaded. Whatever the method throws goes back to the caller as it is.
+   * Runs one export of the package named. The package is imported fresh (`lib/fresh-import`), as the
+   * userspace agent imports one: an edit to any of its files -- the entry or a module the entry imports -- is
+   * live on the next call, and an unchanged package is the graph already loaded. Whatever the method throws
+   * goes back to the caller as it is.
    */
   async call(name: string, method: string, args: Record<string, unknown>): Promise<unknown> {
     const dir = this.locate(name);
     const manifest = readManifest(dir);
-    const main = resolve(dir, manifest.main ?? "index.js");
-    const { mtimeMs } = statSync(main);
-    const mod = (await import(`${pathToFileURL(main).href}?v=${mtimeMs}`)) as Record<string, unknown>;
+    const mod = await importFresh(resolve(dir, manifest.main ?? "index.js"), dir);
     const fn = mod[method];
     if (typeof fn !== "function") throw new CodedError(`the host package ${manifest.name} (${name}) does not export a method named ${method}`, "not-found");
     return (fn as HostMethod)(args, this.env);

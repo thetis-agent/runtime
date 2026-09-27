@@ -11,7 +11,7 @@ import type { KernelServices } from "./kernel.js";
 const OPERATOR = "operator.";
 
 /** What a fence's handler needs of the kernel: identity, packages, sessions, providers, tokens, the store and the configuration. */
-export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions" | "providers" | "auth" | "store" | "settings" | "assets">;
+export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions" | "providers" | "auth" | "store" | "settings" | "assets" | "restart">;
 
 /**
  * What code inside a fence may ask the kernel to do. Identity is the fence: every method acts as the
@@ -30,10 +30,11 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
       assert(operator, "no operator channel is configured", "rpc");
       // A person's fence is admitted to the few operator methods that have a person-sized answer: reloading
       // their own workspace (their own id, named: the control table reads no `user` as the system userspace,
-      // which is nobody's own), their own password, their own journal rows, and the host exports a package
-      // declares for themselves. This gate only admits; the control table decides per method, from the actor
-      // set here, and pins every one of them to that person, so nothing admitted reaches anyone else.
-      const own = op === "fence.reload" ? payload.user === us.id : op === "users.passwd" || op === "journal.tail" || op.startsWith("host.");
+      // which is nobody's own), their own password, their own journal rows, the restart countdown everyone
+      // is owed, and the host exports a package declares for themselves. This gate only admits; the control
+      // table decides per method, from the actor set here, and pins every one of them to that person, so
+      // nothing admitted reaches anyone else.
+      const own = op === "fence.reload" ? payload.user === us.id : op === "users.passwd" || op === "journal.tail" || op === "restart.status" || op.startsWith("host.");
       assert(own || actor.role !== "user", "only an admin may use operator methods", "unauthorized");
       return operator(op, { ...payload, actor: us.id }, emit);
     }
@@ -100,8 +101,13 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
           k.providers.call(provider, request, (e) => emit?.(e), signal, grant));
         return null;
       }
+      // A fence may say only `stop` or `budget` (the schema holds it to that): `reload` and `restart` are the
+      // installation's reasons, and a turn cancelled with one is resumed by itself.
       case "sessions.cancel":
-        return k.sessions.cancel(us.id, text("session"));
+        return k.sessions.cancel(us.id, text("session"), args.why);
+      // Asked by a harness at every round boundary, so it reads two fields in memory and nothing else.
+      case "turns.yielding":
+        return k.restart.armed() ? { why: "restart" } : k.sessions.yielding(us.id) ? { why: "reload" } : false;
       case "sessions.delete":
         await k.sessions.delete(us.id, text("session"));
         return null;

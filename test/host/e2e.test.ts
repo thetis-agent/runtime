@@ -303,7 +303,8 @@ test("cancel: the turn ends at once, and the command it started keeps running in
   const kept = kernel.sessions.inspect("alice", s.id).conversation.slice(-3);
   assert.deepEqual(kept.map((m) => m.role), ["user", "assistant", "tool"]);
   assert.equal(kept[1].toolCalls?.[0]?.name, "shell");
-  assert.equal(contentText(kept[2].content), "error: the turn was stopped before this tool ran");
+  // The harness words it (it says whether the tool had started); the kernel only keeps what it returned.
+  assert.match(contentText(kept[2].content), /^error: the turn was stopped (before|while) this tool/);
   // `shell` is not `exec`. Cancelling a turn abandons the wait; it does not reach into the pty and kill
   // what the shell is running, and the session is shared with the person, so killing it would be a
   // surprise rather than a cleanup. The proof that the process survived is the next call meeting it.
@@ -495,7 +496,7 @@ test("fork with a service: replacing stops the origin and starts the fork; delet
   const names = kernel.packages.installed(us).map((p) => p.name);
   assert.ok(names.includes("@alice/svc") && !names.includes("@alice/svc2"));
   assert.deepEqual(kernel.registry.installOf("@alice/svc", "alice")?.source, { kind: "local", ref: "packages/svc" });
-  assert.match((await collect(kernel.sessions.send("alice", s.id, "delete: @alice/svc"))).text, /deleted @alice\/svc and its files at .*packages\/svc\. Live/);
+  assert.match((await collect(kernel.sessions.send("alice", s.id, "delete: @alice/svc"))).text, /deleted @alice\/svc and its files at .*packages\/svc\. /, "tool-exec words when it takes effect");
   assert.ok(!existsSync(dir));
   assert.deepEqual(log().at(-1), "stopped-origin");
 });

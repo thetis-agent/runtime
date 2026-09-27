@@ -10,7 +10,11 @@ import { fileURLToPath } from "node:url";
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "../../../src/kernel");
 // 2026-09-25: the reload guard and the kept partial turn added the lines past 1420; authority over a running turn is the kernel's.
 // 2026-09-26: person-scoped operator and host calls (self exports, own password, own journal); authority over who may act on whom is the kernel's.
-const LIMIT = 1458;
+// 2026-09-27: nothing lost (1455 -> 1550): a cancel says why and the record keeps why a turn stopped, a turn with
+// no input over that mark is its resume, the per-round checkpoint and the boot sweep of a dead process's turns,
+// shutdown saves every turn before the fences close, reloads drain at a round boundary (`turns.yielding`), and
+// everyone may read the restart countdown. Each fixes daemon behaviour that lost work; authority over a running turn is the kernel's.
+const LIMIT = 1560;
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {

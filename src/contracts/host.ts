@@ -36,8 +36,17 @@ export interface HostEnv {
   };
   /** One row in the service plane's journal. `actor` defaults to who called the method. */
   journal(row: { kind: string; target: string; data?: Record<string, unknown>; actor?: string }): void;
-  /** Closes and reopens a person's fence, so a changed grant reaches it; its services start again. */
-  reloadFence(user: string): Promise<void>;
+  /**
+   * Closes and reopens a person's fence, so a changed grant reaches it; its services start again. Refused with
+   * `busy` while a turn runs there, unless `drain`: then running turns are asked to stop at their next round
+   * boundary, waited for, and the rest cancelled for the reload (each is marked for a resume).
+   */
+  reloadFence(user: string, opts?: { drain?: boolean }): Promise<void>;
+  /**
+   * Arms the daemon's restart latch, as `restart.request` does, and journals the answer. Running turns are
+   * asked to stop at their next round boundary. The answer is the latch's own: `refused` means nothing happened.
+   */
+  restart(reason: string, by: string): { state: "armed" | "again" | "refused"; why?: string; message: string };
   log(line: string): void;
 }
 

@@ -1,8 +1,9 @@
 // The latch behind a restart the model can ask for. The whole point is that arming is not restarting: a tool
 // that exited the process immediately would kill the very turn that called it, and the person would see a
-// turn that simply stopped. So `arm` only sets a latch and returns a sentence; the turn finishes, the reply
-// reaches the person, and only then does the latch call its handler — which resolves the same promise SIGINT
-// resolves, so the ordinary shutdown path runs and `Restart=always` turns the clean exit into a restart.
+// turn that simply stopped. So `arm` only sets a latch and returns a sentence; every running turn, the caller's
+// included, pauses at its next round boundary (`turns.yielding`), and only then does the latch call its handler
+// — which resolves the same promise SIGINT resolves, so the ordinary shutdown path runs and `Restart=always`
+// turns the clean exit into a restart. The paused turns continue by themselves when the new process is up.
 //
 // Two clocks, because "wait until nothing is running" and "do not wait forever" are different promises. The
 // deadline is fixed at arming time; the countdown starts on the first tick where nothing is in flight and is
@@ -12,6 +13,8 @@
 // what the kernel says about itself. Each says what happened, why, and what to do instead, and each ends by
 // making clear that nothing happened — the sentence that stops a model inventing a second attempt.
 
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 import { parseSchema } from "./validation.js";
 
@@ -31,7 +34,11 @@ export interface RestartConfig {
    * forward with its reason: it is what makes "restart → it did not help → restart" terminate.
    */
   minUptimeSecs: number;
-  /** How long a restart waits for every turn to end before it goes anyway. Two minutes; see `cut`. */
+  /**
+   * How long a restart waits for every turn to end before it goes anyway: two minutes; see `cut`. An armed
+   * restart asks running turns to stop at their next round boundary (`turns.yielding`), so most end in
+   * seconds; a turn inside one long tool call is what the deadline is for. A drained reload waits as long.
+   */
   quietWaitMs: number;
   /** The announced countdown once it is quiet: long enough that the Cancel button is a real offer. */
   announceMs: number;
@@ -68,7 +75,33 @@ export interface RestartState {
   pending?: Pending;
 }
 
-export type RefusalCode = "off" | "unsupervised" | "no-listener" | "young" | "policy";
+export type RefusalCode = "off" | "unsupervised" | "no-listener" | "young" | "policy" | "updating";
+
+/** What a restart asked for while an update installs is told. `@thetis/host-update` says the same words. */
+export const UPDATING = "An update is installing; Thetis restarts by itself when it is done.";
+
+/** A lock whose heartbeat is older than this has nothing behind it; `@thetis/host-update` breaks it on its next job. */
+const UPDATE_LOCK_STALE_MS = 30 * 60_000;
+
+/**
+ * Whether an update job holds `<home>/update/lock` (`@thetis/host-update`): the file names the process that took
+ * it, and its modification time is the job's heartbeat. A restart then would come up on a half-installed
+ * checkout, so `restart.request` refuses; the job arms the latch itself when it is done (`HostEnv.restart`).
+ */
+export function updateInstalling(home: string, now = Date.now()): boolean {
+  const file = join(home, "update", "lock");
+  try {
+    const beat = statSync(file).mtimeMs;
+    const pid = Number((JSON.parse(readFileSync(file, "utf8")) as { pid?: unknown }).pid);
+    if (now - beat >= UPDATE_LOCK_STALE_MS || !Number.isInteger(pid) || pid <= 0) return false;
+    if (pid === process.pid) return true;
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    // No lock, a half-written one, or a process that is gone (`ESRCH`); `EPERM` is a live process of another user.
+    return (err as { code?: string }).code === "EPERM";
+  }
+}
 
 export type ArmResult = { state: "armed" | "again" | "refused"; why?: RefusalCode; message: string; pending?: Pending };
 
@@ -171,6 +204,14 @@ export class RestartLatch {
     };
   }
 
+  /**
+   * The armed restart, or undefined: what every running turn is asked about at each round boundary (an armed
+   * restart drains), so it reads one field and nothing else -- no clock, no policy, no environment.
+   */
+  armed(): Pending | undefined {
+    return this.pending;
+  }
+
   /** On shutdown. The process is going anyway, so a pending restart is moot; leaving it would be a lie. */
   close(): void {
     this.disarm();
@@ -250,6 +291,8 @@ export class RestartLatch {
         );
       case "policy":
         return policyRefusal(this.policy?.() ?? null);
+      case "updating":
+        return UPDATING;
     }
   }
 }
@@ -268,15 +311,22 @@ function policyRefusal(policy: string | null): string {
   );
 }
 
+/**
+ * How long, past the countdown, until Thetis answers again: the clean exit, systemd's `RestartSec=2`, and a new
+ * process opening its sockets. An estimate, so the sentence says "about".
+ */
+const BACK_MS = 10_000;
+
+/**
+ * What arming says. It is true from the moment it is said: `turns.yielding()` answers "restart" at once, so the
+ * turn that armed it pauses at its next round boundary and its reply is finished only after the restart. So
+ * this never promises that the reply reaches anyone first.
+ */
 function armed(p: Pending, config: RestartConfig): string {
   return (
-    `A restart is armed: ${p.reason} (asked by ${p.by}). Nothing has happened yet, and nothing will until ` +
-    "this turn is over — my reply reaches the person first, which is the point. Thetis then waits for every " +
-    `turn running anywhere to finish, counts down ${secs(config.announceMs)} seconds where everyone can see ` +
-    `it, and exits so that systemd starts it again. If turns are still running ${secs(config.quietWaitMs)} ` +
-    "seconds from now it restarts anyway and the record names whose turn it cut. Until it fires it can be " +
-    "called off, from the Cancel button on the page or `thetis restart cancel` at the host; do not arm a " +
-    "second one."
+    `Restart armed: ${p.reason} (asked by ${p.by}). Running replies pause at their next safe point and continue ` +
+    `by themselves when Thetis is back (about ${secs(config.announceMs + BACK_MS)} s). Until it fires it can be ` +
+    "called off, from the Cancel button on the page or `thetis restart cancel` at the host; do not arm a second one."
   );
 }
 

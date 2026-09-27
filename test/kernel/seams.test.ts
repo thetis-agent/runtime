@@ -5,10 +5,20 @@
 // Everything else a package needs travels through these as data the daemon never interprets.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Fences, PackageInfo, SessionRecord, Userspace } from "../../src/contracts/index.js";
 import { CONFIG_TIERS, defaultConfig } from "../../src/kernel/config.js";
+import { Enumerator } from "../../src/kernel/pipeline/enumerator.js";
+import { PipelineRunner } from "../../src/kernel/pipeline/runner.js";
+import type { PackageManager } from "../../src/kernel/packages/manager.js";
+import { SESSION_ID } from "../../src/kernel/sessions/api.js";
+import { textContent } from "../../src/lib/content.js";
+import { Journal } from "../../src/lib/journal.js";
+import { SessionStore } from "../../src/lib/session-store.js";
+import { UserspaceLayout } from "../../src/lib/userspace-layout.js";
 
 const SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../../../src");
 const source = (rel: string): string => readFileSync(resolve(SOURCE, rel), "utf8");
@@ -33,7 +43,42 @@ test("a fence may ask the kernel exactly these methods", () => {
     "providers.call",
     "sessions.ask", "sessions.askText", "sessions.cancel", "sessions.complete", "sessions.create", "sessions.delete", "sessions.inspect", "sessions.list", "sessions.send", "sessions.watch",
     "store.clear", "store.delete", "store.get", "store.list", "store.set",
+    // 2026-09-27: a harness asks at each round boundary whether the installation wants the turn to stop there.
+    "turns.yielding",
   ]);
+});
+
+/**
+ * The resume is not a verb: it is `sessions.send(id, [])`, a turn with no input, which runs the whole pipeline
+ * over the saved conversation and appends nothing. The Retry button, the automatic resume after a restart or a
+ * reload, `resume_subagent` and the workflows engine all stand on this, so it is pinned here as a seam.
+ */
+test("a turn with no input appends nothing and runs the pipeline", async () => {
+  const home = mkdtempSync(join(tmpdir(), "thetis-seam-"));
+  try {
+    const steps: string[] = [];
+    let seen: unknown[] = [];
+    const fences = {
+      request: async (_us: Userspace, _op: string, payload: { export: string; ctx: { conversation: unknown[] } }) => {
+        steps.push(payload.export);
+        seen = payload.ctx.conversation;
+        return payload.export === "execute" ? { conversation: [...payload.ctx.conversation, { role: "assistant", content: textContent("continued") }] } : undefined;
+      },
+    } as unknown as Fences;
+    const plan = [{ name: "@a/h", version: "1", type: "harness", description: "", root: "/x", thetis: { type: "harness", steps: [{ id: "p", phase: "prompt", export: "prompt" }, { id: "e", phase: "execute", export: "execute" }] } }] as PackageInfo[];
+    const config = defaultConfig(home, "/proj");
+    const store = new SessionStore(SESSION_ID);
+    const runner = new PipelineRunner(config, { effective: async () => ({}) }, new Enumerator(config, fences), { installed: () => plan } as unknown as PackageManager, fences, store, new Journal(home));
+    const us = new UserspaceLayout(home).ensure("bob");
+    const conversation = [{ role: "user" as const, content: textContent("go") }, { role: "assistant" as const, content: textContent("half") }];
+    const session: SessionRecord = { id: "s_1", user: "bob", createdAt: "0", updatedAt: "0", turns: 1, conversation, harness: {} };
+    await runner.runTurn(us, session, [], () => {});
+    assert.deepEqual(steps, ["prompt", "execute"], "every step ran");
+    assert.deepEqual(seen, conversation, "the steps saw the saved conversation as it was");
+    assert.deepEqual(store.load(us.sessions, "s_1")!.conversation.map((m) => m.role), ["user", "assistant", "assistant"], "and the only thing added is what the steps added");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
 });
 
 test("the operator table is exactly these methods, plus host packages under host.<name>.<export>", () => {

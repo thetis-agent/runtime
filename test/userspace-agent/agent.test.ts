@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -156,4 +156,50 @@ test("a step emits, runs a tool under its package's env, and a cancel aborts its
     rmSync(root, { recursive: true, force: true });
   }
   assert.deepEqual(stderr, [], "the agent logged nothing");
+});
+
+/**
+ * The agent imports a package's entry keyed by the newest mtime of the whole package, and every module the
+ * entry imports inside the package carries that key: an edit to `lib/` is live on the next step, where before
+ * only an edit to the entry itself was, and the rest waited for a reload (2026-09-27).
+ */
+test("a step's package is fresh as a whole: a module its entry imports, edited, is live on the next call", async () => {
+  const root = mkdtempSync(join(tmpdir(), "thetis-agent-"));
+  const pkg = join(root, "store", "node_modules", "@t", "fresh");
+  mkdirSync(join(pkg, "lib"), { recursive: true });
+  writeFileSync(join(pkg, "package.json"), JSON.stringify({ name: "@t/fresh", version: "1.0.0", type: "module", main: "index.js" }));
+  writeFileSync(join(pkg, "index.js"), 'import * as lib from "./lib/v.js";\nexport async function read() { return { harness: { v: lib.v } }; }\n');
+  const edit = (text: string, ahead: number) => {
+    writeFileSync(join(pkg, "lib", "v.js"), text);
+    const at = new Date(Date.now() + ahead * 1000);
+    utimesSync(join(pkg, "lib", "v.js"), at, at);
+  };
+  edit("export const v = 1;\n", 1);
+  const child = spawn(process.execPath, [AGENT], { env: { ...process.env, THETIS_USERSPACE: root }, stdio: ["pipe", "pipe", "pipe"] });
+  const frames: Record<string, unknown>[] = [];
+  const waiters: (() => void)[] = [];
+  createInterface({ input: child.stdout }).on("line", (line) => {
+    frames.push(JSON.parse(line));
+    waiters.splice(0).forEach((w) => w());
+  });
+  const send = (m: unknown) => child.stdin.write(JSON.stringify(m) + "\n");
+  const result = async (id: string): Promise<unknown> => {
+    for (;;) {
+      const hit = frames.find((f) => f.id === id && ("result" in f || "error" in f));
+      if (hit) return (hit as { result?: { harness: { v: unknown } }; error?: string }).result?.harness.v ?? hit.error;
+      await new Promise<void>((w) => waiters.push(w));
+    }
+  };
+  const ctx = { session: { id: "s1", user: "alice" }, turn: { id: "t1", input: [] }, conversation: [], call: { model: "m", messages: [], tools: [], params: {} }, harness: {}, packages: [], config: {} };
+  try {
+    send({ id: "r1", op: "step", payload: { package: "@t/fresh", export: "read", phase: "execute", ctx } });
+    assert.equal(await result("r1"), 1);
+    edit("export const v = 2;\n", 5);
+    send({ id: "r2", op: "step", payload: { package: "@t/fresh", export: "read", phase: "execute", ctx } });
+    assert.equal(await result("r2"), 2, "the entry is unchanged; the module it imports was edited");
+  } finally {
+    child.stdin.end();
+    await new Promise<void>((done) => child.once("exit", () => done()));
+    rmSync(root, { recursive: true, force: true });
+  }
 });

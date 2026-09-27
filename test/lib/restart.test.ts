@@ -42,7 +42,7 @@ test("restart latch: it waits for the installation to go quiet, then fires one a
   const armed = latch.arm("the new provider code is on disk", "u_alice");
   assert.equal(armed.state, "armed");
   assert.equal(armed.pending?.deadlineAt, 120_000);
-  assert.match(armed.message, /Nothing has happened yet/);
+  assert.match(armed.message, /^Restart armed: .*Running replies pause at their next safe point and continue by themselves when Thetis is back \(about \d+ s\)/);
 
   t = 1_000;
   await ticks();

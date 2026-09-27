@@ -55,6 +55,6 @@ export interface KernelServices {
   restartPolicy(): string | null;
   /** Removes the user: its password and sessions, its fence, its packages, its grants, its settings and its userspace. */
   removeUser(id: string): Promise<void>;
-  /** Closes every fence, writes out every record, and closes the store. */
+  /** Cancels every running turn as a restart and awaits its save, then closes every fence, writes out every record, and closes the store. */
   shutdown(): Promise<void>;
 }

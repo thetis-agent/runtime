@@ -1,7 +1,7 @@
 import { contentText, normalizeMessage, normalizeTurnInput } from "../../lib/content.js";
-import type { Message, TurnInput, SessionRecord, SessionSummaryRef, TurnEvent, TurnOptions, UserRecord, Userspace, WatchedTurnEvent } from "../../contracts/index.js";
+import type { CancelWhy, Message, TurnInput, SessionRecord, SessionSummaryRef, TurnEvent, TurnOptions, UserRecord, Userspace, WatchedTurnEvent } from "../../contracts/index.js";
 import { AsyncQueue } from "../../lib/async.js";
-import { assert } from "../../lib/error.js";
+import { assert, cancelReason } from "../../lib/error.js";
 import { newId, now } from "../../lib/ids.js";
 import { summarize, type SessionStore } from "../../lib/session-store.js";
 import { TurnTaps } from "../../lib/turn-taps.js";
@@ -23,6 +23,8 @@ export class SessionApi {
   private readonly running = new Map<string, { control: AbortController; done: Promise<void> }>();
   /** Every turn's events also reach the user's watchers (`watch`), whoever started the turn. */
   private readonly taps = new TurnTaps();
+  /** The users whose workspace a reload is draining: their turns are asked to stop at the next round boundary. */
+  private readonly draining = new Set<string>();
 
   constructor(
     private readonly users: UserStore,
@@ -72,12 +74,16 @@ export class SessionApi {
     return queue;
   }
 
-  /** Stops the running turn of a session. Returns false when no turn is running. The turn ends with an `error` event of code `cancelled`. */
-  cancel(userId: string, sessionId: string): boolean {
+  /**
+   * Stops the running turn of a session. Returns false when no turn is running. The turn ends with an `error`
+   * event of code `cancelled`; `why` says whose cancel it was, and only `reload` and `restart` mark the record
+   * for a resume.
+   */
+  cancel(userId: string, sessionId: string, why: CancelWhy = "stop"): boolean {
     this.users.authorize(userId);
     const turn = this.running.get(`${userId}/${sessionId}`);
     if (!turn) return false;
-    turn.control.abort();
+    turn.control.abort(cancelReason(why));
     return true;
   }
 
@@ -90,22 +96,65 @@ export class SessionApi {
     this.load(us, sessionId);
     const turn = this.running.get(`${userId}/${sessionId}`);
     if (turn) {
-      turn.control.abort();
+      turn.control.abort(cancelReason("stop"));
       await turn.done;
     }
     this.store.remove(us.sessions, sessionId);
   }
 
   /**
-   * Cancels every turn running in a user's sessions and waits for each one's closing save: what a reload of
-   * that workspace does before it closes the fence, so a turn ends as a cancel with its partial result kept
-   * rather than dying with the process. Answers the session ids it cancelled.
+   * Cancels every turn running in a user's sessions -- or everyone's, for `"*"` -- and waits for each one's
+   * closing save: what a reload of that workspace does before it closes the fence, and what a shutdown does
+   * before it closes them all, so a turn ends with its partial result kept and marked `why` rather than dying
+   * with the process. Answers what it cancelled: session ids for one user, `user/session` for `"*"`.
    */
-  async cancelAll(userId: string): Promise<string[]> {
-    const mine = [...this.running].filter(([key]) => key.startsWith(`${userId}/`));
-    for (const [, turn] of mine) turn.control.abort();
+  async cancelAll(userId: string, why: CancelWhy): Promise<string[]> {
+    const mine = [...this.running].filter(([key]) => userId === "*" || key.startsWith(`${userId}/`));
+    for (const [, turn] of mine) turn.control.abort(cancelReason(why));
     await Promise.all(mine.map(([, turn]) => turn.done.catch(() => {})));
-    return mine.map(([key]) => key.slice(userId.length + 1));
+    return mine.map(([key]) => (userId === "*" ? key : key.slice(userId.length + 1)));
+  }
+
+  /** Whether a reload is draining this user's workspace: `turns.yielding` answers from this, with no I/O. */
+  yielding(userId: string): boolean {
+    return this.draining.has(userId);
+  }
+
+  /**
+   * Drains a user's workspace for `then` (the reload): running turns are asked to stop at their next round
+   * boundary and waited for, up to `waitMs`; those still running then are cancelled with `reload` and their
+   * closing saves awaited. The ask stays up until `then` is done, so a turn started meanwhile yields too.
+   * Answers the sessions that stopped by themselves and those that were cut.
+   */
+  async drain(userId: string, waitMs: number, then: () => Promise<void>): Promise<{ drained: string[]; cancelled: string[] }> {
+    const mine = () => [...this.running].filter(([key]) => key.startsWith(`${userId}/`));
+    const seen = new Set(mine().map(([key]) => key));
+    this.draining.add(userId);
+    try {
+      const deadline = Date.now() + waitMs;
+      for (let left = mine(); left.length && Date.now() < deadline; left = mine()) {
+        for (const [key] of left) seen.add(key);
+        let timer: NodeJS.Timeout | undefined;
+        await Promise.race([Promise.all(left.map(([, t]) => t.done.catch(() => {}))), new Promise((r) => (timer = setTimeout(r, deadline - Date.now())))]);
+        clearTimeout(timer);
+      }
+      const cancelled = await this.cancelAll(userId, "reload");
+      await then();
+      const drained = [...seen].map((key) => key.slice(userId.length + 1)).filter((id) => !cancelled.includes(id));
+      return { drained, cancelled };
+    } finally {
+      this.draining.delete(userId);
+    }
+  }
+
+  /**
+   * The boot sweep: every record a dead process left mid-turn is closed as `interrupted` with `why: crash`
+   * (see `PipelineRunner.recover`). Only the serving daemon runs it, before anything can start a turn: a
+   * short-lived command's kernel may share the home with a live one. Answers `user/session` for each.
+   */
+  recover(): string[] {
+    return this.users.list().filter((u) => this.userspaces.exists(u.id))
+      .flatMap((u) => this.runner.recover(this.userspaces.pathFor(u.id)).map((id) => `${u.id}/${id}`));
   }
 
   /**

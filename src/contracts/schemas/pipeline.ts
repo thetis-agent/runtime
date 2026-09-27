@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ContentEventSchema, ContentSchema, ExtensionEventSchema } from "./content.js";
-import { MessageInputSchema, MessagesInputSchema, ProviderCallInputSchema, ToolCallSchema, UsageSchema } from "./messages.js";
+import { FailureFieldsShape, MessageInputSchema, MessagesInputSchema, ProviderCallInputSchema, ToolCallSchema, UsageSchema } from "./messages.js";
 
 export const StepRefSchema = z.looseObject({ package: z.string().min(1), export: z.string().min(1), id: z.string().min(1).optional(), phase: z.string().min(1).optional() });
 export const StepPlanSchema = z.array(StepRefSchema);
@@ -11,7 +11,8 @@ const StallTargetSchema = z.looseObject({ kind: z.enum(["tool", "model"]), id: z
 export const TurnEventSchema = z.discriminatedUnion("type", [
   ContentEventSchema, ExtensionEventSchema,
   z.looseObject({ type: z.literal("context.updated") }),
-  z.looseObject({ type: z.literal("turn.start"), turn: z.string(), session: z.string() }),
+  // `resumed`: a turn with no input over a record that was interrupted, and why that one stopped.
+  z.looseObject({ type: z.literal("turn.start"), turn: z.string(), session: z.string(), resumed: z.looseObject({ why: z.string(), from: z.string() }).optional() }),
   z.looseObject({ type: z.literal("step.start"), step: StepRefSchema }),
   z.looseObject({ type: z.literal("step.end"), step: StepRefSchema, ms: z.number().nonnegative() }),
   z.looseObject({ type: z.literal("text"), delta: z.string() }),
@@ -22,7 +23,9 @@ export const TurnEventSchema = z.discriminatedUnion("type", [
   z.looseObject({ type: z.literal("usage"), usage: UsageSchema }),
   z.looseObject({ type: z.literal("stall"), what: StallTargetSchema, ms: z.number().nonnegative() }),
   z.looseObject({ type: z.literal("nudge"), what: StallTargetSchema, ms: z.number().nonnegative(), decision: z.enum(["continue", "cancel"]), by: z.enum(["model", "rule"]), why: z.string() }),
-  z.looseObject({ type: z.literal("error"), message: z.string(), code: z.string().optional() }),
+  z.looseObject({ type: z.literal("error"), message: z.string(), code: z.string().optional(), ...FailureFieldsShape }),
+  // The step stopped at a round boundary because the installation asked it to (`turns.yielding()`): nothing is partial.
+  z.looseObject({ type: z.literal("yield"), why: z.string() }),
   z.looseObject({ type: z.literal("turn.end"), turn: z.string(), session: z.string() }),
 ]);
 export const WatchedTurnEventSchema = z.looseObject({

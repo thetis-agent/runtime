@@ -38,6 +38,13 @@ export const ProviderCallInputSchema = ProviderCallSchema.extend({
   messages: MessagesInputSchema, tools: z.array(ToolSpecSchema).default([]), params: z.record(z.string(), z.unknown()).default({}),
 });
 export const UsageSchema = z.record(z.string(), z.number());
+/**
+ * What kind of failure an error was, in one word a gateway can turn into a sentence. An unknown word reads
+ * as `other` rather than failing the event or the record that carries it: a label is never worth a turn.
+ */
+export const FailureKindSchema = z.enum(["connection", "rate-limit", "overloaded", "timeout", "credits", "context", "output-limit", "filter", "auth", "other"]);
+/** The optional classification an error may carry. `retryable`: sending the same request again may work. */
+export const FailureFieldsShape = { retryable: z.boolean().optional(), kind: FailureKindSchema.catch("other").optional() };
 export const ProviderEventSchema = z.discriminatedUnion("type", [
   ContentEventSchema, ExtensionEventSchema,
   z.looseObject({ type: z.literal("request"), body: z.record(z.string(), z.unknown()), at: z.string() }),
@@ -45,7 +52,8 @@ export const ProviderEventSchema = z.discriminatedUnion("type", [
   z.looseObject({ type: z.literal("reasoning"), delta: z.string() }),
   z.looseObject({ type: z.literal("tool_call"), call: ToolCallSchema }),
   z.looseObject({ type: z.literal("usage"), usage: UsageSchema }),
-  z.looseObject({ type: z.literal("error"), message: z.string() }),
+  // `status` is the HTTP status when there was one; `retryAfterMs` what the server asked the caller to wait.
+  z.looseObject({ type: z.literal("error"), message: z.string(), ...FailureFieldsShape, status: z.number().optional(), retryAfterMs: z.number().nonnegative().optional() }),
 ]);
 export const ModelDescriptorSchema = z.looseObject({ id: z.string(), name: z.string().optional(), provider: z.string().optional() });
 export const ModelChoicesSchema = z.looseObject({ model: z.string(), models: z.array(ModelDescriptorSchema) });

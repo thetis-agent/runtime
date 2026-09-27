@@ -15,8 +15,9 @@ import { basename, join } from "node:path";
  * reporting them as stale would send someone to kill their own shells for nothing.
  *
  * What is left is module code, and all of it counts — not only a service's entry. A package's entry is
- * imported with a modification-time query, but the files that entry *imports* are not, so they are only
- * re-read by a new agent process. That is why this walks a whole package root rather than one file.
+ * imported with a query keyed by the newest of these (`codeMtime`), and the files it imports carry the same
+ * query (`lib/fresh-import`), so a step or tool is fresh on its next call; a service started once is not, and
+ * only a reload starts it again. That is why this walks a whole package root rather than one file.
  */
 const SKIP_NAMES = new Set(["node_modules", ".git", "ui", "skills", "bench"]);
 
@@ -42,6 +43,14 @@ export function newestMtime(dirs: string[]): number {
   if (cache.size >= CACHE_MAX) cache.clear();
   cache.set(key, { at, mtime });
   return mtime;
+}
+
+/**
+ * The newest `mtimeMs` of the module code under one package root, read now and never cached: the fingerprint a
+ * fresh import is keyed by (see `lib/fresh-import`), where "edited, then called" must see the edit.
+ */
+export function codeMtime(dir: string): number {
+  return walk(dir);
 }
 
 function walk(dir: string): number {

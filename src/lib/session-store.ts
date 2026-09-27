@@ -4,7 +4,7 @@ import { contentText } from "./content.js";
 // person with sixty of them was reading many megabytes to draw a sidebar. The index is derived, never
 // authoritative: it is rebuilt from the records when it is missing, and every save of a record updates
 // its entry, so the two cannot drift for long. Who may list or save is the kernel's question.
-import { existsSync, readdirSync, unlinkSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import type { SessionRecord } from "../contracts/index.js";
@@ -45,8 +45,17 @@ export function summarize(rec: SessionRecord): SessionSummary {
     last: clipText(contentText(said.at(-1)?.content)),
   };
   if (rec.parent) s.parent = rec.parent;
+  const cut = rec.interrupted;
+  if (cut) s.interrupted = { why: cut.why ?? "failed", at: cut.at, ...(cut.resumes ? { resumes: cut.resumes } : {}), ...(cut.error.kind ? { kind: cut.error.kind } : {}) };
   return s;
 }
+
+/**
+ * A record's top-level `turn` key as `writeJson` lays it out: two spaces in, at the start of a line. Nothing
+ * nested sits at that depth and a JSON string holds no raw newline, so the text alone answers "was a turn in
+ * progress when this was written" without parsing megabytes of conversation.
+ */
+const TURN_MARKER = /^ {2}"turn": \{/m;
 
 export class SessionStore {
   private readonly records: JsonDirStore<SessionRecord>;
@@ -82,6 +91,17 @@ export class SessionStore {
     const file = resolve(dir, `${id}.json`);
     if (existsSync(file)) unlinkSync(file);
     writeJson(resolve(dir, INDEX), index);
+  }
+
+  /**
+   * The ids of the records written while a turn was in progress and never closed: what a process that died
+   * mid-turn leaves behind. Read at boot, before any turn runs, when every such marker is a leftover.
+   */
+  unfinished(dir: string): string[] {
+    if (!existsSync(dir)) return [];
+    return readdirSync(dir)
+      .filter((f) => f.startsWith("s_") && f.endsWith(".json") && TURN_MARKER.test(readFileSync(resolve(dir, f), "utf8")))
+      .map((f) => f.slice(0, -5));
   }
 
   /** Every summary, in no particular order. Builds the index from the records the first time a directory has none. */

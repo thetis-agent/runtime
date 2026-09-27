@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { UserRoleSchema, UserStatusSchema, UserRecordSchema, AuthUserSchema, SessionInfoSchema, SessionRecordSchema, SessionSummaryRefSchema } from "./schemas/identity.js";
+import type { UserRoleSchema, UserStatusSchema, UserRecordSchema, AuthUserSchema, SessionInfoSchema, SessionRecordSchema, SessionSummaryRefSchema, InterruptedSchema, InterruptedWhySchema } from "./schemas/identity.js";
 // Who: users and their roles, the userspace each one owns, and the sessions inside it.
 
 export const SYSTEM_USER = "_system";
@@ -53,6 +53,16 @@ export interface Userspace {
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 
 export type SessionRecord = z.infer<typeof SessionRecordSchema>;
+
+/** A turn that did not finish, as the record keeps it until the next turn starts. See `SessionRecordSchema`. */
+export type Interrupted = z.infer<typeof InterruptedSchema>;
+export type InterruptedWhy = z.infer<typeof InterruptedWhySchema>;
+
+/**
+ * Why a running turn was cancelled. `stop` is a person's Stop and `budget` a workflow's cut: both leave no
+ * `interrupted` mark. `reload` and `restart` are the installation's, and the turn is marked for a resume.
+ */
+export type CancelWhy = "stop" | "budget" | "reload" | "restart";
 
 /** What a list of sessions says about each without opening its record. `first` and `last` are clipped to 200 characters. */
 export type SessionSummaryRef = z.infer<typeof SessionSummaryRefSchema>;
