@@ -181,6 +181,19 @@ export interface UiStreamEnv extends UiCommandEnv {
 /** The export a `ui.commands[]` entry with `stream: true` names. Each value it yields is one event on the page. */
 export type UiStream = (args: Record<string, unknown>, env: UiStreamEnv) => AsyncIterable<unknown>;
 
+/** What a frame export answers: a document or a file for the sandboxed frame, as a raw GET answers. */
+export interface UiFrameAnswer {
+  status?: number;
+  headers: Record<string, string>;
+  body: NodeJS.ReadableStream | Uint8Array | string;
+}
+/**
+ * The export a `ui.commands[]` entry with `kind: "frame"` names. The page mints a token for `args` once; the
+ * browser then fetches `f/<token>/<path>` with no cookie, and the gateway calls this with the minted `args`
+ * and the relative `path` (`""` for the root). Everything it answers is served into a sandboxed iframe.
+ */
+export type UiFrame = (args: Record<string, unknown>, env: UiCommandEnv, req: { path: string }) => Promise<UiFrameAnswer> | UiFrameAnswer;
+
 export interface ServiceEnv extends StepEnv {
   config: Record<string, unknown>;
   log(line: string): void;

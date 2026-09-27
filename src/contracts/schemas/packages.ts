@@ -19,9 +19,13 @@ export const UiEntryDeclSchema = z.looseObject({
   wide: z.boolean().optional(), note: z.string().optional(), under: z.string().optional(),
   /** Least role allowed to see the entry; omitted means any signed-in person. */
   role: UserRoleSchema.optional(), order: z.number().optional(),
+  /** Sidebar entries only: `head` (default) mounts under the brand, `section` is a collapsible list above the conversations. */
+  slot: z.enum(["head", "section"]).optional(),
 });
 export const UiCommandDeclSchema = z.looseObject({
   verb: z.string(), export: z.string(), label: z.string().optional(), role: UserRoleSchema.optional(), stream: z.boolean().optional(),
+  /** `json` (default) answers JSON; `raw` carries bytes; `frame` serves documents into a sandboxed iframe by token. */
+  kind: z.enum(["json", "raw", "frame"]).optional(), maxBytes: z.number().optional(),
 });
 export const UiDeclSchema = z.looseObject({
   dir: z.string().optional(), entry: z.string().optional(), style: z.string().optional(),
@@ -29,6 +33,8 @@ export const UiDeclSchema = z.looseObject({
   places: z.array(UiEntryDeclSchema).optional(), sidebar: z.array(UiEntryDeclSchema).optional(),
   chips: z.array(UiEntryDeclSchema).optional(), composer: z.array(UiEntryDeclSchema).optional(),
   shelf: z.array(UiEntryDeclSchema).optional(), statusbar: z.array(UiEntryDeclSchema).optional(),
+  /** Kinds of tab a package opens beside the conversations, each by id. */
+  tabs: z.array(UiEntryDeclSchema).optional(),
   commands: z.array(UiCommandDeclSchema).optional(),
 });
 export const ThetisFieldSchema = z.looseObject({
