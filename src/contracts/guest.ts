@@ -42,8 +42,10 @@ export interface StepEnv {
    * Runs a tool export of a package installed in this fence, under that package's own env, the way the
    * agent runs one for the kernel. This is how a harness's call step runs what the model asked for: in the
    * caller's fence, with the tool package's effective configuration (`kernel.config.effective`) passed in.
+   * `model` is the model of the turn the tool runs in (`call.model` as the harness has it), so a tool that
+   * starts another turn -- a subagent -- can keep the conversation's model rather than the installation's.
    */
-  invokeTool(ref: Pick<ToolSpec, "package" | "export" | "name">, args: Record<string, unknown>, opts: { session: SessionInfo; config: Record<string, unknown>; signal?: AbortSignal }): Promise<ToolOutput>;
+  invokeTool(ref: Pick<ToolSpec, "package" | "export" | "name">, args: Record<string, unknown>, opts: { session: SessionInfo; config: Record<string, unknown>; model?: string; signal?: AbortSignal }): Promise<ToolOutput>;
   kernel: KernelClient;
 }
 
@@ -154,6 +156,8 @@ export type Step = (ctx: PackageStepContext) => Promise<StepResult | void>;
 export interface ToolEnv extends StepEnv {
   session: SessionInfo;
   config: Record<string, unknown>;
+  /** The model of the turn this tool runs in. Absent when the caller did not say, in which case a new turn falls to the configured default. */
+  model?: string;
   /** Aborted when the turn is stopped while the tool runs. A tool that started something stops it here. */
   signal?: AbortSignal;
 }

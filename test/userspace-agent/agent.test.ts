@@ -14,7 +14,7 @@ const AGENT = resolve(dirname(fileURLToPath(import.meta.url)), "../../src/usersp
 const PROBE = `
 export async function probe(ctx) {
   const events = [];
-  const tool = await ctx.env.invokeTool({ package: "@t/p", export: "greet", name: "greet" }, { who: "bob" }, { session: ctx.session, config: { k: 1 }, signal: ctx.signal });
+  const tool = await ctx.env.invokeTool({ package: "@t/p", export: "greet", name: "greet" }, { who: "bob" }, { session: ctx.session, config: { k: 1 }, model: ctx.call.model, signal: ctx.signal });
   ctx.emit({ type: "text", delta: "hi" });
   let cancelled;
   try {
@@ -25,7 +25,7 @@ export async function probe(ctx) {
   return { harness: { tool, events, cancelled, aborted: ctx.signal.aborted } };
 }
 export async function greet(args, env) {
-  return "hello " + args.who + " config=" + JSON.stringify(env.config) + " session=" + env.session.id + " storage=" + typeof env.storage + " signal=" + (env.signal instanceof AbortSignal);
+  return "hello " + args.who + " config=" + JSON.stringify(env.config) + " session=" + env.session.id + " model=" + env.model + " storage=" + typeof env.storage + " signal=" + (env.signal instanceof AbortSignal);
 }
 `;
 
@@ -140,7 +140,7 @@ test("a step emits, runs a tool under its package's env, and a cancel aborts its
     assert.equal(cancel.rpcCancel, rpc.rpc, "the agent tells the kernel which call to stop serving");
     const done = await next<{ result: { harness: Record<string, unknown> } }>((f) => f.id === "r1" && ("result" in f || "error" in f));
     assert.deepEqual(done.result.harness, {
-      tool: "hello bob config={\"k\":1} session=s1 storage=function signal=true",
+      tool: "hello bob config={\"k\":1} session=s1 model=m storage=function signal=true",
       events: [{ type: "text", delta: "one" }, { type: "text", delta: "two" }],
       cancelled: "cancelled",
       aborted: true,

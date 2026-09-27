@@ -13,7 +13,7 @@ The protocol is one JSON object per line: requests in on `stdin`, events and res
 | `ping` | Answers `pong`. The kernel sends it once after the fence opens. |
 | `exec` | Runs a command with `/bin/bash` in the home directory. Output is capped at 30,000 characters per stream. |
 | `step` | Loads the export, calls it with the step context plus a `packages` query and `env`, returns `conversation`, `call`, and `harness`. |
-| `tool` | Loads the export, calls it with the arguments and a `ToolEnv` (`env` plus `session` and `config`). |
+| `tool` | Loads the export, calls it with the arguments and a `ToolEnv` (`env` plus `session`, `config` and the turn's `model`). |
 | `enumerate` | Loads the export, calls it with `session`, `packages`, and `phases`. |
 | `provider.models`, `provider.call` | Builds the provider once per package, export, and configuration; streams each `ProviderEvent` as an event line. |
 | `service.start`, `service.stop` | Starts the export with a `ServiceEnv` (`env` plus `config` and `log`) and keeps one instance per package; `stop` calls its `stop()`. Every service exits with the agent. |
