@@ -68,7 +68,7 @@ export function nodePrefix(): string {
  * entries are written in -- `orderIntents` puts them parents-first, which is the only order in which each
  * one survives. See `plan.ts` for why that matters and what it cost to learn.
  */
-export function fencePlan(us: Userspace, layout: BwrapLayout): MountIntent[] {
+export function fencePlan(us: Userspace, layout: BwrapLayout, readLink: (p: string) => string | undefined = linkTarget): MountIntent[] {
   const intents: MountIntent[] = [
     { kind: "dev", target: "/dev", why: "the fence's own /dev" },
     { kind: "proc", target: "/proc", why: "the fence's own /proc" },
@@ -87,7 +87,14 @@ export function fencePlan(us: Userspace, layout: BwrapLayout): MountIntent[] {
     intents.push({ kind: us.id === SYSTEM_USER ? "rw" : "ro", target: layout.sharedDir, source: layout.sharedDir, why: "the shared directory" });
   }
   if (layout.network === "egress" && existsSync(layout.resolvConf)) {
-    intents.push({ kind: "ro", target: resolverTarget(), source: layout.resolvConf, why: "the egress resolver" });
+    intents.push({ kind: "ro", target: resolverTarget(readLink), source: layout.resolvConf, why: "the egress resolver" });
+  }
+  // Host networking uses the host's own resolver, but a symlinked `/etc/resolv.conf` points into `/run`,
+  // which no fence has: the link in the read-only `/etc` dangles and every lookup fails while the fence
+  // itself starts fine. Binding the end of the chain at its own path makes the inherited link resolve.
+  if (layout.network === "host") {
+    const target = resolverTarget(readLink);
+    if (target !== "/etc/resolv.conf" && existsSync(target)) intents.push({ kind: "ro", target, source: target, why: "the host resolver" });
   }
   // The fence's own cgroup and nothing else of the host's tree: how an agent reads its own `memory.max`,
   // `memory.current` and `memory.events` and can tell an OOM kill from a transient failure, and how a
@@ -191,7 +198,8 @@ export function launcherReady(child: ChildProcess): Promise<void> {
 }
 
 /**
- * Where the egress resolver has to land. bwrap follows a symlink at a bind's destination, and the host's
+ * Where the fence's resolver file has to be. In egress mode the egress resolver is bound there; in host
+ * mode the host's own file is, so the link in `/etc` does not dangle. bwrap follows a symlink at a bind's destination, and the host's
  * `/etc/resolv.conf` is often one (systemd-resolved's stub under `/run`, NetworkManager's), whose target
  * is not in the fence; binding over `/etc/resolv.conf` then fails and the fence never starts. The end of
  * the chain is bound instead, which bwrap creates in its own root, and the link in the read-only `/etc`

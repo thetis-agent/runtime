@@ -8,7 +8,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Userspace } from "../../src/contracts/index.js";
-import { bwrapArgs, hasBwrap, hasCgroupNamespace, resolverTarget, type BwrapLayout } from "../../src/sandbox/bwrap.js";
+import { bwrapArgs, fencePlan, hasBwrap, hasCgroupNamespace, resolverTarget, type BwrapLayout } from "../../src/sandbox/bwrap.js";
 import { CGROUP_MOUNT, fenceMount, limitValues } from "../../src/sandbox/cgroup.js";
 
 function space(root: string): Userspace {
@@ -213,4 +213,21 @@ test("the egress resolver lands at the end of a symlinked /etc/resolv.conf, whic
   const chain: Record<string, string> = { "/etc/resolv.conf": "/run/resolvconf/resolv.conf", "/run/resolvconf/resolv.conf": "/run/NetworkManager/resolv.conf" };
   assert.equal(resolverTarget((p) => chain[p]), "/run/NetworkManager/resolv.conf");
   assert.ok(resolverTarget((p) => (p === "/etc/resolv.conf" ? "/etc/loop" : "/etc/resolv.conf")).startsWith("/etc/"), "a loop ends");
+});
+
+test("host networking binds the end of a symlinked /etc/resolv.conf at its own path, so the inherited link resolves", () => {
+  const dir = mkdtempSync(join(tmpdir(), "thetis-resolv-"));
+  const real = join(dir, "resolv.conf");
+  writeFileSync(real, "nameserver 127.0.0.53\n");
+  const linked = (p: string) => (p === "/etc/resolv.conf" ? real : undefined);
+  const resolvers = (l: BwrapLayout, readLink: (p: string) => string | undefined) =>
+    fencePlan(space(dir), l, readLink).filter((i) => /resolver/.test(i.why));
+
+  assert.deepEqual(
+    resolvers(layout, linked).map((i) => [i.kind, i.target, i.source]),
+    [["ro", real, real]],
+  );
+  assert.deepEqual(resolvers(layout, () => undefined), [], "a plain file is already in the read-only /etc");
+  assert.deepEqual(resolvers(layout, (p) => (p === "/etc/resolv.conf" ? join(dir, "gone") : undefined)), [], "a link the host cannot resolve either is left alone");
+  assert.deepEqual(resolvers({ ...layout, network: "none" }, linked), [], "no network, no resolver");
 });
