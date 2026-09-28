@@ -355,6 +355,9 @@ else
 fi
 node_ok || die "node is not on PATH after the install; open a new shell and run this again"
 NODE=$(command -v node)
+# fnm puts a per-shell symlink under /run/user first on PATH; it is gone when that shell ends, so the unit and
+# the launcher get the version directory it points at.
+case "$NODE" in /run/*) NODE=$(readlink -f "$NODE") ;; esac
 
 # The checkout: runtime with packages as its submodule. A second run pulls instead.
 clone() {

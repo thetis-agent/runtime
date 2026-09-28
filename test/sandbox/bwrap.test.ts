@@ -8,7 +8,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Userspace } from "../../src/contracts/index.js";
-import { bwrapArgs, hasBwrap, hasCgroupNamespace, type BwrapLayout } from "../../src/sandbox/bwrap.js";
+import { bwrapArgs, hasBwrap, hasCgroupNamespace, resolverTarget, type BwrapLayout } from "../../src/sandbox/bwrap.js";
 import { CGROUP_MOUNT, fenceMount, limitValues } from "../../src/sandbox/cgroup.js";
 
 function space(root: string): Userspace {
@@ -204,4 +204,13 @@ test("the floors still apply to a limit that is a number", () => {
   assert.equal(tiny.memoryMax, String(16 * 1024 * 1024), "a fence under 16 MiB cannot start at all");
   assert.equal(tiny.pidsMax, "8");
   assert.equal(tiny.cpuMax, "1000 100000");
+});
+
+test("the egress resolver lands at the end of a symlinked /etc/resolv.conf, which bwrap would otherwise follow into a missing /run", () => {
+  assert.equal(resolverTarget(() => undefined), "/etc/resolv.conf");
+  const links: Record<string, string> = { "/etc/resolv.conf": "../run/systemd/resolve/stub-resolv.conf" };
+  assert.equal(resolverTarget((p) => links[p]), "/run/systemd/resolve/stub-resolv.conf");
+  const chain: Record<string, string> = { "/etc/resolv.conf": "/run/resolvconf/resolv.conf", "/run/resolvconf/resolv.conf": "/run/NetworkManager/resolv.conf" };
+  assert.equal(resolverTarget((p) => chain[p]), "/run/NetworkManager/resolv.conf");
+  assert.ok(resolverTarget((p) => (p === "/etc/resolv.conf" ? "/etc/loop" : "/etc/resolv.conf")).startsWith("/etc/"), "a loop ends");
 });

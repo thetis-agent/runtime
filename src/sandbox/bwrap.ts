@@ -1,7 +1,7 @@
 // The bubblewrap command line for one fence, and the launch gate around it.
 import { spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, readlinkSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, posix } from "node:path";
 import type { Readable } from "node:stream";
 import { SYSTEM_USER, type Mount, type Userspace } from "../contracts/index.js";
 import type { FenceCgroup } from "./cgroup.js";
@@ -87,7 +87,7 @@ export function fencePlan(us: Userspace, layout: BwrapLayout): MountIntent[] {
     intents.push({ kind: us.id === SYSTEM_USER ? "rw" : "ro", target: layout.sharedDir, source: layout.sharedDir, why: "the shared directory" });
   }
   if (layout.network === "egress" && existsSync(layout.resolvConf)) {
-    intents.push({ kind: "ro", target: "/etc/resolv.conf", source: layout.resolvConf, why: "the egress resolver" });
+    intents.push({ kind: "ro", target: resolverTarget(), source: layout.resolvConf, why: "the egress resolver" });
   }
   // The fence's own cgroup and nothing else of the host's tree: how an agent reads its own `memory.max`,
   // `memory.current` and `memory.events` and can tell an OOM kill from a transient failure, and how a
@@ -188,6 +188,23 @@ export function launcherReady(child: ChildProcess): Promise<void> {
       fail(err);
     });
   });
+}
+
+/**
+ * Where the egress resolver has to land. bwrap follows a symlink at a bind's destination, and the host's
+ * `/etc/resolv.conf` is often one (systemd-resolved's stub under `/run`, NetworkManager's), whose target
+ * is not in the fence; binding over `/etc/resolv.conf` then fails and the fence never starts. The end of
+ * the chain is bound instead, which bwrap creates in its own root, and the link in the read-only `/etc`
+ * resolves to it.
+ */
+export function resolverTarget(readLink: (p: string) => string | undefined = linkTarget): string {
+  let at = "/etc/resolv.conf";
+  for (let hops = 0; hops < 8; hops++) {
+    const link = readLink(at);
+    if (!link) break;
+    at = posix.resolve(posix.dirname(at), link);
+  }
+  return at;
 }
 
 function linkTarget(p: string): string | undefined {
