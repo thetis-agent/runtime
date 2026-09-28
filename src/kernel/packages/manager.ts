@@ -177,12 +177,10 @@ export class PackageManager {
   catalog(): PackageInfo[] {
     const everyone = this.everyoneMap();
     const out = new Map<string, PackageInfo>();
-    for (const base of [this.config.systemPackagesDir, this.config.promotedPackagesDir]) {
-      for (const { dir, manifest } of packagesIn(base, readManifest)) {
-        if (out.has(manifest.name)) continue;
-        const by = everyone.get(manifest.name);
-        out.set(manifest.name, { ...toInfo(manifest, dir), source: { kind: "system", ref: dir }, ...(by ? { everyone: true, everyoneBy: by } : {}) });
-      }
+    for (const { dir, manifest } of this.systemPackages()) {
+      if (out.has(manifest.name)) continue;
+      const by = everyone.get(manifest.name);
+      out.set(manifest.name, { ...toInfo(manifest, dir), source: { kind: "system", ref: dir }, ...(by ? { everyone: true, everyoneBy: by } : {}) });
     }
     return [...out.values()];
   }
@@ -195,7 +193,7 @@ export class PackageManager {
 
   /** The names of the promoted packages: everything in the promoted directory with a valid manifest. */
   promoted(): string[] {
-    return packagesIn(this.config.promotedPackagesDir, readManifest).map((p) => p.manifest.name);
+    return packagesIn(this.config.promotedPackagesDir, readManifest).filter(isSystem).map((p) => p.manifest.name);
   }
 
   installSystem(us: Userspace, name: string, replaced?: { replaced: string; replacedSource: PackageSource }): PackageInfo {
@@ -350,11 +348,16 @@ export class PackageManager {
 
   /** Where a @thetis/* package lives: the shipped directory first, then the promoted one. */
   systemPackageDir(name: string): string | undefined {
-    for (const base of [this.config.systemPackagesDir, this.config.promotedPackagesDir]) {
-      const hit = packagesIn(base, readManifest).find((p) => p.manifest.name === name);
-      if (hit) return hit.dir;
-    }
-    return undefined;
+    return this.systemPackages().find((p) => p.manifest.name === name)?.dir;
+  }
+
+  /**
+   * The shipped directory, then the promoted one, @thetis names only. Anything else found there is a package
+   * published to the wrong registry: it can never be installed by name, so it is never offered as if it could
+   * be (the host names it at boot, see `strayPackages`).
+   */
+  private systemPackages(): { dir: string; manifest: Manifest }[] {
+    return [this.config.systemPackagesDir, this.config.promotedPackagesDir].flatMap((base) => packagesIn(base, readManifest).filter(isSystem));
   }
 
   /**
@@ -464,6 +467,8 @@ export class PackageManager {
     return resolve(us.store, "node_modules", name);
   }
 }
+
+const isSystem = (p: { manifest: Manifest }): boolean => scopeOf(p.manifest.name) === SYSTEM_SCOPE;
 
 /** A storage driver serves the service plane from the host; a fence has no use for it and must not hold one. */
 function installable(m: Manifest): Manifest {

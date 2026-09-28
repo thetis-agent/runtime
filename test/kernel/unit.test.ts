@@ -798,7 +798,11 @@ test("packages: a storage driver is refused an install, and manifestOf reads the
     config.systemPackagesDir = join(home, "system");
     mkdirSync(join(config.systemPackagesDir, "shipped"), { recursive: true });
     writeFileSync(join(config.systemPackagesDir, "shipped", "package.json"), JSON.stringify({ name: "@thetis/shipped", version: "1", thetis: { type: "tool" } }));
+    // Published to the wrong registry: it sits in the shipped tree but is nobody's to install by name.
+    mkdirSync(join(config.systemPackagesDir, "stray"), { recursive: true });
+    writeFileSync(join(config.systemPackagesDir, "stray", "package.json"), JSON.stringify({ name: "@bitmuse/stray", version: "1", thetis: { type: "tool" } }));
     const manager = new PackageManager(config, registry, {} as Fences);
+    assert.equal(manager.systemPackageDir("@bitmuse/stray"), undefined, "only @thetis names are system packages");
     const us = new UserspaceLayout(home).ensure("alice");
     const dir = join(us.home, "packages", "drv");
     mkdirSync(dir, { recursive: true });
@@ -809,6 +813,7 @@ test("packages: a storage driver is refused an install, and manifestOf reads the
     assert.equal(manager.manifestOf(us, "@thetis/shipped")?.name, "@thetis/shipped", "the shipped directory, though nothing links it yet");
     assert.equal(manager.manifestOf(us, "@thetis/none"), undefined);
     // The catalog is every system package on disk, whether or not anyone has it, each saying whose default it is.
+    // The stray is not in it: offering it was an Install button that could only fail.
     assert.deepEqual(manager.catalog().map((p) => [p.name, p.source?.kind, p.everyone, p.everyoneBy]), [["@thetis/shipped", "system", undefined, undefined]]);
     // A person who is not an admin installs a system package by name: it is the installation's, already built.
     const got = await manager.install(us, alice, "@thetis/shipped");

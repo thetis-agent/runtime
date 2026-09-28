@@ -103,8 +103,8 @@ export function cloneCommand(url: string, dir: string, ref?: string): string {
 }
 
 /**
- * A mirror for indexing, not for installing: the index is built from manifests alone, so only those are
- * fetched. A blobless fetch with a sparse checkout brings down about 280 KB of this registry instead of
+ * A mirror for indexing, not for installing: the index is built from manifests alone, so only those and the
+ * registry's own rules (`registry-rules.ts`) are fetched. A blobless fetch with a sparse checkout brings down about 280 KB of this registry instead of
  * 4.5 MB, and the difference is entirely files no index ever reads.
  */
 export function mirrorCommand(url: string, dir: string): string {
@@ -114,7 +114,7 @@ export function mirrorCommand(url: string, dir: string): string {
     `git init --quiet ${shellQuote(dir)}`,
     `${at} remote add origin ${shellQuote(url)}`,
     `${at} config core.sparseCheckout true`,
-    `${at} sparse-checkout set --no-cone '/*/package.json' '/*/*/package.json'`,
+    `${at} sparse-checkout set --no-cone '/thetis-registry.json' '/*/package.json' '/*/*/package.json'`,
     `${at} fetch --quiet --depth 1 --filter=blob:none origin HEAD`,
     `${at} checkout --quiet --detach FETCH_HEAD`,
   ].join(" && ");

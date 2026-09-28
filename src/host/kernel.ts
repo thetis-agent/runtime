@@ -18,6 +18,7 @@ import { storeId } from "../lib/store.js";
 import { UserspaceLayout } from "../lib/userspace-layout.js";
 import { Cgroups, FencePool, ProcessFence } from "../sandbox/index.js";
 import { HostPackages } from "./host-packages.js";
+import { reportSystemPackages } from "./system-packages.js";
 import { assertMigrated } from "./migrate.js";
 import { deployedRestartPolicy } from "./policy.js";
 import { flushRecords, loadStoreDriver, openRecords, type Records } from "./store.js";
@@ -99,6 +100,7 @@ export async function createKernel(config: KernelConfig, configure?: (c: Contain
   });
   mkdirSync(config.promotedPackagesDir, { recursive: true });
   mkdirSync(config.sharedDir, { recursive: true });
+  reportSystemPackages([config.systemPackagesDir, config.promotedPackagesDir], c.get(T.log));
   kernel.sessions.userspaceFor(kernel.users.authorize(SYSTEM_USER));
   return { ...kernel, container: c };
 }

@@ -100,6 +100,7 @@ assertUserIdFitsSockets(home, id);      // throws with the home, the socket, its
 | `userspace-layout.ts` | The directories of one userspace. |
 | `pkg-fs.ts` | Sources, clones, links, copies, forks, and the digest that says whether a fork is still a copy of its origin. |
 | `git-url.ts` | The repository normal form and the route to a repository through its key's alias. |
+| `registry-rules.ts` | What a registry accepts, from `thetis-registry.json` at its root (`{ "scopes": ["@thetis"] }`): read by the marketplace mirror, the publish gate, and the shipped tree's own test and pre-push hook. |
 | `ssh.ts` | The per-person grant records, their known hosts, and the repository key for a url. |
 | `crypto.ts` | Random hex and scrypt. |
 | `freshness.ts` | The newest modification time under a set of directories. |
