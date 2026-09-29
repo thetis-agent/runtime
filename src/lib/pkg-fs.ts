@@ -214,6 +214,7 @@ export interface ForkManifest {
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   thetis: Record<string, unknown> & { forkedFrom?: { name: string; version: string } };
 }
 
@@ -253,7 +254,11 @@ export function findDependency(dir: string, dep: string): string | undefined {
  * version, no scripts and no devDependencies (a shipped TypeScript package cannot rebuild inside a fence,
  * so the fork runs the copied dist), `thetis.forkedFrom` set. A dependency the origin already resolves is
  * linked into the fork's node_modules and dropped from `dependencies`: a workspace package such as
- * `@thetis/marketplace` is on no registry, so an npm install could never satisfy it.
+ * `@thetis/marketplace` is on no registry, so an npm install could never satisfy it. A peer dependency the
+ * origin resolves is linked the same way, unless the fork already reaches that very package from where it
+ * sits, and stays declared: a shipped package finds its peers (`@thetis/harness-core`, say) by walking up
+ * through the checkout's node_modules, and a fork copied into someone's home walks up through theirs, where
+ * nothing is -- a forked web gateway failed to start on every try, and the person lost their browser.
  */
 export function forkPackage(spec: ForkSpec): ForkResult {
   if (existsSync(spec.to)) throw new Error(`target exists: ${spec.to}`);
@@ -277,6 +282,13 @@ export function forkPackage(spec: ForkSpec): ForkResult {
   }
   if (Object.keys(remaining).length > 0) manifest.dependencies = remaining;
   else delete manifest.dependencies;
+  for (const dep of Object.keys(manifest.peerDependencies ?? {})) {
+    const found = findDependency(from, dep);
+    if (found && findDependency(spec.to, dep) !== found) {
+      linkDir(resolve(spec.to, "node_modules", dep), found, spec.root);
+      linked.push(dep);
+    }
+  }
   manifest.thetis = { ...manifest.thetis, forkedFrom: { ...spec.origin } };
   writeFileSync(file, JSON.stringify(manifest, null, 2) + "\n");
   writeFileSync(resolve(spec.to, FORK_BASE), JSON.stringify(fileHashes(from), null, 2) + "\n");

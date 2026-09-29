@@ -179,19 +179,24 @@ test("keepOnly removes what is not named and leaves a directory that was never m
 test("fork: the copy drops scripts and devDependencies, links what the origin resolves, and numbers its version", () => {
   const dir = mkdtempSync(join(tmpdir(), "thetis-fork-"));
   try {
-    const origin = join(dir, "origin");
+    const origin = join(dir, "checkout", "packages", "thing");
     mkdirSync(join(origin, "node_modules", "left-pad"), { recursive: true });
+    // Peers: one only the origin reaches (it walks up through the checkout), one both reach from a shared root.
+    for (const [at, name] of [[join(dir, "checkout"), "@thetis/core"], [dir, "@thetis/runtime"]]) {
+      mkdirSync(join(at, "node_modules", name), { recursive: true });
+      writeFileSync(join(at, "node_modules", name, "package.json"), JSON.stringify({ name, version: "0.1.0" }));
+    }
     mkdirSync(join(origin, "dist"), { recursive: true });
     writeFileSync(join(origin, "node_modules", "left-pad", "package.json"), JSON.stringify({ name: "left-pad", version: "1.0.0" }));
     writeFileSync(join(origin, "dist", "index.js"), "export const x = 1;");
     writeFileSync(join(origin, "package.json"), JSON.stringify({
       name: "@thetis/thing", version: "0.2.0", description: "a thing", main: "dist/index.js",
       scripts: { build: "tsc -b" }, dependencies: { "left-pad": "^1", "not-there": "^2" }, devDependencies: { typescript: "^5" },
-      peerDependencies: { "@thetis/runtime": "^0.1.0" }, thetis: { type: "tool", tools: [{ name: "t", description: "d", export: "x" }] },
+      peerDependencies: { "@thetis/core": "^0.1.0", "@thetis/runtime": "^0.1.0", "@thetis/nowhere": "^1" }, thetis: { type: "tool", tools: [{ name: "t", description: "d", export: "x" }] },
     }));
     const to = join(dir, "home", "packages", "thing");
     const r = forkPackage({ from: origin, to, name: "@alice/thing", version: forkVersion("0.2.0"), origin: { name: "@thetis/thing", version: "0.2.0" }, root: dir });
-    assert.deepEqual(r.linked, ["left-pad"]);
+    assert.deepEqual(r.linked, ["left-pad", "@thetis/core"], "a peer the fork already reaches, or nobody does, is not linked");
     const m = JSON.parse(readFileSync(join(to, "package.json"), "utf8")) as Record<string, unknown>;
     assert.equal(m.name, "@alice/thing");
     assert.equal(m.version, "0.2.0-fork.1");
@@ -199,7 +204,9 @@ test("fork: the copy drops scripts and devDependencies, links what the origin re
     assert.equal(m.scripts, undefined);
     assert.equal(m.devDependencies, undefined);
     assert.deepEqual(m.dependencies, { "not-there": "^2" }, "an unresolved dependency stays for npm");
-    assert.deepEqual(m.peerDependencies, { "@thetis/runtime": "^0.1.0" });
+    assert.deepEqual(m.peerDependencies, { "@thetis/core": "^0.1.0", "@thetis/runtime": "^0.1.0", "@thetis/nowhere": "^1" }, "peers stay declared");
+    assert.equal(realpathSync(join(to, "node_modules", "@thetis", "core")), realpathSync(join(dir, "checkout", "node_modules", "@thetis", "core")), "a peer only the origin reached is a link");
+    assert.ok(!existsSync(join(to, "node_modules", "@thetis", "runtime")));
     assert.deepEqual(m.thetis, { type: "tool", tools: [{ name: "t", description: "d", export: "x" }], forkedFrom: { name: "@thetis/thing", version: "0.2.0" } });
     assert.ok(existsSync(join(to, "dist", "index.js")), "the built files came along");
     assert.ok(!existsSync(join(to, "node_modules", "not-there")));
