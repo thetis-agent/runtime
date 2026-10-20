@@ -10,8 +10,8 @@ import type { KernelServices } from "./kernel.js";
 
 const OPERATOR = "operator.";
 
-/** What a fence's handler needs of the kernel: identity, packages, sessions, providers, tokens, the store and the configuration. */
-export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions" | "providers" | "auth" | "store" | "settings" | "assets" | "restart">;
+/** What a fence's handler needs of the kernel: identity, packages, sessions, providers, tokens, the store, the configuration and the journal. */
+export type RpcServices = Pick<KernelServices, "users" | "packages" | "sessions" | "providers" | "auth" | "store" | "settings" | "assets" | "restart" | "journal">;
 
 /**
  * What code inside a fence may ask the kernel to do. Identity is the fence: every method acts as the
@@ -49,6 +49,8 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
       assert(k.packages.installed(us).some((p) => p.name === name), `${name} is not installed in ${us.id}`, "not-found");
       return { name, ...(system ? {} : { user: us.id }) };
     };
+    /** A row about the fence's own user, by that user, as the control table writes for the same act. Answers `data`. */
+    const journal = <T extends Record<string, unknown>>(kind: string, data: T): T => { k.journal.append({ kind, actor: us.id, target: us.id, data }); return data; };
     switch (method) {
       case "packages.install":
         return k.packages.install(us, actor, text("source"));
@@ -72,6 +74,10 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
         return k.assets.put(us.id, parseSchema(AssetUploadSchema, args.upload, "assets.put upload", "rpc"), args.grant);
       case "assets.read":
         return k.assets.read(us.id, text("id"), args.grant);
+      // Erasing leaves a row, as deleting a conversation does: the journal keeps that it happened, never the bytes.
+      // A grant is passed on only so that the access layer refuses it; a provider never removes.
+      case "assets.remove":
+        return journal("asset.remove", await k.assets.remove(us.id, text("id"), args.grant));
       case "sessions.complete":
         return k.sessions.complete(us.id, text("session"), input());
       case "sessions.askText":
@@ -110,6 +116,7 @@ export function createRpcHandler(us: Userspace, k: RpcServices, operator?: Kerne
         return k.restart.armed() ? { why: "restart" } : k.sessions.yielding(us.id) ? { why: "reload" } : false;
       case "sessions.delete":
         await k.sessions.delete(us.id, text("session"));
+        journal("session.delete", { session: text("session") });
         return null;
       case "sessions.list":
         return k.sessions.list(us.id);

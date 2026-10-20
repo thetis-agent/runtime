@@ -1188,7 +1188,8 @@ test("sessions.delete waits for the cancelled turn before removing the record; o
         onEvent({ type: "text", delta: `from ${p.model}` });
       },
     } as unknown as ProviderRegistry;
-    const rpc = createRpcHandler(layout.pathFor("bob"), { users, sessions: api, providers, assets: new AssetAccess(new FileAssetStore(join(home, "assets"))) } as unknown as RpcServices);
+    const journal = new Journal(home);
+    const rpc = createRpcHandler(layout.pathFor("bob"), { users, sessions: api, providers, journal, assets: new AssetAccess(new FileAssetStore(join(home, "assets"))) } as unknown as RpcServices);
     const again = api.create("bob");
     const over: TurnEvent[] = [];
     const life = new AbortController();
@@ -1207,6 +1208,62 @@ test("sessions.delete waits for the cancelled turn before removing the record; o
     await assert.rejects(rpc("providers.call", { call: {} }), code("rpc"));
     assert.equal(await rpc("sessions.delete", { session: again.id }), null);
     assert.deepEqual(api.list("bob"), []);
+    assert.deepEqual(journal.tail(1, { kind: "session.delete" }).map(({ actor, target, data }) => ({ actor, target, data })), [{ actor: "bob", target: "bob", data: { session: again.id } }], "a fence's delete leaves the row the command line's does");
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test("assets.remove: only the owner erases, a provider grant never does, an accepted write settles first, and the fence's call is journalled", async () => {
+  const home = tmp();
+  try {
+    const users = new UserStore(await mirror(memoryStore(), "users"));
+    users.create("bob");
+    users.create("carol");
+    const assets = new AssetAccess(new FileAssetStore(join(home, "assets")));
+    const journal = new Journal(home);
+    const layout = new UserspaceLayout(home);
+    const fence = (id: string) => createRpcHandler(layout.pathFor(id), { users, assets, journal } as unknown as RpcServices);
+    const upload = { mediaType: "text/plain", data: Buffer.from("hello").toString("base64") };
+    const mine = await assets.put("bob", upload);
+    const theirs = await assets.put("carol", upload);
+
+    assert.deepEqual(await fence("carol")("assets.remove", { id: mine.id }), { id: mine.id, removed: false }, "another person's asset is unknown to them");
+    assert.equal((await assets.read("bob", mine.id)).asset.id, mine.id);
+    await assert.rejects(fence("bob")("assets.remove", { id: "../carol" }), code("invalid"));
+    await assert.rejects(fence("bob")("assets.remove", { id: mine.id, grant: "any" }), code("unauthorized"));
+    await assets.during("bob", "bob", [{ role: "user", content: [{ type: "asset", data: mine }] }] as unknown as Message[], async (grant) => {
+      await assert.rejects(assets.remove("bob", mine.id, grant), code("unauthorized"), "even a live grant naming the asset cannot erase it");
+    });
+
+    assert.deepEqual(await fence("bob")("assets.remove", { id: mine.id }), { id: mine.id, removed: true });
+    await assert.rejects(assets.read("bob", mine.id), code("not-found"));
+    assert.deepEqual(await fence("bob")("assets.remove", { id: mine.id }), { id: mine.id, removed: false }, "a second removal finds nothing");
+    assert.equal((await assets.read("carol", theirs.id)).asset.id, theirs.id, "carol's asset is untouched");
+    assert.deepEqual(journal.tail(10, { kind: "asset.remove" }).map(({ actor, target, data }) => ({ actor, target, data })).reverse(), [
+      { actor: "carol", target: "carol", data: { id: mine.id, removed: false } },
+      { actor: "bob", target: "bob", data: { id: mine.id, removed: true } },
+      { actor: "bob", target: "bob", data: { id: mine.id, removed: false } },
+    ], "refused calls leave no row");
+
+    // A write the owner already started settles before the store is asked to remove anything.
+    let finish = () => {};
+    let stored = false;
+    const order: string[] = [];
+    const slow = new AssetAccess({
+      put: () => new Promise((done) => { finish = () => { stored = true; order.push("put"); done({ id: mine.id, mediaType: "text/plain", size: 0 }); }; }),
+      read: async () => { throw new Error("unused"); },
+      remove: async () => { order.push(`remove after a settled write: ${stored}`); return true; },
+      removeOwner: async () => {},
+    });
+    const writing = slow.put("bob", { mediaType: "text/plain", data: "" });
+    const removing = slow.remove("bob", mine.id);
+    await new Promise((r) => setTimeout(r, 5));
+    assert.deepEqual(order, [], "the removal waits for the write");
+    finish();
+    await writing;
+    assert.deepEqual(await removing, { id: mine.id, removed: true });
+    assert.deepEqual(order, ["put", "remove after a settled write: true"]);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

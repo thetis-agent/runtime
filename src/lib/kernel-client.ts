@@ -6,6 +6,7 @@ import { parseSchema } from "./validation.js";
 const VoidReplySchema = z.null().optional().transform(() => undefined);
 const SessionInspectionSchema = SessionRecordSchema.extend({ status: z.enum(["idle", "running"]) });
 const YieldingSchema = z.union([z.literal(false), z.object({ why: z.enum(["restart", "reload"]) })]);
+const AssetRemovedSchema = z.object({ id: z.string(), removed: z.boolean() });
 const LoginReplySchema = z.object({ token: z.string(), user: AuthUserSchema }).nullable();
 
 /** One client mapping for in-process hosts and fence RPC transports. */
@@ -16,6 +17,7 @@ export function kernelClient(transport: KernelRpc): KernelClient {
     assets: {
       put: (upload) => rpc("assets.put", AssetRefSchema, { upload }),
       read: (id) => rpc("assets.read", AssetDownloadSchema, { id }),
+      remove: (id) => rpc("assets.remove", AssetRemovedSchema, { id }),
     },
     packages: {
       install: (source) => rpc("packages.install", PackageInfoSchema, { source }),

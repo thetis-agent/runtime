@@ -35,7 +35,8 @@ test("the fence answers exactly these operations", () => {
 
 test("a fence may ask the kernel exactly these methods", () => {
   assert.deepEqual(cases("kernel/rpc.ts"), [
-    "assets.put", "assets.read",
+    // 2026-10-19: forgetting a conversation erases its attachments; only the owner removes, never a provider grant.
+    "assets.put", "assets.read", "assets.remove",
     "auth.authenticate", "auth.login", "auth.logout",
     "config.effective", "config.set", "config.show", "config.unset",
     "models",

@@ -1,5 +1,5 @@
 import type { ToolOutput } from "./content.js";
-import type { AssetClient, ProviderContext } from "./assets.js";
+import type { KernelAssets, ProviderContext } from "./assets.js";
 // What package code sees inside the fence: the environment, the kernel client, and the shapes of a step, a tool,
 // a service, a provider, and an enumerator. The userspace agent builds these; package authors implement them.
 import type { Message, TurnInput, ModelChoices, ModelDescriptor, ProviderCall, ProviderEvent } from "./messages.js";
@@ -56,7 +56,7 @@ export interface StepEnv {
  * fence only about its own user.
  */
 export interface KernelClient {
-  assets: AssetClient;
+  assets: KernelAssets;
   packages: {
     install(source: string): Promise<PackageInfo>;
     uninstall(name: string): Promise<void>;

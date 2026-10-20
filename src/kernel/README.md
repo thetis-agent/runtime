@@ -23,7 +23,7 @@ Seams have stable envelopes and opaque package payloads. Contract revisions are 
 | Seam | The list |
 |---|---|
 | Fence operations, kernel to agent | `ping`, `exec`, `step`, `enumerate`, `service.start`, `service.stop`, `shutdown`, `provider.models`, `provider.call`. |
-| Fence-to-kernel methods | The cases of `createRpcHandler` in `rpc.ts`: `packages.*`, `sessions.*` (`complete`, `askText` and `delete` included), `assets.put`, `assets.read`, `models`, `providers.call`, `store.*` under the fence's own namespace, `config.*` at the fence's own layer, `auth.*`, `turns.yielding`. |
+| Fence-to-kernel methods | The cases of `createRpcHandler` in `rpc.ts`: `packages.*`, `sessions.*` (`complete`, `askText` and `delete` included), `assets.put`, `assets.read`, `assets.remove` (the owner only, journalled; a provider grant is refused), `models`, `providers.call`, `store.*` under the fence's own namespace, `config.*` at the fence's own layer, `auth.*`, `turns.yielding`. |
 | Control methods | The cases of `createControlHandler` in `control.ts`: `users.*`, `packages.*`, `config.*`, `sessions.*`, `fence.reload`, `restart.*`, `status`, `journal.tail`, `models`, `ping`, and the `default` branch, which dispatches `host.<package>.<export>` to a host package. |
 | The door's routes | `/`, `/login*`, `/logout`, `/<user>/*`. |
 | The shapes | `StepContext`, `StepResult`, `ProviderCall`, `ToolSpec`, `TurnEvent`. |

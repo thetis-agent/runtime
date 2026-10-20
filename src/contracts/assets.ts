@@ -15,10 +15,21 @@ export interface AssetClient {
   read(id: string): Promise<AssetDownload>;
 }
 
+/**
+ * What a fence holds of its own user's assets. Removal is the owner's alone, so it lives here and not on
+ * `AssetClient`, which is also what a provider call is lent: a provider may read and add, never erase.
+ */
+export interface KernelAssets extends AssetClient {
+  /** `removed` is false when the owner had no such asset. */
+  remove(id: string): Promise<{ id: string; removed: boolean }>;
+}
+
 /** A host may inject any binary store. Ownership is supplied by the kernel. */
 export interface AssetStore {
   put(owner: string, bytes: Uint8Array, metadata: AssetMetadata): Promise<AssetRef>;
   read(owner: string, id: string): Promise<{ asset: AssetRef; bytes: Uint8Array }>;
+  /** True when something was removed, false when the owner had no such asset. */
+  remove(owner: string, id: string): Promise<boolean>;
   removeOwner(owner: string): Promise<void>;
 }
 

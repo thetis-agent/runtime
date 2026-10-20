@@ -48,6 +48,17 @@ export class FileAssetStore implements AssetStore {
     }
   }
 
+  async remove(owner: string, id: string): Promise<boolean> {
+    const dir = this.path(owner, id);
+    try {
+      await rm(dir, { recursive: true });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw error;
+    }
+  }
+
   removeOwner(owner: string): Promise<void> {
     return rm(this.ownerPath(owner), { recursive: true, force: true });
   }

@@ -42,6 +42,16 @@ export class AssetAccess {
     return { asset, data: Buffer.from(bytes).toString("base64") };
   }
 
+  /**
+   * Erases one of the actor's own assets. A provider holding a grant only ever adds to a conversation, so a
+   * token is refused outright; and a write the owner already started settles first, so nothing lands after.
+   */
+  async remove(actor: string, id: string, token?: string): Promise<{ id: string; removed: boolean }> {
+    assert(token === undefined, "a provider grant cannot remove assets", "unauthorized");
+    await Promise.allSettled(this.writes.get(actor) ?? []);
+    return { id, removed: await this.store.remove(actor, id) };
+  }
+
   async during<T>(owner: string, provider: string, messages: Message[], run: (token: string) => Promise<T>): Promise<T> {
     const ids = new Set(messages.flatMap((message) => message.content.filter(isAssetPart).map((part) => part.data.id)));
     for (const id of ids) await this.store.read(owner, id);
