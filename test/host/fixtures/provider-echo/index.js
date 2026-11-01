@@ -53,6 +53,11 @@ export function createProvider(config) {
         yield { type: "tool_call", call: { id: "c9", name: "spawn_subagent", args: { task: text.slice(7), label: "helper" } } };
         return;
       }
+      // `ask: <q>` asks the person one yes/no question; the turn ends once ask_user returns (it is `endsTurn`).
+      if (text.startsWith("ask: ") && call.tools.some((t) => t.name === "ask_user")) {
+        yield { type: "tool_call", call: { id: "c12", name: "ask_user", args: { questions: [{ question: text.slice(5), options: ["yes", "no"] }] } } };
+        return;
+      }
       if (text === "interrupt!") {
         yield { type: "tool_call", call: { id: "c5", name: "shell_interrupt", args: {} } };
         return;
